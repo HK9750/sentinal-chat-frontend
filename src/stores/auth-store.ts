@@ -1,18 +1,19 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User, AuthTokens } from '@/types';
+import { setAuthCookie, clearAuthCookie } from '@/lib/cookies';
 
 interface AuthState {
   user: User | null;
   tokens: AuthTokens | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
-  setUser: (user: User | null) => void;
-  setTokens: (tokens: AuthTokens | null) => void;
-  setAuthenticated: (isAuthenticated: boolean) => void;
-  setLoading: (isLoading: boolean) => void;
+  isHydrated: boolean;
+  
+  // Actions
   login: (user: User, tokens: AuthTokens) => void;
   logout: () => void;
+  setUser: (user: User | null) => void;
+  setHydrated: (hydrated: boolean) => void;
   updateUser: (updates: Partial<User>) => void;
 }
 
@@ -22,26 +23,29 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       tokens: null,
       isAuthenticated: false,
-      isLoading: true,
+      isHydrated: false,
+
+      login: (user, tokens) => {
+        setAuthCookie(tokens.access_token);
+        set({
+          user,
+          tokens,
+          isAuthenticated: true,
+        });
+      },
+
+      logout: () => {
+        clearAuthCookie();
+        set({
+          user: null,
+          tokens: null,
+          isAuthenticated: false,
+        });
+      },
 
       setUser: (user) => set({ user }),
-      setTokens: (tokens) => set({ tokens }),
-      setAuthenticated: (isAuthenticated) => set({ isAuthenticated }),
-      setLoading: (isLoading) => set({ isLoading }),
-
-      login: (user, tokens) => set({
-        user,
-        tokens,
-        isAuthenticated: true,
-        isLoading: false,
-      }),
-
-      logout: () => set({
-        user: null,
-        tokens: null,
-        isAuthenticated: false,
-        isLoading: false,
-      }),
+      
+      setHydrated: (hydrated) => set({ isHydrated: hydrated }),
 
       updateUser: (updates) => set((state) => ({
         user: state.user ? { ...state.user, ...updates } : null,
@@ -54,6 +58,15 @@ export const useAuthStore = create<AuthState>()(
         tokens: state.tokens,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.setHydrated(true);
+          // Restore cookie from persisted token
+          if (state.tokens?.access_token) {
+            setAuthCookie(state.tokens.access_token);
+          }
+        }
+      },
     }
   )
 );
