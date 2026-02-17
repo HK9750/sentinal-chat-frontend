@@ -102,9 +102,10 @@ export interface WebSocketCallEvent extends WebSocketEvent {
 }
 
 export type WebSocketClientMessage =
-  | { type: 'typing:start'; conversation_id: string }
-  | { type: 'typing:stop'; conversation_id: string }
+  | { type: 'typing:started'; conversation_id: string }
+  | { type: 'typing:stopped'; conversation_id: string }
   | { type: 'read'; message_id: string }
+  | { type: 'presence:online'; status?: string }
   | { type: 'ping' };
 
 // Request DTOs
@@ -162,4 +163,100 @@ export interface UpdateSettingsRequest {
   notifications_enabled?: boolean;
   theme?: 'LIGHT' | 'DARK' | 'SYSTEM';
   language?: string;
+}
+
+// Call Request DTOs - Types imported from ./call via re-export
+import type { CallType, CallEndReason, ParticipantStatus } from './call';
+
+export interface CreateCallRequest {
+  conversation_id: string;
+  type: CallType;
+  initiator_id: string;
+}
+
+export interface EndCallRequest {
+  reason: CallEndReason;
+}
+
+export interface UpdateParticipantStatusRequest {
+  status: ParticipantStatus;
+}
+
+export interface UpdateParticipantMuteRequest {
+  audio_muted: boolean;
+  video_muted: boolean;
+}
+
+export interface RecordQualityMetricRequest {
+  call_id: string;
+  user_id: string;
+  timestamp: string;
+  packet_loss: number;
+  jitter: number;
+  latency: number;
+  bitrate: number;
+  frame_rate?: number;
+  resolution?: string;
+  audio_level?: number;
+}
+
+// Encryption Request DTOs
+export interface UploadIdentityKeyRequest {
+  user_id: string;
+  device_id: string;
+  public_key: string;
+}
+
+export interface UploadSignedPreKeyRequest {
+  user_id: string;
+  device_id: string;
+  key_id: number;
+  public_key: string;
+  signature: string;
+}
+
+export interface RotateSignedPreKeyRequest {
+  user_id: string;
+  device_id: string;
+  key: {
+    key_id: number;
+    public_key: string;
+    signature: string;
+  };
+}
+
+export interface UploadOneTimePreKeysRequest {
+  keys: Array<{
+    user_id: string;
+    device_id: string;
+    key_id: number;
+    public_key: string;
+  }>;
+}
+
+// Upload Request DTOs
+export interface CreateUploadRequest {
+  file_name: string;
+  file_size: number;
+  content_type: string;
+  uploader_id: string;
+}
+
+export interface UpdateUploadProgressRequest {
+  uploaded_bytes: number;
+}
+
+// Broadcast Request DTOs
+export interface CreateBroadcastRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateBroadcastRequest {
+  name?: string;
+  description?: string;
+}
+
+export interface BulkRecipientsRequest {
+  user_ids: string[];
 }

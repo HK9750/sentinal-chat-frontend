@@ -1,5 +1,5 @@
 export type CallType = 'AUDIO' | 'VIDEO';
-export type CallStatus = 'PENDING' | 'RINGING' | 'CONNECTED' | 'ENDED' | 'MISSED' | 'DECLINED';
+export type CallStatus = 'INITIATED' | 'RINGING' | 'CONNECTED' | 'ACTIVE' | 'ENDED';
 export type CallEndReason = 'COMPLETED' | 'MISSED' | 'DECLINED' | 'FAILED' | 'TIMEOUT' | 'NETWORK_ERROR';
 export type ParticipantStatus = 'INVITED' | 'JOINED' | 'LEFT';
 

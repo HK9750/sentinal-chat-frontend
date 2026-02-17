@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useCallback, useMemo } from 'react';
+import { useRef, useCallback, useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useConversation, useConversationParticipants } from '@/queries/use-conversation-queries';
 import { useMessages, useSendMessage } from '@/queries/use-message-queries';
@@ -8,6 +8,8 @@ import { useSocket } from '@/providers/socket-provider';
 import { useChatStore } from '@/stores/chat-store';
 import { MessageBubble } from '@/components/shared/message-bubble';
 import { UserAvatar } from '@/components/shared/user-avatar';
+import { CallModal } from '@/components/shared/call-modal';
+import { FileUploadButton, UploadProgressList } from '@/components/shared/file-upload-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
@@ -20,13 +22,13 @@ import {
 
 import { useAuthStore } from '@/stores/auth-store';
 import { Message } from '@/types';
+import type { CallType } from '@/types/call';
 import {
   MoreVertical,
   Phone,
   Video,
   ArrowLeft,
   Send,
-  Paperclip,
   Smile,
 } from 'lucide-react';
 
@@ -68,9 +70,11 @@ function useGroupedMessages(messages: Message[] | undefined, currentUserId: stri
 function ChatHeader({
   conversationId,
   onBack,
+  onStartCall,
 }: {
   conversationId: string;
   onBack?: () => void;
+  onStartCall: (callType: CallType) => void;
 }) {
   const { data: conversation } = useConversation(conversationId);
   const { data: participants } = useConversationParticipants(conversationId);
@@ -123,6 +127,7 @@ function ChatHeader({
           variant="ghost"
           size="icon"
           className="text-slate-400 hover:text-white"
+          onClick={() => onStartCall('AUDIO')}
         >
           <Phone className="h-5 w-5" />
         </Button>
@@ -130,6 +135,7 @@ function ChatHeader({
           variant="ghost"
           size="icon"
           className="text-slate-400 hover:text-white"
+          onClick={() => onStartCall('VIDEO')}
         >
           <Video className="h-5 w-5" />
         </Button>
@@ -242,16 +248,17 @@ function MessageInput({ conversationId }: { conversationId: string }) {
   }, [conversationId, sendTypingStart]);
 
   return (
-    <div className="p-4 bg-slate-900/80 backdrop-blur-md border-t border-slate-800">
-      <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-4xl mx-auto">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="text-slate-400 hover:text-white shrink-0"
-        >
-          <Paperclip className="h-5 w-5" />
-        </Button>
+    <div className="bg-slate-900/80 backdrop-blur-md border-t border-slate-800">
+      <UploadProgressList conversationId={conversationId} />
+      <form onSubmit={handleSubmit} className="p-4 flex items-center gap-2 max-w-4xl mx-auto">
+        <FileUploadButton
+          conversationId={conversationId}
+          onUploadComplete={(fileUrl, fileName) => {
+            // Could auto-insert file link into message or handle attachment
+            console.log('Upload complete:', fileUrl, fileName);
+          }}
+          className="shrink-0"
+        />
 
         <div className="flex-1 relative">
           <Input

@@ -56,7 +56,7 @@ export function UserAvatar({
     <div className={cn('relative inline-block', className)}>
       <Avatar className={cn(sizeClasses[size])}>
         <AvatarImage src={imageUrl} alt={name} />
-        <AvatarFallback className="bg-gradient-to-br from-slate-600 to-slate-700 text-slate-200 font-medium">
+        <AvatarFallback className="bg-linear-to-br from-slate-600 to-slate-700 text-slate-200 font-medium">
           {initials}
         </AvatarFallback>
       </Avatar>

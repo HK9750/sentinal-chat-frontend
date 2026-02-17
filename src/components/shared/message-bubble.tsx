@@ -45,10 +45,10 @@ export function MessageBubble({
           <UserAvatar
             user={message.sender}
             size="sm"
-            className="flex-shrink-0"
+            className="shrink-0"
           />
         ) : !isOwn ? (
-          <div className="w-8 flex-shrink-0" />
+          <div className="w-8 shrink-0" />
         ) : null}
 
         {/* Message Content */}

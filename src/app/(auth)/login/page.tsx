@@ -36,11 +36,11 @@ function LoginForm() {
   );
 
   // Derive error message from mutation state
-  const errorMessage = loginMutation.error?.message || 
+  const errorMessage = loginMutation.error?.message ||
     (loginMutation.data && !loginMutation.data.success ? loginMutation.data.error : null);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -150,7 +150,7 @@ export default function LoginPage() {
     <GuestGuard>
       <Suspense
         fallback={
-          <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+          <div className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
             <Spinner size="lg" />
           </div>
         }

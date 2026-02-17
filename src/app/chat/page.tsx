@@ -12,7 +12,7 @@ function ChatPageContent() {
 
   return (
     <div className="flex h-screen bg-slate-950">
-      <div className="w-80 flex-shrink-0">
+      <div className="w-80 shrink-0">
         <ConversationList />
       </div>
 

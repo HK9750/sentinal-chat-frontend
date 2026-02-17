@@ -13,7 +13,7 @@ export const loginSchema = z.object({
 
 export const registerSchema = z
   .object({
-    email: z.string().email('Invalid email address'),
+    email: z.email('Invalid email address'),
     username: z
       .string()
       .min(VALIDATION.USERNAME_MIN_LENGTH, `Username must be at least ${VALIDATION.USERNAME_MIN_LENGTH} characters`)

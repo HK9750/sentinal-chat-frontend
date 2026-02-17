@@ -38,7 +38,7 @@ export function SessionsList() {
                     {session.device_name || 'Unknown Device'}
                   </p>
                   <p className="text-xs text-slate-500">
-                    {session.ip_address} • {session.device_type}
+                    {session.device_type}
                   </p>
                 </div>
               </div>
