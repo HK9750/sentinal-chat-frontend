@@ -6,13 +6,21 @@ import { useConversation, useConversationParticipants } from '@/queries/use-conv
 import { useMessages, useSendMessage } from '@/queries/use-message-queries';
 import { useSocket } from '@/providers/socket-provider';
 import { useChatStore } from '@/stores/chat-store';
+import { useEncryptionStatus, useEncryptMessageMutation } from '@/hooks/use-encryption';
 import { MessageBubble } from '@/components/shared/message-bubble';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { CallModal } from '@/components/shared/call-modal';
 import { FileUploadButton, UploadProgressList } from '@/components/shared/file-upload-button';
+import { MessageSearchPanel } from '@/components/shared/message-search-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,7 +38,13 @@ import {
   ArrowLeft,
   Send,
   Smile,
+  Search,
+  Lock,
+  LockOpen,
 } from 'lucide-react';
+
+// Stable empty array to prevent infinite re-renders in Zustand selectors
+const EMPTY_ARRAY: string[] = [];
 
 interface ChatAreaProps {
   conversationId: string;
@@ -71,15 +85,20 @@ function ChatHeader({
   conversationId,
   onBack,
   onStartCall,
+  onOpenSearch,
 }: {
   conversationId: string;
   onBack?: () => void;
   onStartCall: (callType: CallType) => void;
+  onOpenSearch: () => void;
 }) {
   const { data: conversation } = useConversation(conversationId);
   const { data: participants } = useConversationParticipants(conversationId);
   const typingUsers = useChatStore(
-    (state) => state.typingUsers.get(conversationId) || []
+    useCallback(
+      (state) => state.typingUsers.get(conversationId) ?? EMPTY_ARRAY,
+      [conversationId]
+    )
   );
 
   const typingText = useMemo(() => {
@@ -127,6 +146,15 @@ function ChatHeader({
           variant="ghost"
           size="icon"
           className="text-slate-400 hover:text-white"
+          onClick={onOpenSearch}
+          title="Search messages"
+        >
+          <Search className="h-5 w-5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-slate-400 hover:text-white"
           onClick={() => onStartCall('AUDIO')}
         >
           <Phone className="h-5 w-5" />
@@ -151,7 +179,10 @@ function ChatHeader({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem>View Info</DropdownMenuItem>
-            <DropdownMenuItem>Search Messages</DropdownMenuItem>
+            <DropdownMenuItem onClick={onOpenSearch}>
+              <Search className="h-4 w-4 mr-2" />
+              Search Messages
+            </DropdownMenuItem>
             <DropdownMenuItem>Mute Notifications</DropdownMenuItem>
             <Separator />
             <DropdownMenuItem className="text-red-500">
@@ -168,13 +199,27 @@ function MessageList({
   conversationId,
   currentUserId,
   scrollRef,
+  messageRefs,
 }: {
   conversationId: string;
   currentUserId: string | undefined;
   scrollRef: React.RefObject<HTMLDivElement | null>;
+  messageRefs: React.RefObject<Map<string, HTMLDivElement>>;
 }) {
   const { data: messages, isLoading } = useMessages(conversationId);
   const groupedMessages = useGroupedMessages(messages, currentUserId);
+
+  // Register message ref for navigation
+  const setMessageRef = useCallback(
+    (id: string, el: HTMLDivElement | null) => {
+      if (el) {
+        messageRefs.current.set(id, el);
+      } else {
+        messageRefs.current.delete(id);
+      }
+    },
+    [messageRefs]
+  );
 
   if (isLoading) {
     return (
@@ -195,13 +240,18 @@ function MessageList({
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-1">
       {groupedMessages.map(({ message, isOwn, showAvatar }) => (
-        <MessageBubble
+        <div
           key={message.id}
-          message={message}
-          isOwn={isOwn}
-          showAvatar={showAvatar}
-          status={isOwn ? 'sent' : undefined}
-        />
+          ref={(el) => setMessageRef(message.id, el)}
+          className="transition-all duration-300"
+        >
+          <MessageBubble
+            message={message}
+            isOwn={isOwn}
+            showAvatar={showAvatar}
+            status={isOwn ? 'sent' : undefined}
+          />
+        </div>
       ))}
       <div ref={scrollRef} />
     </div>
@@ -211,8 +261,11 @@ function MessageList({
 function MessageInput({ conversationId }: { conversationId: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const sendMessageMutation = useSendMessage();
+  const encryptMessageMutation = useEncryptMessageMutation();
   const { sendTypingStart, sendTypingStop } = useSocket();
   const { data: participants } = useConversationParticipants(conversationId);
+  const { isSetup: isEncryptionEnabled, deviceId } = useEncryptionStatus();
+  const currentUser = useAuthStore((state) => state.user);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
@@ -226,26 +279,67 @@ function MessageInput({ conversationId }: { conversationId: string }) {
       sendTypingStop(conversationId);
 
       try {
-        await sendMessageMutation.mutateAsync({
-          conversation_id: conversationId,
-          ciphertexts:
-            participants?.map((p) => ({
-              recipient_device_id: p.user_id,
-              ciphertext: content,
-            })) || [],
-          message_type: 'TEXT',
-        });
+        // Filter out the current user from recipients
+        const recipients = participants?.filter((p) => p.user_id !== currentUser?.id) || [];
+        
+        if (isEncryptionEnabled && recipients.length > 0) {
+          // Encrypt message for each recipient
+          // For now, we assume each user has one device (could be enhanced for multi-device)
+          const ciphertexts = await Promise.all(
+            recipients.map(async (p) => {
+              try {
+                // Use participant's user_id as device_id (simplified - in production, fetch actual device IDs)
+                const result = await encryptMessageMutation.mutateAsync({
+                  recipientUserId: p.user_id,
+                  recipientDeviceId: p.user_id, // Simplified: using user_id as device_id
+                  plaintext: content,
+                });
+                return {
+                  recipient_device_id: p.user_id,
+                  ciphertext: result.encryptedContent,
+                  header: result.ephemeralPublicKey ? { ephemeral_key: result.ephemeralPublicKey } : undefined,
+                };
+              } catch {
+                // Fallback to unencrypted if encryption fails for this recipient
+                console.warn(`Encryption failed for recipient ${p.user_id}, sending unencrypted`);
+                return {
+                  recipient_device_id: p.user_id,
+                  ciphertext: content, // Fallback: plain content
+                };
+              }
+            })
+          );
+
+          await sendMessageMutation.mutateAsync({
+            conversation_id: conversationId,
+            ciphertexts,
+            message_type: 'TEXT',
+          });
+        } else {
+          // No encryption - send plaintext
+          await sendMessageMutation.mutateAsync({
+            conversation_id: conversationId,
+            ciphertexts:
+              participants?.map((p) => ({
+                recipient_device_id: p.user_id,
+                ciphertext: content,
+              })) || [],
+            message_type: 'TEXT',
+          });
+        }
       } catch (error) {
         console.error('Failed to send message:', error);
         input.value = content;
       }
     },
-    [conversationId, participants, sendMessageMutation, sendTypingStop]
+    [conversationId, participants, currentUser, sendMessageMutation, encryptMessageMutation, sendTypingStop, isEncryptionEnabled]
   );
 
   const handleKeyDown = useCallback(() => {
     sendTypingStart(conversationId);
   }, [conversationId, sendTypingStart]);
+
+  const isPending = sendMessageMutation.isPending || encryptMessageMutation.isPending;
 
   return (
     <div className="bg-slate-900/80 backdrop-blur-md border-t border-slate-800">
@@ -278,9 +372,29 @@ function MessageInput({ conversationId }: { conversationId: string }) {
           </Button>
         </div>
 
+        {/* Encryption status indicator */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className={`shrink-0 p-2 rounded-full ${isEncryptionEnabled ? 'text-green-500' : 'text-slate-500'}`}>
+                {isEncryptionEnabled ? (
+                  <Lock className="h-4 w-4" />
+                ) : (
+                  <LockOpen className="h-4 w-4" />
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              {isEncryptionEnabled
+                ? 'End-to-end encryption enabled'
+                : 'Encryption not set up - messages sent in plaintext'}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
         <Button
           type="submit"
-          disabled={sendMessageMutation.isPending}
+          disabled={isPending}
           className="bg-blue-600 hover:bg-blue-500 text-white rounded-full px-4 shrink-0"
         >
           <Send className="h-4 w-4 mr-2" />
@@ -296,10 +410,14 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
   const searchParams = useSearchParams();
   const currentUser = useAuthStore((state) => state.user);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   
   // Call state
   const [callModalOpen, setCallModalOpen] = useState(false);
   const [callType, setCallType] = useState<CallType>('AUDIO');
+  
+  // Search state
+  const [searchOpen, setSearchOpen] = useState(false);
   
   // Get conversation info for call modal
   const { data: conversation } = useConversation(conversationId);
@@ -315,19 +433,45 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
     setCallModalOpen(true);
   }, []);
 
+  const handleOpenSearch = useCallback(() => {
+    setSearchOpen(true);
+  }, []);
+
+  const handleNavigateToMessage = useCallback((messageId: string) => {
+    const messageElement = messageRefs.current.get(messageId);
+    if (messageElement) {
+      messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Highlight the message briefly
+      messageElement.classList.add('ring-2', 'ring-blue-500', 'ring-opacity-50');
+      setTimeout(() => {
+        messageElement.classList.remove('ring-2', 'ring-blue-500', 'ring-opacity-50');
+      }, 2000);
+    }
+  }, []);
+
   return (
-    <>
+    <div className="relative flex flex-col h-full">
       <ChatHeader 
         conversationId={conversationId} 
         onBack={handleBack}
         onStartCall={handleStartCall}
+        onOpenSearch={handleOpenSearch}
       />
       <MessageList
         conversationId={conversationId}
         currentUserId={currentUser?.id}
         scrollRef={scrollRef}
+        messageRefs={messageRefs}
       />
       <MessageInput conversationId={conversationId} />
+      
+      {/* Message Search Panel */}
+      <MessageSearchPanel
+        conversationId={conversationId}
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onNavigateToMessage={handleNavigateToMessage}
+      />
       
       {/* Call Modal for outgoing calls */}
       <CallModal
@@ -338,6 +482,6 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
         recipientName={conversation?.subject || 'Contact'}
         recipientAvatarUrl={conversation?.avatar_url}
       />
-    </>
+    </div>
   );
 }

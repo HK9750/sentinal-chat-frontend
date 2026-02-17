@@ -27,7 +27,7 @@ export function useUpload(uploadId: string) {
 /**
  * Fetch user's uploads
  */
-export function useUploads(uploaderId?: string) {
+export function useUploads(uploaderId: string) {
   return useQuery({
     queryKey: ['uploads', { uploaderId }],
     queryFn: async () => {
@@ -37,40 +37,43 @@ export function useUploads(uploaderId?: string) {
       }
       return response.data?.uploads || [];
     },
+    enabled: !!uploaderId,
     staleTime: 30_000,
   });
 }
 
 /**
- * Fetch completed uploads
+ * Fetch completed uploads for a user
  */
-export function useCompletedUploads() {
+export function useCompletedUploads(uploaderId: string) {
   return useQuery({
-    queryKey: ['uploads', 'completed'],
+    queryKey: ['uploads', 'completed', uploaderId],
     queryFn: async () => {
-      const response = await uploadService.listCompleted();
+      const response = await uploadService.listCompleted(uploaderId);
       if (!response.success) {
         throw new Error(response.error);
       }
       return response.data?.uploads || [];
     },
+    enabled: !!uploaderId,
     staleTime: 60_000,
   });
 }
 
 /**
- * Fetch in-progress uploads
+ * Fetch in-progress uploads for a user
  */
-export function useInProgressUploads() {
+export function useInProgressUploads(uploaderId: string) {
   return useQuery({
-    queryKey: ['uploads', 'in-progress'],
+    queryKey: ['uploads', 'in-progress', uploaderId],
     queryFn: async () => {
-      const response = await uploadService.listInProgress();
+      const response = await uploadService.listInProgress(uploaderId);
       if (!response.success) {
         throw new Error(response.error);
       }
       return response.data?.uploads || [];
     },
+    enabled: !!uploaderId,
     staleTime: 10_000,
     refetchInterval: 15_000, // Refetch periodically to track progress
   });

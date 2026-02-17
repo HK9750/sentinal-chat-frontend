@@ -1,5 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { messageService } from '@/services/message-service';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { messageService, MessageSearchResult } from '@/services/message-service';
 import { conversationService } from '@/services/conversation-service';
 import { SendMessageRequest, Message } from '@/types';
 
@@ -21,6 +21,38 @@ export function useMessages(conversationId: string) {
     },
     enabled: !!conversationId,
     staleTime: 10_000, // Messages are frequently updated
+  });
+}
+
+/**
+ * Fetch messages with infinite scrolling support
+ * Loads older messages as user scrolls up
+ */
+export function useInfiniteMessages(conversationId: string) {
+  return useInfiniteQuery({
+    queryKey: ['conversations', conversationId, 'messages', 'infinite'],
+    queryFn: async ({ pageParam }) => {
+      const response = await messageService.list(
+        conversationId,
+        pageParam as number | undefined,
+        MESSAGES_PER_PAGE
+      );
+      if (!response.success) {
+        throw new Error(response.error);
+      }
+      return response.data?.messages || [];
+    },
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (lastPage) => {
+      // Get the earliest message's sequence number for pagination
+      if (lastPage.length < MESSAGES_PER_PAGE) {
+        return undefined; // No more pages
+      }
+      const earliestMessage = lastPage[0];
+      return earliestMessage?.sequence_number;
+    },
+    enabled: !!conversationId,
+    staleTime: 10_000,
   });
 }
 
@@ -156,5 +188,41 @@ export function useUpdateLastReadSequence() {
       queryClient.invalidateQueries({ queryKey: ['conversations', conversationId] });
       queryClient.invalidateQueries({ queryKey: ['conversations', 'list'] });
     },
+  });
+}
+
+/**
+ * Search messages within a specific conversation
+ */
+export function useSearchMessages(conversationId: string, query: string) {
+  return useQuery({
+    queryKey: ['conversations', conversationId, 'messages', 'search', query],
+    queryFn: async () => {
+      const response = await messageService.search(conversationId, query);
+      if (!response.success) {
+        throw new Error(response.error);
+      }
+      return response.data?.results || [];
+    },
+    enabled: !!conversationId && query.length >= 2,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Global message search across all conversations
+ */
+export function useSearchMessagesGlobal(query: string) {
+  return useQuery({
+    queryKey: ['messages', 'search', 'global', query],
+    queryFn: async () => {
+      const response = await messageService.searchGlobal(query);
+      if (!response.success) {
+        throw new Error(response.error);
+      }
+      return response.data?.results || [];
+    },
+    enabled: query.length >= 2,
+    staleTime: 30_000,
   });
 }

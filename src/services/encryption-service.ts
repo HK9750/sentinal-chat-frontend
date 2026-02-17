@@ -96,8 +96,13 @@ export const encryptionService = {
     });
   },
 
-  getActiveSignedPreKey: async (): Promise<ApiResponse<SignedPreKey>> => {
-    return apiClient.get('/v1/encryption/signed-prekeys/active');
+  getActiveSignedPreKey: async (
+    userId: string,
+    deviceId: string
+  ): Promise<ApiResponse<SignedPreKey>> => {
+    return apiClient.get('/v1/encryption/signed-prekeys/active', {
+      params: { user_id: userId, device_id: deviceId },
+    });
   },
 
   rotateSignedPreKey: async (

@@ -36,14 +36,19 @@ export interface EndCallRequest {
 export interface RecordQualityMetricRequest {
   call_id: string;
   user_id: string;
-  timestamp: string;
-  packet_loss: number;
-  jitter: number;
-  latency: number;
-  bitrate: number;
+  timestamp?: string;
+  packets_sent?: number;
+  packets_received?: number;
+  packet_loss?: number;
+  packets_lost?: number;
+  jitter?: number;
+  latency?: number;
+  bitrate?: number;
   frame_rate?: number;
   resolution?: string;
   audio_level?: number;
+  connection_type?: string;
+  ice_candidate_type?: string;
 }
 
 export const callService = {
@@ -66,16 +71,16 @@ export const callService = {
     });
   },
 
-  listByUser: async (userId: string): Promise<ApiResponse<{ calls: Call[] }>> => {
-    return apiClient.get('/v1/calls/user', { params: { user_id: userId } });
+  listByUser: async (userId: string, page = 1, limit = 20): Promise<ApiResponse<{ calls: Call[]; total: number }>> => {
+    return apiClient.get('/v1/calls/user', { params: { user_id: userId, page, limit } });
   },
 
-  listActive: async (): Promise<ApiResponse<{ calls: Call[] }>> => {
-    return apiClient.get('/v1/calls/active');
+  listActive: async (userId: string): Promise<ApiResponse<{ calls: Call[] }>> => {
+    return apiClient.get('/v1/calls/active', { params: { user_id: userId } });
   },
 
-  listMissed: async (): Promise<ApiResponse<{ calls: Call[] }>> => {
-    return apiClient.get('/v1/calls/missed');
+  listMissed: async (userId: string, since?: string): Promise<ApiResponse<{ calls: Call[] }>> => {
+    return apiClient.get('/v1/calls/missed', { params: { user_id: userId, since } });
   },
 
   // Call Participants

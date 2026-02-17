@@ -33,7 +33,7 @@ export function BroadcastList() {
   const [newBroadcastDescription, setNewBroadcastDescription] = useState('');
 
   const user = useAuthStore((state) => state.user);
-  const { data: broadcasts, isLoading } = useBroadcasts();
+  const { data: broadcasts, isLoading } = useBroadcasts(user?.id || '');
   const createBroadcast = useCreateBroadcast();
   const deleteBroadcast = useDeleteBroadcast();
 

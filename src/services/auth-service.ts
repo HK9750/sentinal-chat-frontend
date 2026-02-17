@@ -9,12 +9,17 @@ import {
   UserSession,
 } from '@/types';
 
+// Auth response includes user object per API documentation
+export interface AuthResponse extends AuthTokens {
+  user: User;
+}
+
 export const authService = {
-  register: async (data: RegisterRequest): Promise<ApiResponse<AuthTokens & { user_id: string }>> => {
+  register: async (data: RegisterRequest): Promise<ApiResponse<AuthResponse>> => {
     return apiClient.post('/v1/auth/register', data);
   },
 
-  login: async (data: LoginRequest): Promise<ApiResponse<AuthTokens & { user_id: string }>> => {
+  login: async (data: LoginRequest): Promise<ApiResponse<AuthResponse>> => {
     return apiClient.post('/v1/auth/login', data);
   },
 

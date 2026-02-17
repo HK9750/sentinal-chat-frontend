@@ -190,14 +190,19 @@ export interface UpdateParticipantMuteRequest {
 export interface RecordQualityMetricRequest {
   call_id: string;
   user_id: string;
-  timestamp: string;
-  packet_loss: number;
-  jitter: number;
-  latency: number;
-  bitrate: number;
+  timestamp?: string;
+  packets_sent?: number;
+  packets_received?: number;
+  packet_loss?: number;
+  packets_lost?: number;
+  jitter?: number;
+  latency?: number;
+  bitrate?: number;
   frame_rate?: number;
   resolution?: string;
   audio_level?: number;
+  connection_type?: string;
+  ice_candidate_type?: string;
 }
 
 // Encryption Request DTOs
@@ -250,6 +255,7 @@ export interface UpdateUploadProgressRequest {
 export interface CreateBroadcastRequest {
   name: string;
   description?: string;
+  recipients?: string[];
 }
 
 export interface UpdateBroadcastRequest {

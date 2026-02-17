@@ -26,36 +26,37 @@ export function useBroadcast(broadcastId: string) {
 }
 
 /**
- * Fetch all broadcasts for current user
+ * Fetch all broadcasts for a specific owner
  */
-export function useBroadcasts() {
+export function useBroadcasts(ownerId: string) {
   return useQuery({
-    queryKey: ['broadcasts', 'list'],
+    queryKey: ['broadcasts', 'list', ownerId],
     queryFn: async () => {
-      const response = await broadcastService.list();
+      const response = await broadcastService.list(ownerId);
       if (!response.success) {
         throw new Error(response.error);
       }
       return response.data?.broadcasts || [];
     },
+    enabled: !!ownerId,
     staleTime: 60_000,
   });
 }
 
 /**
- * Search broadcasts
+ * Search broadcasts for a specific owner
  */
-export function useSearchBroadcasts(query: string) {
+export function useSearchBroadcasts(ownerId: string, query: string) {
   return useQuery({
-    queryKey: ['broadcasts', 'search', query],
+    queryKey: ['broadcasts', 'search', ownerId, query],
     queryFn: async () => {
-      const response = await broadcastService.search(query);
+      const response = await broadcastService.search(ownerId, query);
       if (!response.success) {
         throw new Error(response.error);
       }
       return response.data?.broadcasts || [];
     },
-    enabled: query.length > 0,
+    enabled: !!ownerId && query.length > 0,
     staleTime: 30_000,
   });
 }

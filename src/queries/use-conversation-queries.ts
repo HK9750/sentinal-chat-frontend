@@ -233,3 +233,89 @@ export function useUnarchiveConversation() {
     },
   });
 }
+
+/**
+ * Get or create a direct message conversation with a user
+ * First tries to find existing DM, then creates one if not found
+ */
+export function useGetOrCreateDM() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      currentUserId,
+      targetUserId,
+    }: {
+      currentUserId: string;
+      targetUserId: string;
+    }) => {
+      // Validate user IDs before making API call
+      if (!currentUserId || currentUserId.trim() === '') {
+        throw new Error('Current user ID is required to create a DM conversation');
+      }
+      if (!targetUserId || targetUserId.trim() === '') {
+        throw new Error('Target user ID is required to create a DM conversation');
+      }
+
+      // First try to get existing DM
+      try {
+        const existingResponse = await conversationService.getDirect(
+          currentUserId,
+          targetUserId
+        );
+
+        // If existing DM found, return it
+        if (existingResponse.success && existingResponse.data) {
+          return existingResponse.data;
+        }
+      } catch {
+        // DM doesn't exist - this is expected, continue to create one
+      }
+
+      // No existing DM found - create a new one
+      const createResponse = await conversationService.create({
+        type: 'DM',
+        participants: [targetUserId],
+      });
+
+      if (!createResponse.success) {
+        throw new Error(createResponse.error || 'Failed to create conversation');
+      }
+
+      return createResponse.data;
+    },
+    onSuccess: (conversation) => {
+      if (conversation) {
+        // Add to conversations list cache
+        queryClient.setQueryData<Conversation[]>(
+          ['conversations', 'list'],
+          (old = []) => {
+            // Check if already exists
+            if (old.some((c) => c.id === conversation.id)) {
+              return old;
+            }
+            return [conversation, ...old];
+          }
+        );
+      }
+    },
+  });
+}
+
+/**
+ * Search conversations on the server
+ */
+export function useSearchConversations(query: string) {
+  return useQuery({
+    queryKey: ['conversations', 'search', query],
+    queryFn: async () => {
+      const response = await conversationService.search(query);
+      if (!response.success) {
+        throw new Error(response.error);
+      }
+      return response.data?.conversations || [];
+    },
+    enabled: query.length >= 2,
+    staleTime: 30_000,
+  });
+}

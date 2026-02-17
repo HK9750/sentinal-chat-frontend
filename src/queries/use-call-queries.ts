@@ -45,36 +45,38 @@ export function useCalls(conversationId?: string) {
 }
 
 /**
- * Fetch active calls
+ * Fetch active calls for a user
  */
-export function useActiveCalls() {
+export function useActiveCalls(userId: string) {
   return useQuery({
-    queryKey: ['calls', 'active'],
+    queryKey: ['calls', 'active', userId],
     queryFn: async () => {
-      const response = await callService.listActive();
+      const response = await callService.listActive(userId);
       if (!response.success) {
         throw new Error(response.error);
       }
       return response.data?.calls || [];
     },
+    enabled: !!userId,
     staleTime: 5_000, // Active calls need frequent updates
     refetchInterval: 10_000, // Refetch every 10 seconds
   });
 }
 
 /**
- * Fetch missed calls
+ * Fetch missed calls for a user
  */
-export function useMissedCalls() {
+export function useMissedCalls(userId: string, since?: string) {
   return useQuery({
-    queryKey: ['calls', 'missed'],
+    queryKey: ['calls', 'missed', userId, since],
     queryFn: async () => {
-      const response = await callService.listMissed();
+      const response = await callService.listMissed(userId, since);
       if (!response.success) {
         throw new Error(response.error);
       }
       return response.data?.calls || [];
     },
+    enabled: !!userId,
     staleTime: 60_000,
   });
 }

@@ -5,7 +5,8 @@ export interface User {
   display_name: string;
   avatar_url?: string;
   status?: string;
-  created_at: string;
+  phone_number?: string;
+  created_at?: string; // Optional: not returned from login/register endpoints
   bio?: string;
   is_online?: boolean;
   last_seen_at?: string;

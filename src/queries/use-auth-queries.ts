@@ -24,15 +24,9 @@ export function useLogin() {
     onSuccess: async (response) => {
       if (response.success && response.data) {
         apiClient.setAuthTokens(response.data);
-        // Store auth tokens and user
+        // Store auth tokens and user from response
         login(
-          { 
-            id: response.data.user_id,
-            email: '',
-            username: '',
-            display_name: '',
-            created_at: new Date().toISOString(),
-          },
+          response.data.user,
           response.data
         );
         // Invalidate and refetch user profile
@@ -68,14 +62,9 @@ export function useRegister() {
     onSuccess: (response) => {
       if (response.success && response.data) {
         apiClient.setAuthTokens(response.data);
+        // Store auth tokens and user from response
         login(
-          { 
-            id: response.data.user_id,
-            email: '',
-            username: '',
-            display_name: '',
-            created_at: new Date().toISOString(),
-          },
+          response.data.user,
           response.data
         );
       }

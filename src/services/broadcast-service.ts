@@ -5,6 +5,7 @@ import { ApiResponse, Broadcast, BroadcastRecipient } from '@/types';
 export interface CreateBroadcastRequest {
   name: string;
   description?: string;
+  recipients?: string[];
 }
 
 export interface UpdateBroadcastRequest {
@@ -42,12 +43,12 @@ export const broadcastService = {
   },
 
   // List Broadcasts
-  list: async (): Promise<ApiResponse<{ broadcasts: Broadcast[] }>> => {
-    return apiClient.get('/v1/broadcasts');
+  list: async (ownerId: string): Promise<ApiResponse<{ broadcasts: Broadcast[] }>> => {
+    return apiClient.get('/v1/broadcasts', { params: { owner_id: ownerId } });
   },
 
-  search: async (query: string): Promise<ApiResponse<{ broadcasts: Broadcast[] }>> => {
-    return apiClient.get('/v1/broadcasts/search', { params: { query } });
+  search: async (ownerId: string, query: string): Promise<ApiResponse<{ broadcasts: Broadcast[] }>> => {
+    return apiClient.get('/v1/broadcasts/search', { params: { owner_id: ownerId, query } });
   },
 
   // Recipient Management

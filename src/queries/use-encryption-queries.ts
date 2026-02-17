@@ -112,18 +112,19 @@ export function useSignedPreKey(userId: string, deviceId: string, keyId: number)
 }
 
 /**
- * Fetch active signed prekey for current user
+ * Fetch active signed prekey for a user/device
  */
-export function useActiveSignedPreKey() {
+export function useActiveSignedPreKey(userId: string, deviceId: string) {
   return useQuery({
-    queryKey: ['encryption', 'signed-prekey', 'active'],
+    queryKey: ['encryption', 'signed-prekey', 'active', userId, deviceId],
     queryFn: async () => {
-      const response = await encryptionService.getActiveSignedPreKey();
+      const response = await encryptionService.getActiveSignedPreKey(userId, deviceId);
       if (!response.success) {
         throw new Error(response.error);
       }
       return response.data;
     },
+    enabled: !!userId && !!deviceId,
     staleTime: 5 * 60 * 1000,
   });
 }

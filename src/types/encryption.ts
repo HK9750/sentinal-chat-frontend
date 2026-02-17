@@ -24,7 +24,7 @@ export interface OneTimePreKey {
   device_id: string;
   key_id: number;
   public_key: string;
-  created_at: string;
+  uploaded_at: string;
   consumed_by?: string;
   consumed_device_id?: string;
   consumed_at?: string;

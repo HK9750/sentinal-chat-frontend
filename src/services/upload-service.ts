@@ -44,7 +44,7 @@ export const uploadService = {
 
   // List Uploads
   list: async (
-    uploaderId?: string,
+    uploaderId: string,
     page = 1,
     limit = 20
   ): Promise<ApiResponse<{ uploads: Upload[]; total: number }>> => {
@@ -53,12 +53,16 @@ export const uploadService = {
     });
   },
 
-  listCompleted: async (): Promise<ApiResponse<{ uploads: Upload[] }>> => {
-    return apiClient.get('/v1/uploads/completed');
+  listCompleted: async (uploaderId: string, page = 1, limit = 20): Promise<ApiResponse<{ uploads: Upload[] }>> => {
+    return apiClient.get('/v1/uploads/completed', {
+      params: { uploader_id: uploaderId, page, limit },
+    });
   },
 
-  listInProgress: async (): Promise<ApiResponse<{ uploads: Upload[] }>> => {
-    return apiClient.get('/v1/uploads/in-progress');
+  listInProgress: async (uploaderId: string): Promise<ApiResponse<{ uploads: Upload[] }>> => {
+    return apiClient.get('/v1/uploads/in-progress', {
+      params: { uploader_id: uploaderId },
+    });
   },
 
   // Stale Uploads Management

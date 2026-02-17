@@ -134,3 +134,39 @@ export function useSessions() {
     },
   });
 }
+
+/**
+ * Search users by query string
+ * Used for finding users when creating new conversations
+ */
+export function useSearchUsers(query: string, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ['users', 'search', query],
+    queryFn: async () => {
+      const response = await userService.list(1, 20, query);
+      if (!response.success) {
+        throw new Error(response.error);
+      }
+      return response.data?.users || [];
+    },
+    enabled: (options?.enabled ?? true) && query.length >= 2,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Get a paginated list of users
+ */
+export function useUsers(page = 1, limit = 20) {
+  return useQuery({
+    queryKey: ['users', 'list', page, limit],
+    queryFn: async () => {
+      const response = await userService.list(page, limit);
+      if (!response.success) {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    staleTime: 60_000,
+  });
+}

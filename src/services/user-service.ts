@@ -37,7 +37,9 @@ export const userService = {
   },
 
   // Contacts
-  listContacts: async (): Promise<ApiResponse<{ contacts: User[] }>> => {
+  // Note: API returns UserContact[] but for convenience, the app may transform this
+  // to include embedded User data in the `contact` field based on implementation
+  listContacts: async (): Promise<ApiResponse<{ contacts: UserContact[] }>> => {
     return apiClient.get('/v1/users/me/contacts');
   },
 
@@ -57,7 +59,7 @@ export const userService = {
     return apiClient.post(`/v1/users/me/contacts/${contactId}/unblock`);
   },
 
-  getBlockedContacts: async (): Promise<ApiResponse<{ contacts: User[] }>> => {
+  getBlockedContacts: async (): Promise<ApiResponse<{ contacts: UserContact[] }>> => {
     return apiClient.get('/v1/users/me/contacts/blocked');
   },
 

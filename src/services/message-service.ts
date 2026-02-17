@@ -5,6 +5,13 @@ import {
   SendMessageRequest,
 } from '@/types';
 
+export interface MessageSearchResult {
+  message: Message;
+  conversation_id: string;
+  conversation_subject?: string;
+  highlight?: string;
+}
+
 export const messageService = {
   send: async (data: SendMessageRequest): Promise<ApiResponse<Message>> => {
     return apiClient.post('/v1/messages', data);
@@ -38,5 +45,30 @@ export const messageService = {
 
   markDelivered: async (id: string): Promise<ApiResponse<void>> => {
     return apiClient.post(`/v1/messages/${id}/delivered`);
+  },
+
+  /**
+   * Search messages within a conversation
+   */
+  search: async (
+    conversationId: string,
+    query: string,
+    limit = 50
+  ): Promise<ApiResponse<{ results: MessageSearchResult[] }>> => {
+    return apiClient.get('/v1/messages/search', {
+      params: { conversation_id: conversationId, query, limit },
+    });
+  },
+
+  /**
+   * Global search across all conversations
+   */
+  searchGlobal: async (
+    query: string,
+    limit = 50
+  ): Promise<ApiResponse<{ results: MessageSearchResult[] }>> => {
+    return apiClient.get('/v1/messages/search', {
+      params: { query, limit },
+    });
   },
 };

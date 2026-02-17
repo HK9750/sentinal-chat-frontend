@@ -1,9 +1,11 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import { useConversations } from '@/queries/use-conversation-queries';
 import { SearchInput } from '@/components/shared/search-input';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { UserMenu } from '@/components/shared/user-menu';
+import { NewConversationDialog } from '@/components/shared/new-conversation-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -11,8 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn, formatRelativeTime } from '@/lib/utils';
 import { Conversation } from '@/types';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useMemo } from 'react';
-import { Settings } from 'lucide-react';
+import { Settings, MessageSquarePlus } from 'lucide-react';
 import Link from 'next/link';
 
 function ConversationListSkeleton() {
@@ -68,7 +69,7 @@ function ConversationItem({
               (conversation.type === 'DM' ? 'Direct Message' : 'Group Chat')}
           </h3>
           {conversation.last_message_at && (
-            <span className="text-xs text-slate-500 flex-shrink-0">
+            <span className="text-xs text-slate-500 shrink-0">
               {formatRelativeTime(conversation.last_message_at)}
             </span>
           )}
@@ -83,7 +84,7 @@ function ConversationItem({
       {hasUnread && (
         <Badge
           variant="default"
-          className="flex-shrink-0 bg-blue-600 hover:bg-blue-600 text-xs px-2 py-0.5"
+          className="shrink-0 bg-blue-600 hover:bg-blue-600 text-xs px-2 py-0.5"
         >
           {conversation.unread_count! > 99
             ? '99+'
@@ -99,6 +100,7 @@ export function ConversationList() {
   const searchParams = useSearchParams();
   const selectedId = searchParams.get('conversation');
   const searchQuery = searchParams.get('search') || '';
+  const [newChatOpen, setNewChatOpen] = useState(false);
 
   const { data: conversations, isLoading } = useConversations();
 
@@ -162,9 +164,18 @@ export function ConversationList() {
             placeholder="Search conversations..."
             className="flex-1"
           />
-          <Button 
-            size="icon" 
-            variant="ghost" 
+          <Button
+            size="icon"
+            variant="ghost"
+            className="text-slate-400 hover:text-white hover:bg-blue-600/20 shrink-0"
+            onClick={() => setNewChatOpen(true)}
+            title="New conversation"
+          >
+            <MessageSquarePlus className="h-5 w-5" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
             className="text-slate-400 hover:text-white shrink-0"
             asChild
           >
@@ -199,6 +210,12 @@ export function ConversationList() {
           </div>
         )}
       </ScrollArea>
+
+      {/* New Conversation Dialog */}
+      <NewConversationDialog
+        open={newChatOpen}
+        onOpenChange={setNewChatOpen}
+      />
     </div>
   );
 }
