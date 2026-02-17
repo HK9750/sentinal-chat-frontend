@@ -121,3 +121,16 @@ export function useDevices() {
     },
   });
 }
+
+export function useSessions() {
+  return useQuery({
+    queryKey: ['auth', 'sessions'],
+    queryFn: async () => {
+      const response = await userService.getSessions();
+      if (!response.success) {
+        throw new Error(response.error);
+      }
+      return response.data?.sessions || [];
+    },
+  });
+}

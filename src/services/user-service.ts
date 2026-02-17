@@ -80,6 +80,10 @@ export const userService = {
   },
 
   // Sessions
+  getSessions: async (): Promise<ApiResponse<{ sessions: UserSession[] }>> => {
+    return apiClient.get('/v1/auth/sessions');
+  },
+
   revokeSession: async (sessionId: string): Promise<ApiResponse<void>> => {
     return apiClient.delete(`/v1/users/me/sessions/${sessionId}`);
   },

@@ -1,27 +1,30 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { redirect } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
+import { Spinner } from '@/components/shared/spinner';
 
-// AuthGuard ensures user is authenticated before showing content
-// Redirect is handled by middleware, this just prevents UI flash
+/**
+ * AuthGuard - Protects routes that require authentication
+ * 
+ * Since middleware handles the redirect for unauthenticated users,
+ * this component only needs to handle the hydration state.
+ */
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const isHydrated = useAuthStore((state) => state.isHydrated);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
-  // Wait for hydration before rendering
+  // Show loading state while Zustand hydrates from localStorage
   if (!isHydrated) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-3 border-slate-200 border-t-slate-900 mx-auto"></div>
-        </div>
+      <div className="flex h-screen items-center justify-center bg-slate-950">
+        <Spinner size="lg" />
       </div>
     );
   }
 
-  // If not authenticated, middleware will redirect, show nothing
+  // If not authenticated after hydration, show nothing
+  // (middleware will redirect, this is just a fallback)
   if (!isAuthenticated) {
     return null;
   }
@@ -29,34 +32,29 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// GuestGuard for login/register pages
-// Ensures logged-in users don't see auth pages
+/**
+ * GuestGuard - Protects routes that should only be accessible to guests
+ * 
+ * Middleware now handles redirect for authenticated users trying to access
+ * auth pages, so this component just handles the hydration loading state.
+ */
 export function GuestGuard({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const isHydrated = useAuthStore((state) => state.isHydrated);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
-  useEffect(() => {
-    // Only redirect after hydration to avoid hydration mismatch
-    if (isHydrated && isAuthenticated) {
-      router.replace('/');
-    }
-  }, [isHydrated, isAuthenticated, router]);
-
-  // Wait for hydration
+  // Show loading state while Zustand hydrates from localStorage
   if (!isHydrated) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-3 border-slate-200 border-t-slate-900 mx-auto"></div>
-        </div>
+      <div className="flex h-screen items-center justify-center bg-slate-950">
+        <Spinner size="lg" />
       </div>
     );
   }
 
-  // If authenticated, return null while redirecting
+  // If authenticated after hydration, redirect to chat
+  // Middleware should handle this, but this is a client-side fallback
   if (isAuthenticated) {
-    return null;
+    redirect('/chat');
   }
 
   return <>{children}</>;

@@ -1,158 +1,310 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useRef, useCallback, useMemo } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useConversation, useConversationParticipants } from '@/queries/use-conversation-queries';
 import { useMessages, useSendMessage } from '@/queries/use-message-queries';
 import { useSocket } from '@/providers/socket-provider';
-import { formatDate, getInitials } from '@/lib/utils';
+import { useChatStore } from '@/stores/chat-store';
+import { MessageBubble } from '@/components/shared/message-bubble';
+import { UserAvatar } from '@/components/shared/user-avatar';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
 import { useAuthStore } from '@/stores/auth-store';
 import { Message } from '@/types';
+import {
+  MoreVertical,
+  Phone,
+  Video,
+  ArrowLeft,
+  Send,
+  Paperclip,
+  Smile,
+} from 'lucide-react';
 
 interface ChatAreaProps {
   conversationId: string;
 }
 
-export function ChatArea({ conversationId }: ChatAreaProps) {
+interface GroupedMessage {
+  message: Message;
+  isOwn: boolean;
+  showAvatar: boolean;
+  isFirstInGroup: boolean;
+  isLastInGroup: boolean;
+}
+
+function useGroupedMessages(messages: Message[] | undefined, currentUserId: string | undefined): GroupedMessage[] {
+  return useMemo(() => {
+    if (!messages) return [];
+
+    return messages.map((msg, index) => {
+      const prevMsg = messages[index - 1];
+      const nextMsg = messages[index + 1];
+
+      const isOwn = msg.sender_id === currentUserId;
+      const isFirstInGroup = !prevMsg || prevMsg.sender_id !== msg.sender_id;
+      const isLastInGroup = !nextMsg || nextMsg.sender_id !== msg.sender_id;
+
+      return {
+        message: msg,
+        isOwn,
+        showAvatar: isFirstInGroup && !isOwn,
+        isFirstInGroup,
+        isLastInGroup,
+      };
+    });
+  }, [messages, currentUserId]);
+}
+
+function ChatHeader({
+  conversationId,
+  onBack,
+}: {
+  conversationId: string;
+  onBack?: () => void;
+}) {
   const { data: conversation } = useConversation(conversationId);
   const { data: participants } = useConversationParticipants(conversationId);
-  const { data: messages, isLoading: isLoadingMessages } = useMessages(conversationId);
-  const sendMessageMutation = useSendMessage();
-  const currentUser = useAuthStore((state) => state.user);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [messageInput, setMessageInput] = useState('');
-  const { sendTypingStart, sendTypingStop } = useSocket();
+  const typingUsers = useChatStore(
+    (state) => state.typingUsers.get(conversationId) || []
+  );
 
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!messageInput.trim()) return;
-
-    try {
-      // For now, sending without encryption (E2EE requires Signal Protocol implementation)
-      await sendMessageMutation.mutateAsync({
-        conversation_id: conversationId,
-        ciphertexts: participants?.map((p) => ({
-          recipient_device_id: p.user_id,
-          ciphertext: messageInput,
-        })) || [],
-        message_type: 'TEXT',
-      });
-
-      setMessageInput('');
-      sendTypingStop(conversationId);
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    }
-  };
-
-  const handleTyping = () => {
-    sendTypingStart(conversationId);
-  };
+  const typingText = useMemo(() => {
+    if (typingUsers.length === 0) return null;
+    if (typingUsers.length === 1) return 'typing...';
+    return `${typingUsers.length} people typing...`;
+  }, [typingUsers]);
 
   return (
-    <>
-      {/* Header */}
-      <div className="h-16 bg-white border-b border-gray-200 flex items-center px-4">
-        <div className="flex items-center space-x-3">
-          {conversation?.avatar_url ? (
-            <img
-              src={conversation.avatar_url}
-              alt={conversation.subject || 'Chat'}
-              className="h-10 w-10 rounded-full object-cover"
-            />
-          ) : (
-            <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-              <span className="text-gray-600 font-medium text-sm">
-                {getInitials(conversation?.subject || 'Chat')}
-              </span>
-            </div>
-          )}
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {conversation?.subject || 'Chat'}
-            </h2>
-            <p className="text-xs text-gray-500">
-              {participants?.length || 0} participants
-            </p>
-          </div>
+    <div className="h-16 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center px-4 justify-between shrink-0">
+      <div className="flex items-center gap-3">
+        {onBack && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden text-slate-400 hover:text-white"
+            onClick={onBack}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        )}
+
+        <UserAvatar
+          src={conversation?.avatar_url}
+          alt={conversation?.subject}
+          fallback={conversation?.type === 'DM' ? 'DM' : 'G'}
+          size="md"
+        />
+
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-slate-200 truncate">
+            {conversation?.subject || 'Chat'}
+          </h2>
+          <p className="text-xs text-slate-500 truncate">
+            {typingText ||
+              `${participants?.length || 0} participant${
+                participants?.length === 1 ? '' : 's'
+              }`}
+          </p>
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-        {isLoadingMessages ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          </div>
-        ) : (
-          messages?.map((message) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              isOwn={message.sender_id === currentUser?.id}
-            />
-          ))
-        )}
-        <div ref={messagesEndRef} />
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-slate-400 hover:text-white"
+        >
+          <Phone className="h-5 w-5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-slate-400 hover:text-white"
+        >
+          <Video className="h-5 w-5" />
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-slate-400 hover:text-white"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem>View Info</DropdownMenuItem>
+            <DropdownMenuItem>Search Messages</DropdownMenuItem>
+            <DropdownMenuItem>Mute Notifications</DropdownMenuItem>
+            <Separator />
+            <DropdownMenuItem className="text-red-500">
+              Leave Group
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-
-      {/* Input */}
-      <div className="h-20 bg-white border-t border-gray-200 p-4">
-        <form onSubmit={handleSendMessage} className="flex space-x-2">
-          <input
-            type="text"
-            value={messageInput}
-            onChange={(e) => setMessageInput(e.target.value)}
-            onKeyDown={handleTyping}
-            placeholder="Type a message..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <button
-            type="submit"
-            disabled={!messageInput.trim() || sendMessageMutation.isPending}
-            className="px-6 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Send
-          </button>
-        </form>
-      </div>
-    </>
+    </div>
   );
 }
 
-interface MessageBubbleProps {
-  message: Message;
-  isOwn: boolean;
+function MessageList({
+  conversationId,
+  currentUserId,
+  scrollRef,
+}: {
+  conversationId: string;
+  currentUserId: string | undefined;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const { data: messages, isLoading } = useMessages(conversationId);
+  const groupedMessages = useGroupedMessages(messages, currentUserId);
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-600 border-t-blue-500" />
+      </div>
+    );
+  }
+
+  if (!messages?.length) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <p className="text-slate-500">No messages yet. Start the conversation!</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto p-4 space-y-1">
+      {groupedMessages.map(({ message, isOwn, showAvatar }) => (
+        <MessageBubble
+          key={message.id}
+          message={message}
+          isOwn={isOwn}
+          showAvatar={showAvatar}
+          status={isOwn ? 'sent' : undefined}
+        />
+      ))}
+      <div ref={scrollRef} />
+    </div>
+  );
 }
 
-function MessageBubble({ message, isOwn }: MessageBubbleProps) {
+function MessageInput({ conversationId }: { conversationId: string }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const sendMessageMutation = useSendMessage();
+  const { sendTypingStart, sendTypingStop } = useSocket();
+  const { data: participants } = useConversationParticipants(conversationId);
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      const input = inputRef.current;
+      if (!input || !input.value.trim()) return;
+
+      const content = input.value.trim();
+      input.value = '';
+
+      sendTypingStop(conversationId);
+
+      try {
+        await sendMessageMutation.mutateAsync({
+          conversation_id: conversationId,
+          ciphertexts:
+            participants?.map((p) => ({
+              recipient_device_id: p.user_id,
+              ciphertext: content,
+            })) || [],
+          message_type: 'TEXT',
+        });
+      } catch (error) {
+        console.error('Failed to send message:', error);
+        input.value = content;
+      }
+    },
+    [conversationId, participants, sendMessageMutation, sendTypingStop]
+  );
+
+  const handleKeyDown = useCallback(() => {
+    sendTypingStart(conversationId);
+  }, [conversationId, sendTypingStart]);
+
   return (
-    <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`max-w-[70%] px-4 py-2 rounded-2xl ${
-          isOwn
-            ? 'bg-blue-600 text-white rounded-br-none'
-            : 'bg-white text-gray-900 rounded-bl-none shadow-sm'
-        }`}
-      >
-        {!isOwn && message.sender && (
-          <p className="text-xs font-medium text-gray-500 mb-1">
-            {message.sender.display_name}
-          </p>
-        )}
-        <p className="text-sm">{message.ciphertext || message.content}</p>
-        <p
-          className={`text-xs mt-1 ${
-            isOwn ? 'text-blue-200' : 'text-gray-400'
-          }`}
+    <div className="p-4 bg-slate-900/80 backdrop-blur-md border-t border-slate-800">
+      <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-4xl mx-auto">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="text-slate-400 hover:text-white shrink-0"
         >
-          {formatDate(message.created_at)}
-        </p>
-      </div>
+          <Paperclip className="h-5 w-5" />
+        </Button>
+
+        <div className="flex-1 relative">
+          <Input
+            ref={inputRef}
+            type="text"
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message..."
+            className="pr-10 bg-slate-800/50 border-slate-700 text-slate-200 placeholder:text-slate-500 focus-visible:ring-blue-500/50 rounded-full"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-slate-400 hover:text-white"
+          >
+            <Smile className="h-5 w-5" />
+          </Button>
+        </div>
+
+        <Button
+          type="submit"
+          disabled={sendMessageMutation.isPending}
+          className="bg-blue-600 hover:bg-blue-500 text-white rounded-full px-4 shrink-0"
+        >
+          <Send className="h-4 w-4 mr-2" />
+          Send
+        </Button>
+      </form>
     </div>
+  );
+}
+
+export function ChatArea({ conversationId }: ChatAreaProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const currentUser = useAuthStore((state) => state.user);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const handleBack = useCallback(() => {
+    const params = new URLSearchParams(searchParams);
+    params.delete('conversation');
+    router.push(`?${params.toString()}`, { scroll: false });
+  }, [router, searchParams]);
+
+  return (
+    <>
+      <ChatHeader conversationId={conversationId} onBack={handleBack} />
+      <MessageList
+        conversationId={conversationId}
+        currentUserId={currentUser?.id}
+        scrollRef={scrollRef}
+      />
+      <MessageInput conversationId={conversationId} />
+    </>
   );
 }

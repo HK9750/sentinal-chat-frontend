@@ -1,22 +1,25 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { QueryProvider } from "@/providers/query-provider";
-import { SocketProvider } from "@/providers/socket-provider";
+import type { Metadata } from 'next';
+import { Geist, Geist_Mono } from 'next/font/google';
+import './globals.css';
+import { QueryProvider } from '@/providers/query-provider';
+import { SocketProvider } from '@/providers/socket-provider';
+import { ThemeProvider } from '@/providers/theme-provider';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
-  title: "Sentinel Chat",
-  description: "A secure messaging application",
+  title: 'Sentinel Chat',
+  description: 'Secure end-to-end encrypted messaging platform',
+  keywords: ['chat', 'messaging', 'secure', 'encrypted', 'privacy'],
 };
 
 export default function RootLayout({
@@ -25,14 +28,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-950 text-slate-100`}
       >
         <QueryProvider>
-          <SocketProvider>
-            {children}
-          </SocketProvider>
+          <ThemeProvider>
+            <SocketProvider>
+              <TooltipProvider delayDuration={200}>
+                {children}
+              </TooltipProvider>
+            </SocketProvider>
+          </ThemeProvider>
         </QueryProvider>
       </body>
     </html>

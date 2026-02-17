@@ -1,14 +1,15 @@
-import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { messageService } from '@/services/message-service';
-import { useChatStore } from '@/stores/chat-store';
+import { conversationService } from '@/services/conversation-service';
 import { SendMessageRequest, Message } from '@/types';
 
 const MESSAGES_PER_PAGE = 50;
 
+/**
+ * Fetch messages for a conversation
+ * TanStack Query is the single source of truth
+ */
 export function useMessages(conversationId: string) {
-  const setMessages = useChatStore((state) => state.setMessages);
-  const addMessage = useChatStore((state) => state.addMessage);
-
   return useQuery({
     queryKey: ['conversations', conversationId, 'messages'],
     queryFn: async () => {
@@ -16,17 +17,18 @@ export function useMessages(conversationId: string) {
       if (!response.success) {
         throw new Error(response.error);
       }
-      const messages = response.data?.messages || [];
-      setMessages(conversationId, messages);
-      return messages;
+      return response.data?.messages || [];
     },
     enabled: !!conversationId,
+    staleTime: 10_000, // Messages are frequently updated
   });
 }
 
+/**
+ * Send a message with optimistic update
+ */
 export function useSendMessage() {
   const queryClient = useQueryClient();
-  const addMessage = useChatStore((state) => state.addMessage);
 
   return useMutation({
     mutationFn: async (data: SendMessageRequest) => {
@@ -36,17 +38,25 @@ export function useSendMessage() {
       }
       return response.data;
     },
-    onSuccess: (data, variables) => {
-      if (data) {
-        addMessage(variables.conversation_id, data);
-        queryClient.invalidateQueries({ 
-          queryKey: ['conversations', 'list'] 
+    onSuccess: (newMessage, variables) => {
+      if (newMessage) {
+        // Optimistically add message to the cache
+        queryClient.setQueryData<Message[]>(
+          ['conversations', variables.conversation_id, 'messages'],
+          (old = []) => [...old, newMessage]
+        );
+        // Invalidate conversation list to update last message
+        queryClient.invalidateQueries({
+          queryKey: ['conversations', 'list'],
         });
       }
     },
   });
 }
 
+/**
+ * Mark a message as read
+ */
 export function useMarkMessageRead() {
   const queryClient = useQueryClient();
 
@@ -59,18 +69,29 @@ export function useMarkMessageRead() {
       return response.data;
     },
     onSuccess: () => {
+      // Invalidate to update unread counts
       queryClient.invalidateQueries({ queryKey: ['conversations', 'list'] });
     },
   });
 }
 
+/**
+ * Delete a message with optimistic update
+ */
 export function useDeleteMessage() {
   const queryClient = useQueryClient();
-  const deleteMessage = useChatStore((state) => state.deleteMessage);
 
   return useMutation({
-    mutationFn: async ({ messageId, conversationId, hard = false }: { messageId: string; conversationId: string; hard?: boolean }) => {
-      const response = hard 
+    mutationFn: async ({
+      messageId,
+      conversationId,
+      hard = false,
+    }: {
+      messageId: string;
+      conversationId: string;
+      hard?: boolean;
+    }) => {
+      const response = hard
         ? await messageService.hardDelete(messageId)
         : await messageService.delete(messageId);
       if (!response.success) {
@@ -78,18 +99,53 @@ export function useDeleteMessage() {
       }
       return response.data;
     },
-    onSuccess: (_, { messageId, conversationId }) => {
-      deleteMessage(conversationId, messageId);
-      queryClient.invalidateQueries({ queryKey: ['conversations', conversationId, 'messages'] });
+    onMutate: async ({ messageId, conversationId }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({
+        queryKey: ['conversations', conversationId, 'messages'],
+      });
+
+      // Snapshot the previous value
+      const previousMessages = queryClient.getQueryData<Message[]>([
+        'conversations',
+        conversationId,
+        'messages',
+      ]);
+
+      // Optimistically remove the message
+      queryClient.setQueryData<Message[]>(
+        ['conversations', conversationId, 'messages'],
+        (old = []) => old.filter((msg) => msg.id !== messageId)
+      );
+
+      return { previousMessages };
+    },
+    onError: (_, { conversationId }, context) => {
+      // Rollback on error
+      if (context?.previousMessages) {
+        queryClient.setQueryData(
+          ['conversations', conversationId, 'messages'],
+          context.previousMessages
+        );
+      }
     },
   });
 }
 
+/**
+ * Update last read sequence for a conversation
+ */
 export function useUpdateLastReadSequence() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ conversationId, seqId }: { conversationId: string; seqId: number }) => {
+    mutationFn: async ({
+      conversationId,
+      seqId,
+    }: {
+      conversationId: string;
+      seqId: number;
+    }) => {
       const response = await conversationService.updateLastReadSequence(conversationId, seqId);
       if (!response.success) {
         throw new Error(response.error);
@@ -102,6 +158,3 @@ export function useUpdateLastReadSequence() {
     },
   });
 }
-
-// Import needed for useUpdateLastReadSequence
-import { conversationService } from '@/services/conversation-service';

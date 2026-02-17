@@ -1,11 +1,11 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useCallback } from 'react';
+import { createContext, useContext, useEffect, useRef, useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { env } from '@/config/env';
 import { useAuthStore } from '@/stores/auth-store';
 import { useChatStore } from '@/stores/chat-store';
-import { WebSocketEvent, Message, WebSocketTypingEvent } from '@/types';
+import { WebSocketEvent, WebSocketTypingEvent } from '@/types';
 
 interface SocketContextType {
   sendTypingStart: (conversationId: string) => void;
@@ -27,32 +27,46 @@ export function useSocket() {
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const tokens = useAuthStore((state) => state.tokens);
-  const addMessage = useChatStore((state) => state.addMessage);
+  
+  // Only typing users live in Zustand (real-time state)
   const addTypingUser = useChatStore((state) => state.addTypingUser);
   const removeTypingUser = useChatStore((state) => state.removeTypingUser);
-  const updateMessage = useChatStore((state) => state.updateMessage);
-  const isConnected = wsRef.current?.readyState === WebSocket.OPEN;
 
   const connect = useCallback(() => {
-    if (!tokens?.access_token) return;
+    const accessToken = tokens?.access_token;
+    if (!accessToken) return;
 
-    const wsUrl = `${env.SOCKET_URL}/v1/ws?token=${tokens.access_token}`;
+    // Clear any existing reconnect timeout
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+
+    const wsUrl = `${env.SOCKET_URL}/v1/ws?token=${accessToken}`;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
       console.log('WebSocket connected');
+      setIsConnected(true);
     };
 
     ws.onmessage = (event) => {
       try {
         const data: WebSocketEvent = JSON.parse(event.data);
-        
+
         switch (data.type) {
           case 'message:new': {
-            const payload = data.payload as { message_id: string; conversation_id: string; sender_id: string };
-            // Refetch messages for the conversation
+            const payload = data.payload as {
+              message_id: string;
+              conversation_id: string;
+              sender_id: string;
+            };
+            // Invalidate queries to fetch new messages
             queryClient.invalidateQueries({
               queryKey: ['conversations', payload.conversation_id, 'messages'],
             });
@@ -61,78 +75,99 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
             });
             break;
           }
-          
+
           case 'message:read': {
-            const payload = data.payload as { message_id: string; conversation_id: string; reader_id: string };
-            updateMessage(payload.conversation_id, payload.message_id, {
-              // Update read status
+            const payload = data.payload as {
+              message_id: string;
+              conversation_id: string;
+              reader_id: string;
+            };
+            // Invalidate to update read status
+            queryClient.invalidateQueries({
+              queryKey: ['conversations', payload.conversation_id, 'messages'],
             });
             break;
           }
-          
+
           case 'message:delivered': {
-            const payload = data.payload as { message_id: string; conversation_id: string; recipient_id: string };
-            // Handle delivered status
+            const payload = data.payload as {
+              message_id: string;
+              conversation_id: string;
+            };
+            // Invalidate to update delivery status
+            queryClient.invalidateQueries({
+              queryKey: ['conversations', payload.conversation_id, 'messages'],
+            });
             break;
           }
-          
+
           case 'typing:started': {
             const payload = (data as WebSocketTypingEvent).payload;
             addTypingUser(payload.conversation_id, payload.user_id);
             break;
           }
-          
+
           case 'typing:stopped': {
             const payload = (data as WebSocketTypingEvent).payload;
             removeTypingUser(payload.conversation_id, payload.user_id);
             break;
           }
-          
+
           case 'presence:online':
           case 'presence:offline': {
-            // Handle presence updates
+            // Could invalidate user queries if needed
             break;
           }
-          
+
           case 'call:offer':
           case 'call:answer':
           case 'call:ice':
           case 'call:ended': {
-            // Handle call signaling
+            // Handle call events
             break;
           }
-          
+
           default:
             console.log('Unknown WebSocket event:', data.type);
         }
       } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
+        console.warn('Error parsing WebSocket message:', error);
       }
     };
 
     ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
+      console.warn('WebSocket error:', error);
     };
 
     ws.onclose = () => {
       console.log('WebSocket disconnected');
-      // Attempt to reconnect after 3 seconds
-      setTimeout(() => {
-        if (isAuthenticated) {
-          connect();
-        }
-      }, 3000);
+      setIsConnected(false);
     };
 
     wsRef.current = ws;
-  }, [tokens?.access_token, isAuthenticated, queryClient, addMessage, addTypingUser, removeTypingUser, updateMessage]);
+  }, [tokens?.access_token, queryClient, addTypingUser, removeTypingUser]);
 
+  // Handle reconnection
+  useEffect(() => {
+    if (!isConnected && isAuthenticated && tokens?.access_token && !reconnectTimeoutRef.current) {
+      reconnectTimeoutRef.current = setTimeout(() => {
+        reconnectTimeoutRef.current = null;
+        connect();
+      }, 3000);
+    }
+  }, [isConnected, isAuthenticated, tokens?.access_token, connect]);
+
+  // Initial connection
   useEffect(() => {
     if (isAuthenticated && tokens?.access_token) {
       connect();
     }
 
     return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
       if (wsRef.current) {
         wsRef.current.close();
       }
@@ -141,28 +176,34 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
   const sendTypingStart = useCallback((conversationId: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'typing:start',
-        conversation_id: conversationId,
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'typing:start',
+          conversation_id: conversationId,
+        })
+      );
     }
   }, []);
 
   const sendTypingStop = useCallback((conversationId: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'typing:stop',
-        conversation_id: conversationId,
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'typing:stop',
+          conversation_id: conversationId,
+        })
+      );
     }
   }, []);
 
   const sendReadReceipt = useCallback((messageId: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'read',
-        message_id: messageId,
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'read',
+          message_id: messageId,
+        })
+      );
     }
   }, []);
 

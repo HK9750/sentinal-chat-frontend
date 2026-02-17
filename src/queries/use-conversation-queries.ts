@@ -1,13 +1,14 @@
-import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { conversationService } from '@/services/conversation-service';
-import { useChatStore } from '@/stores/chat-store';
-import { CreateConversationRequest } from '@/types';
+import { CreateConversationRequest, Conversation, Participant } from '@/types';
 
 const CONVERSATIONS_PER_PAGE = 20;
 
+/**
+ * Fetch all conversations for the current user
+ * TanStack Query is the single source of truth - no Zustand sync needed
+ */
 export function useConversations() {
-  const setConversations = useChatStore((state) => state.setConversations);
-
   return useQuery({
     queryKey: ['conversations', 'list'],
     queryFn: async () => {
@@ -15,13 +16,15 @@ export function useConversations() {
       if (!response.success) {
         throw new Error(response.error);
       }
-      const conversations = response.data?.conversations || [];
-      setConversations(conversations);
-      return conversations;
+      return response.data?.conversations || [];
     },
+    staleTime: 30_000, // Consider data fresh for 30 seconds
   });
 }
 
+/**
+ * Fetch a single conversation by ID
+ */
 export function useConversation(conversationId: string) {
   return useQuery({
     queryKey: ['conversations', conversationId],
@@ -33,12 +36,15 @@ export function useConversation(conversationId: string) {
       return response.data;
     },
     enabled: !!conversationId,
+    staleTime: 30_000,
   });
 }
 
+/**
+ * Create a new conversation with optimistic update
+ */
 export function useCreateConversation() {
   const queryClient = useQueryClient();
-  const addConversation = useChatStore((state) => state.addConversation);
 
   return useMutation({
     mutationFn: async (data: CreateConversationRequest) => {
@@ -48,18 +54,22 @@ export function useCreateConversation() {
       }
       return response.data;
     },
-    onSuccess: (data) => {
-      if (data) {
-        addConversation(data);
-        queryClient.invalidateQueries({ queryKey: ['conversations', 'list'] });
+    onSuccess: (newConversation) => {
+      if (newConversation) {
+        // Optimistically add to the list cache
+        queryClient.setQueryData<Conversation[]>(
+          ['conversations', 'list'],
+          (old = []) => [newConversation, ...old]
+        );
       }
     },
   });
 }
 
+/**
+ * Fetch participants for a conversation
+ */
 export function useConversationParticipants(conversationId: string) {
-  const setParticipants = useChatStore((state) => state.setParticipants);
-
   return useQuery({
     queryKey: ['conversations', conversationId, 'participants'],
     queryFn: async () => {
@@ -67,19 +77,29 @@ export function useConversationParticipants(conversationId: string) {
       if (!response.success) {
         throw new Error(response.error);
       }
-      const participants = response.data?.participants || [];
-      setParticipants(conversationId, participants);
-      return participants;
+      return response.data?.participants || [];
     },
     enabled: !!conversationId,
+    staleTime: 60_000, // Participants change less frequently
   });
 }
 
+/**
+ * Add a participant to a conversation
+ */
 export function useAddParticipant() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ conversationId, userId, role }: { conversationId: string; userId: string; role?: string }) => {
+    mutationFn: async ({
+      conversationId,
+      userId,
+      role,
+    }: {
+      conversationId: string;
+      userId: string;
+      role?: string;
+    }) => {
       const response = await conversationService.addParticipant(conversationId, userId, role);
       if (!response.success) {
         throw new Error(response.error);
@@ -87,16 +107,27 @@ export function useAddParticipant() {
       return response.data;
     },
     onSuccess: (_, { conversationId }) => {
-      queryClient.invalidateQueries({ queryKey: ['conversations', conversationId, 'participants'] });
+      queryClient.invalidateQueries({
+        queryKey: ['conversations', conversationId, 'participants'],
+      });
     },
   });
 }
 
+/**
+ * Remove a participant from a conversation
+ */
 export function useRemoveParticipant() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ conversationId, userId }: { conversationId: string; userId: string }) => {
+    mutationFn: async ({
+      conversationId,
+      userId,
+    }: {
+      conversationId: string;
+      userId: string;
+    }) => {
       const response = await conversationService.removeParticipant(conversationId, userId);
       if (!response.success) {
         throw new Error(response.error);
@@ -104,16 +135,27 @@ export function useRemoveParticipant() {
       return response.data;
     },
     onSuccess: (_, { conversationId }) => {
-      queryClient.invalidateQueries({ queryKey: ['conversations', conversationId, 'participants'] });
+      queryClient.invalidateQueries({
+        queryKey: ['conversations', conversationId, 'participants'],
+      });
     },
   });
 }
 
+/**
+ * Mute a conversation
+ */
 export function useMuteConversation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ conversationId, until }: { conversationId: string; until: string }) => {
+    mutationFn: async ({
+      conversationId,
+      until,
+    }: {
+      conversationId: string;
+      until: string;
+    }) => {
       const response = await conversationService.mute(conversationId, until);
       if (!response.success) {
         throw new Error(response.error);
@@ -122,10 +164,14 @@ export function useMuteConversation() {
     },
     onSuccess: (_, { conversationId }) => {
       queryClient.invalidateQueries({ queryKey: ['conversations', conversationId] });
+      queryClient.invalidateQueries({ queryKey: ['conversations', 'list'] });
     },
   });
 }
 
+/**
+ * Unmute a conversation
+ */
 export function useUnmuteConversation() {
   const queryClient = useQueryClient();
 
@@ -139,10 +185,14 @@ export function useUnmuteConversation() {
     },
     onSuccess: (_, conversationId) => {
       queryClient.invalidateQueries({ queryKey: ['conversations', conversationId] });
+      queryClient.invalidateQueries({ queryKey: ['conversations', 'list'] });
     },
   });
 }
 
+/**
+ * Archive a conversation
+ */
 export function useArchiveConversation() {
   const queryClient = useQueryClient();
 
@@ -154,12 +204,19 @@ export function useArchiveConversation() {
       }
       return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['conversations', 'list'] });
+    onSuccess: (_, conversationId) => {
+      // Optimistically remove from list
+      queryClient.setQueryData<Conversation[]>(
+        ['conversations', 'list'],
+        (old = []) => old.filter((c) => c.id !== conversationId)
+      );
     },
   });
 }
 
+/**
+ * Unarchive a conversation
+ */
 export function useUnarchiveConversation() {
   const queryClient = useQueryClient();
 
