@@ -296,6 +296,13 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
   const searchParams = useSearchParams();
   const currentUser = useAuthStore((state) => state.user);
   const scrollRef = useRef<HTMLDivElement>(null);
+  
+  // Call state
+  const [callModalOpen, setCallModalOpen] = useState(false);
+  const [callType, setCallType] = useState<CallType>('AUDIO');
+  
+  // Get conversation info for call modal
+  const { data: conversation } = useConversation(conversationId);
 
   const handleBack = useCallback(() => {
     const params = new URLSearchParams(searchParams);
@@ -303,15 +310,34 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
     router.push(`?${params.toString()}`, { scroll: false });
   }, [router, searchParams]);
 
+  const handleStartCall = useCallback((type: CallType) => {
+    setCallType(type);
+    setCallModalOpen(true);
+  }, []);
+
   return (
     <>
-      <ChatHeader conversationId={conversationId} onBack={handleBack} />
+      <ChatHeader 
+        conversationId={conversationId} 
+        onBack={handleBack}
+        onStartCall={handleStartCall}
+      />
       <MessageList
         conversationId={conversationId}
         currentUserId={currentUser?.id}
         scrollRef={scrollRef}
       />
       <MessageInput conversationId={conversationId} />
+      
+      {/* Call Modal for outgoing calls */}
+      <CallModal
+        isOpen={callModalOpen}
+        onClose={() => setCallModalOpen(false)}
+        conversationId={conversationId}
+        callType={callType}
+        recipientName={conversation?.subject || 'Contact'}
+        recipientAvatarUrl={conversation?.avatar_url}
+      />
     </>
   );
 }

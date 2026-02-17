@@ -5,6 +5,8 @@ import { QueryProvider } from '@/providers/query-provider';
 import { SocketProvider } from '@/providers/socket-provider';
 import { ThemeProvider } from '@/providers/theme-provider';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { IncomingCallDialog } from '@/components/shared/incoming-call-dialog';
+import { ActiveCallOverlay } from '@/components/shared/active-call-overlay';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -37,6 +39,9 @@ export default function RootLayout({
             <SocketProvider>
               <TooltipProvider delayDuration={200}>
                 {children}
+                {/* Global call UI components */}
+                <IncomingCallDialog />
+                <ActiveCallOverlay />
               </TooltipProvider>
             </SocketProvider>
           </ThemeProvider>
