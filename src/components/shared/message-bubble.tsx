@@ -71,7 +71,7 @@ export function MessageBubble({
 
               {/* Message text */}
               <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                {message.content || message.ciphertext || '[Encrypted]'}
+                {message.content || (message.ciphertext ? '🔒 Encrypted message' : '[No content]')}
               </p>
 
               {/* Footer with time and status */}

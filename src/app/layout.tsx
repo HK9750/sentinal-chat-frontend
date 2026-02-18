@@ -4,6 +4,7 @@ import './globals.css';
 import { QueryProvider } from '@/providers/query-provider';
 import { SocketProvider } from '@/providers/socket-provider';
 import { ThemeProvider } from '@/providers/theme-provider';
+import { EncryptionProvider } from '@/providers/encryption-provider';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { IncomingCallDialog } from '@/components/shared/incoming-call-dialog';
 import { ActiveCallOverlay } from '@/components/shared/active-call-overlay';
@@ -37,12 +38,14 @@ export default function RootLayout({
         <QueryProvider>
           <ThemeProvider>
             <SocketProvider>
-              <TooltipProvider delayDuration={200}>
-                {children}
-                {/* Global call UI components */}
-                <IncomingCallDialog />
-                <ActiveCallOverlay />
-              </TooltipProvider>
+              <EncryptionProvider>
+                <TooltipProvider delayDuration={200}>
+                  {children}
+                  {/* Global call UI components */}
+                  <IncomingCallDialog />
+                  <ActiveCallOverlay />
+                </TooltipProvider>
+              </EncryptionProvider>
             </SocketProvider>
           </ThemeProvider>
         </QueryProvider>

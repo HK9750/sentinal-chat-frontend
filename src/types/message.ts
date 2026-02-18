@@ -1,12 +1,12 @@
 // API supports both uppercase and lowercase, we normalize to lowercase
-export type MessageType = 
-  | 'text' 
-  | 'image' 
-  | 'video' 
-  | 'audio' 
-  | 'file' 
-  | 'location' 
-  | 'contact' 
+export type MessageType =
+  | 'text'
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'file'
+  | 'location'
+  | 'contact'
   | 'poll';
 
 export interface Message {
@@ -31,6 +31,7 @@ export interface Message {
   ciphertext?: string;
   header?: string;
   recipient_device_id?: string;
+  sender_device_id?: string;
   sender?: {
     id: string;
     display_name: string;

@@ -1,12 +1,13 @@
 'use client';
 
-import { useRef, useCallback, useMemo, useState } from 'react';
+import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useConversation, useConversationParticipants } from '@/queries/use-conversation-queries';
 import { useMessages, useSendMessage } from '@/queries/use-message-queries';
 import { useSocket } from '@/providers/socket-provider';
 import { useChatStore } from '@/stores/chat-store';
-import { useEncryptionStatus, useEncryptMessageMutation } from '@/hooks/use-encryption';
+import { useEncryptionStatus, useEncryptMessageMutation, useDecryptMessageMutation } from '@/hooks/use-encryption';
+import { getDeviceId } from '@/lib/device';
 import { MessageBubble } from '@/components/shared/message-bubble';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { CallModal } from '@/components/shared/call-modal';
@@ -134,8 +135,7 @@ function ChatHeader({
           </h2>
           <p className="text-xs text-slate-500 truncate">
             {typingText ||
-              `${participants?.length || 0} participant${
-                participants?.length === 1 ? '' : 's'
+              `${participants?.length || 0} participant${participants?.length === 1 ? '' : 's'
               }`}
           </p>
         </div>
@@ -207,7 +207,92 @@ function MessageList({
   messageRefs: React.RefObject<Map<string, HTMLDivElement>>;
 }) {
   const { data: messages, isLoading } = useMessages(conversationId);
-  const groupedMessages = useGroupedMessages(messages, currentUserId);
+  const { isSetup: isEncryptionEnabled } = useEncryptionStatus();
+  const decryptMutation = useDecryptMessageMutation();
+
+  // Cache for decrypted message content (messageId -> plaintext)
+  const decryptedCache = useRef<Map<string, string>>(new Map());
+  const [decryptedMessages, setDecryptedMessages] = useState<Map<string, string>>(new Map());
+  const decryptingIds = useRef<Set<string>>(new Set());
+
+  // Decrypt messages that have ciphertext but no content
+  useEffect(() => {
+    if (!messages || !isEncryptionEnabled || !currentUserId) return;
+
+    const messagesToDecrypt = messages.filter(
+      (msg) =>
+        msg.ciphertext &&
+        !msg.content &&
+        msg.sender_id !== currentUserId && // Only decrypt others' messages
+        !decryptedCache.current.has(msg.id) &&
+        !decryptingIds.current.has(msg.id)
+    );
+
+    if (messagesToDecrypt.length === 0) return;
+
+    for (const msg of messagesToDecrypt) {
+      decryptingIds.current.add(msg.id);
+
+      // Extract sender_device_id from the message
+      const senderDeviceId = msg.sender_device_id ||
+        (msg.metadata as Record<string, string> | undefined)?.sender_device_id;
+
+      if (!senderDeviceId) {
+        console.warn(`[Decrypt] No sender_device_id for message ${msg.id}`);
+        decryptingIds.current.delete(msg.id);
+        continue;
+      }
+
+      // Parse header for ephemeral key if present
+      let ephemeralPublicKey: string | undefined;
+      if (msg.header) {
+        try {
+          const headerData = typeof msg.header === 'string' ? JSON.parse(msg.header) : msg.header;
+          ephemeralPublicKey = headerData.ephemeral_key;
+        } catch {
+          // Header is not valid JSON, skip
+        }
+      }
+
+      decryptMutation
+        .mutateAsync({
+          senderUserId: msg.sender_id,
+          senderDeviceId,
+          encryptedContent: msg.ciphertext!,
+          ephemeralPublicKey,
+        })
+        .then((plaintext) => {
+          decryptedCache.current.set(msg.id, plaintext);
+          setDecryptedMessages(new Map(decryptedCache.current));
+        })
+        .catch((error) => {
+          console.warn(`[Decrypt] Failed to decrypt message ${msg.id}:`, error);
+        })
+        .finally(() => {
+          decryptingIds.current.delete(msg.id);
+        });
+    }
+  }, [messages, isEncryptionEnabled, currentUserId, decryptMutation]);
+
+  // Merge decrypted content into messages for display
+  const displayMessages = useMemo(() => {
+    if (!messages) return undefined;
+    return messages.map((msg) => {
+      const decryptedContent = decryptedMessages.get(msg.id);
+      if (decryptedContent) {
+        return { ...msg, content: decryptedContent };
+      }
+      // For own messages, use the original content if available
+      if (msg.sender_id === currentUserId && msg.ciphertext && !msg.content) {
+        // Own encrypted messages need decryption too
+        const ownDecrypted = decryptedMessages.get(msg.id);
+        if (ownDecrypted) return { ...msg, content: ownDecrypted };
+      }
+      return msg;
+    });
+  }, [messages, decryptedMessages, currentUserId]);
+
+  const groupedMessages = useGroupedMessages(displayMessages, currentUserId);
 
   // Register message ref for navigation
   const setMessageRef = useCallback(
@@ -229,7 +314,7 @@ function MessageList({
     );
   }
 
-  if (!messages?.length) {
+  if (!displayMessages?.length) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <p className="text-slate-500">No messages yet. Start the conversation!</p>
@@ -281,34 +366,64 @@ function MessageInput({ conversationId }: { conversationId: string }) {
       try {
         // Filter out the current user from recipients
         const recipients = participants?.filter((p) => p.user_id !== currentUser?.id) || [];
-        
+        // Our own device ID for self-encryption
+        const ownDeviceId = getDeviceId();
+
         if (isEncryptionEnabled && recipients.length > 0) {
-          // Encrypt message for each recipient
-          // For now, we assume each user has one device (could be enhanced for multi-device)
-          const ciphertexts = await Promise.all(
-            recipients.map(async (p) => {
-              try {
-                // Use participant's user_id as device_id (simplified - in production, fetch actual device IDs)
-                const result = await encryptMessageMutation.mutateAsync({
-                  recipientUserId: p.user_id,
-                  recipientDeviceId: p.user_id, // Simplified: using user_id as device_id
-                  plaintext: content,
-                });
-                return {
-                  recipient_device_id: p.user_id,
-                  ciphertext: result.encryptedContent,
-                  header: result.ephemeralPublicKey ? { ephemeral_key: result.ephemeralPublicKey } : undefined,
-                };
-              } catch {
-                // Fallback to unencrypted if encryption fails for this recipient
-                console.warn(`Encryption failed for recipient ${p.user_id}, sending unencrypted`);
-                return {
-                  recipient_device_id: p.user_id,
-                  ciphertext: content, // Fallback: plain content
-                };
-              }
-            })
-          );
+          // Encrypt message for each recipient device
+          const ciphertexts = [];
+
+          for (const p of recipients) {
+            try {
+              // Encrypt for recipient's device
+              // Use user_id as device_id since each user has one device in current implementation
+              const result = await encryptMessageMutation.mutateAsync({
+                recipientUserId: p.user_id,
+                recipientDeviceId: p.user_id,
+                plaintext: content,
+              });
+
+              // Base64-encode the encrypted content before sending to backend
+              const ciphertextBase64 = btoa(result.encryptedContent);
+
+              ciphertexts.push({
+                recipient_device_id: p.user_id,
+                ciphertext: ciphertextBase64,
+                header: result.ephemeralPublicKey
+                  ? { ephemeral_key: result.ephemeralPublicKey }
+                  : undefined,
+              });
+            } catch (encError) {
+              // Fallback to base64-encoded plaintext if encryption fails
+              console.warn(`[Encryption] Failed for recipient ${p.user_id}:`, encError);
+              ciphertexts.push({
+                recipient_device_id: p.user_id,
+                ciphertext: btoa(content),
+              });
+            }
+          }
+
+          // Also encrypt for our own device so we can read our sent messages
+          try {
+            const selfResult = await encryptMessageMutation.mutateAsync({
+              recipientUserId: currentUser?.id || '',
+              recipientDeviceId: ownDeviceId,
+              plaintext: content,
+            });
+            ciphertexts.push({
+              recipient_device_id: ownDeviceId,
+              ciphertext: btoa(selfResult.encryptedContent),
+              header: selfResult.ephemeralPublicKey
+                ? { ephemeral_key: selfResult.ephemeralPublicKey }
+                : undefined,
+            });
+          } catch {
+            // Self-encryption failure is not critical
+            ciphertexts.push({
+              recipient_device_id: ownDeviceId,
+              ciphertext: btoa(content),
+            });
+          }
 
           await sendMessageMutation.mutateAsync({
             conversation_id: conversationId,
@@ -316,14 +431,18 @@ function MessageInput({ conversationId }: { conversationId: string }) {
             message_type: 'TEXT',
           });
         } else {
-          // No encryption - send plaintext
+          // No encryption - send base64-encoded plaintext
+          const allParticipantDevices = [
+            ...(recipients.map((p) => p.user_id) || []),
+            ownDeviceId,
+          ];
+
           await sendMessageMutation.mutateAsync({
             conversation_id: conversationId,
-            ciphertexts:
-              participants?.map((p) => ({
-                recipient_device_id: p.user_id,
-                ciphertext: content,
-              })) || [],
+            ciphertexts: allParticipantDevices.map((deviceId) => ({
+              recipient_device_id: deviceId,
+              ciphertext: btoa(content),
+            })),
             message_type: 'TEXT',
           });
         }
@@ -411,14 +530,14 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
   const currentUser = useAuthStore((state) => state.user);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  
+
   // Call state
   const [callModalOpen, setCallModalOpen] = useState(false);
   const [callType, setCallType] = useState<CallType>('AUDIO');
-  
+
   // Search state
   const [searchOpen, setSearchOpen] = useState(false);
-  
+
   // Get conversation info for call modal
   const { data: conversation } = useConversation(conversationId);
 
@@ -451,8 +570,8 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
 
   return (
     <div className="relative flex flex-col h-full">
-      <ChatHeader 
-        conversationId={conversationId} 
+      <ChatHeader
+        conversationId={conversationId}
         onBack={handleBack}
         onStartCall={handleStartCall}
         onOpenSearch={handleOpenSearch}
@@ -464,7 +583,7 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
         messageRefs={messageRefs}
       />
       <MessageInput conversationId={conversationId} />
-      
+
       {/* Message Search Panel */}
       <MessageSearchPanel
         conversationId={conversationId}
@@ -472,7 +591,7 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
         onClose={() => setSearchOpen(false)}
         onNavigateToMessage={handleNavigateToMessage}
       />
-      
+
       {/* Call Modal for outgoing calls */}
       <CallModal
         isOpen={callModalOpen}

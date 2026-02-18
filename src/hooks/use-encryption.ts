@@ -41,11 +41,11 @@ import {
   storeSession,
   getSession,
   hasSession,
-  getOrCreateDeviceId,
   clearAllCryptoData,
 } from '@/lib/crypto-storage';
 import { encryptionService } from '@/services/encryption-service';
 import { useAuthStore } from '@/stores/auth-store';
+import { getDeviceId } from '@/lib/device';
 import type { KeyBundle } from '@/types';
 
 // ============================================================================
@@ -56,24 +56,16 @@ const MIN_PREKEY_COUNT = 10;
 const PREKEY_BATCH_SIZE = 20;
 
 // ============================================================================
-// Device ID Hook
+// Device ID Helper
 // ============================================================================
 
 /**
- * Get or create the device ID for this browser/device
+ * Get the stable device fingerprint ID.
+ * This is the same ID sent to the backend during login/register
+ * and stored in the devices table.
  */
-export function useDeviceId() {
-  const [deviceId, setDeviceId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    getOrCreateDeviceId()
-      .then(setDeviceId)
-      .catch(console.error)
-      .finally(() => setIsLoading(false));
-  }, []);
-
-  return { deviceId, isLoading };
+function getStableDeviceId(): string {
+  return getDeviceId();
 }
 
 // ============================================================================
@@ -95,8 +87,8 @@ export function useGenerateKeys() {
 
       await initCrypto();
 
-      // Get or create device ID
-      const deviceId = await getOrCreateDeviceId();
+      // Use the stable device fingerprint (same as login/register)
+      const deviceId = getStableDeviceId();
 
       // Generate identity key pair
       const identityKeyPair = await generateIdentityKeyPair();
@@ -168,7 +160,7 @@ export function useEstablishSession() {
 
       await initCrypto();
 
-      const deviceId = await getOrCreateDeviceId();
+      const deviceId = getStableDeviceId();
 
       // Check if we already have a session
       const existingSession = await getSession(recipientUserId, recipientDeviceId);
@@ -323,7 +315,7 @@ export function useDecryptMessageMutation() {
 
       await initCrypto();
 
-      const deviceId = await getOrCreateDeviceId();
+      const deviceId = getStableDeviceId();
       let session = await getSession(senderUserId, senderDeviceId);
 
       // If no session and we have ephemeral key, this is the first message
@@ -413,7 +405,7 @@ export function useReplenishPreKeys() {
 
       await initCrypto();
 
-      const deviceId = await getOrCreateDeviceId();
+      const deviceId = getStableDeviceId();
 
       // Check server-side count
       const countResponse = await encryptionService.getPreKeyCount(user.id, deviceId);
@@ -489,7 +481,7 @@ export function useEncryptionStatus() {
 
       try {
         await initCrypto();
-        const deviceId = await getOrCreateDeviceId();
+        const deviceId = getStableDeviceId();
         const identityKey = await getIdentityKey(deviceId);
         const signedPreKey = await getActiveSignedPreKey(deviceId);
 
