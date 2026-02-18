@@ -2,13 +2,14 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User, AuthTokens } from '@/types';
 import { setAuthCookie, clearAuthCookie } from '@/lib/cookies';
+import { clearServerDeviceId } from '@/lib/device';
 
 interface AuthState {
   user: User | null;
   tokens: AuthTokens | null;
   isAuthenticated: boolean;
   isHydrated: boolean;
-  
+
   // Actions
   login: (user: User, tokens: AuthTokens) => void;
   logout: () => void;
@@ -36,6 +37,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         clearAuthCookie();
+        clearServerDeviceId();
         set({
           user: null,
           tokens: null,
@@ -44,7 +46,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setUser: (user) => set({ user }),
-      
+
       setHydrated: (hydrated) => set({ isHydrated: hydrated }),
 
       updateUser: (updates) => set((state) => ({

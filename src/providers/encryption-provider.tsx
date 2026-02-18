@@ -28,21 +28,31 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
 
     // Background key generation with exponential backoff
     const attemptSetup = useCallback(async () => {
+        console.log('[Encryption] attemptSetup called', {
+            retryCount: retryCount.current,
+            maxRetries: MAX_RETRIES,
+        });
+
         if (retryCount.current >= MAX_RETRIES) {
-            console.error('[Encryption] Max retries reached. Encryption setup failed.');
+            console.error('[Encryption] Max retries reached. Encryption setup failed permanently.');
             return;
         }
 
         try {
-            await generateKeys.mutateAsync();
-            console.log('[Encryption] Setup complete');
+            console.log('[Encryption] Calling generateKeys.mutateAsync()...');
+            const result = await generateKeys.mutateAsync();
+            console.log('[Encryption] Setup complete', result);
             retryCount.current = 0;
         } catch (error) {
             retryCount.current += 1;
             const delay = BASE_DELAY_MS * Math.pow(2, retryCount.current - 1);
-            console.warn(
-                `[Encryption] Setup failed (attempt ${retryCount.current}/${MAX_RETRIES}), retrying in ${delay}ms`,
-                error
+            console.error(
+                `[Encryption] Setup FAILED (attempt ${retryCount.current}/${MAX_RETRIES}), retrying in ${delay}ms`,
+                {
+                    errorMessage: error instanceof Error ? error.message : String(error),
+                    errorStack: error instanceof Error ? error.stack : undefined,
+                    error,
+                }
             );
             setTimeout(attemptSetup, delay);
         }
@@ -50,25 +60,59 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
 
     // Auto-setup on mount when user is authenticated and encryption is not set up
     useEffect(() => {
-        if (!isAuthenticated || !user || statusLoading) return;
-        if (isSetup || setupAttempted.current) return;
+        console.log('[Encryption] Provider effect evaluated', {
+            isAuthenticated,
+            hasUser: !!user,
+            userId: user?.id,
+            statusLoading,
+            isSetup,
+            setupAttempted: setupAttempted.current,
+        });
 
+        if (!isAuthenticated || !user || statusLoading) {
+            console.log('[Encryption] Skipping setup — not ready', {
+                reason: !isAuthenticated ? 'not authenticated' : !user ? 'no user' : 'status loading',
+            });
+            return;
+        }
+        if (isSetup || setupAttempted.current) {
+            console.log('[Encryption] Skipping setup — already done', {
+                isSetup,
+                setupAttempted: setupAttempted.current,
+            });
+            return;
+        }
+
+        console.log('[Encryption] Triggering background key setup for user:', user.id);
         setupAttempted.current = true;
         attemptSetup();
     }, [isAuthenticated, user, isSetup, statusLoading, attemptSetup]);
 
     // Periodic pre-key replenishment
     useEffect(() => {
-        if (!isAuthenticated || !user || !isSetup) return;
+        if (!isAuthenticated || !user || !isSetup) {
+            console.log('[Encryption] Pre-key replenishment skipped — not ready', {
+                isAuthenticated,
+                hasUser: !!user,
+                isSetup,
+            });
+            return;
+        }
 
         const replenish = async () => {
             try {
+                console.log('[Encryption] Checking pre-key count...');
                 const result = await replenishPreKeys.mutateAsync();
                 if (result.replenished) {
                     console.log(`[Encryption] Replenished ${result.count} one-time pre-keys`);
+                } else {
+                    console.log('[Encryption] Pre-key count sufficient, no replenishment needed');
                 }
             } catch (error) {
-                console.warn('[Encryption] Pre-key replenishment failed:', error);
+                console.error('[Encryption] Pre-key replenishment failed:', {
+                    errorMessage: error instanceof Error ? error.message : String(error),
+                    error,
+                });
             }
         };
 

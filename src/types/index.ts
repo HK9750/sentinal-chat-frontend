@@ -40,6 +40,7 @@ export interface AuthTokens {
   refresh_token: string;
   expires_at: string;
   session_id: string;
+  device_id?: string;
 }
 
 // WebSocket types

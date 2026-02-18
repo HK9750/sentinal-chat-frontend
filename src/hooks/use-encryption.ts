@@ -45,7 +45,7 @@ import {
 } from '@/lib/crypto-storage';
 import { encryptionService } from '@/services/encryption-service';
 import { useAuthStore } from '@/stores/auth-store';
-import { getDeviceId } from '@/lib/device';
+import { getServerDeviceId } from '@/lib/device';
 import type { KeyBundle } from '@/types';
 
 // ============================================================================
@@ -60,12 +60,16 @@ const PREKEY_BATCH_SIZE = 20;
 // ============================================================================
 
 /**
- * Get the stable device fingerprint ID.
- * This is the same ID sent to the backend during login/register
- * and stored in the devices table.
+ * Get the server-assigned device UUID (devices.ID primary key).
+ * This is set after login/register and used for all encryption API calls.
+ * Throws if not yet available (user hasn't logged in on this device).
  */
 function getStableDeviceId(): string {
-  return getDeviceId();
+  const id = getServerDeviceId();
+  if (!id) {
+    throw new Error('Server device ID not available. User must login first.');
+  }
+  return id;
 }
 
 // ============================================================================
@@ -85,41 +89,63 @@ export function useGenerateKeys() {
         throw new Error('User not authenticated');
       }
 
+      console.log('[GenerateKeys] Starting key generation for user:', user.id);
+
+      console.log('[GenerateKeys] Step 1/7: Initializing crypto library...');
       await initCrypto();
+      console.log('[GenerateKeys] Step 1/7: Crypto library initialized');
 
       // Use the stable device fingerprint (same as login/register)
       const deviceId = getStableDeviceId();
+      console.log('[GenerateKeys] Step 2/7: Device ID resolved:', deviceId);
 
       // Generate identity key pair
+      console.log('[GenerateKeys] Step 3/7: Generating identity key pair...');
       const identityKeyPair = await generateIdentityKeyPair();
       await storeIdentityKey(deviceId, identityKeyPair);
+      console.log('[GenerateKeys] Step 3/7: Identity key pair generated & stored locally');
 
       // Upload identity key to server
-      await encryptionService.uploadIdentityKey({
+      console.log('[GenerateKeys] Step 4/7: Uploading identity key to server...');
+      const identityUploadResult = await encryptionService.uploadIdentityKey({
         user_id: user.id,
         device_id: deviceId,
         public_key: keyToBase64(identityKeyPair.signing.publicKey),
       });
+      console.log('[GenerateKeys] Step 4/7: Identity key uploaded', { success: identityUploadResult.success, error: identityUploadResult.error });
+      if (!identityUploadResult.success) {
+        throw new Error(`Identity key upload failed: ${identityUploadResult.error || 'unknown error'}`);
+      }
 
       // Generate signed pre-key
+      console.log('[GenerateKeys] Step 5/7: Generating signed pre-key...');
       const signedPreKey = await generateSignedPreKey(identityKeyPair, 1);
       await storeSignedPreKey(deviceId, signedPreKey);
+      console.log('[GenerateKeys] Step 5/7: Signed pre-key generated & stored locally');
 
       // Upload signed pre-key to server
-      await encryptionService.uploadSignedPreKey({
+      console.log('[GenerateKeys] Step 6/7: Uploading signed pre-key to server...');
+      const signedUploadResult = await encryptionService.uploadSignedPreKey({
         user_id: user.id,
         device_id: deviceId,
         key_id: signedPreKey.keyId,
         public_key: keyToBase64(signedPreKey.publicKey),
         signature: keyToBase64(signedPreKey.signature),
       });
+      console.log('[GenerateKeys] Step 6/7: Signed pre-key uploaded', { success: signedUploadResult.success, error: signedUploadResult.error });
+      if (!signedUploadResult.success) {
+        throw new Error(`Signed pre-key upload failed: ${signedUploadResult.error || 'unknown error'}`);
+      }
 
       // Generate one-time pre-keys
+      console.log('[GenerateKeys] Step 7/7: Generating one-time pre-keys...');
       const oneTimePreKeys = await generateOneTimePreKeys(1, PREKEY_BATCH_SIZE);
       await storeOneTimePreKeys(deviceId, oneTimePreKeys);
+      console.log(`[GenerateKeys] Step 7/7: ${oneTimePreKeys.length} one-time pre-keys generated & stored locally`);
 
       // Upload one-time pre-keys to server
-      await encryptionService.uploadOneTimePreKeys({
+      console.log('[GenerateKeys] Uploading one-time pre-keys to server...');
+      const otpUploadResult = await encryptionService.uploadOneTimePreKeys({
         keys: oneTimePreKeys.map((k) => ({
           user_id: user.id,
           device_id: deviceId,
@@ -127,7 +153,12 @@ export function useGenerateKeys() {
           public_key: keyToBase64(k.keyPair.publicKey),
         })),
       });
+      console.log('[GenerateKeys] One-time pre-keys uploaded', { success: otpUploadResult.success, error: otpUploadResult.error });
+      if (!otpUploadResult.success) {
+        throw new Error(`One-time pre-key upload failed: ${otpUploadResult.error || 'unknown error'}`);
+      }
 
+      console.log('[GenerateKeys] All keys generated and uploaded successfully!');
       return { deviceId, success: true };
     },
     onSuccess: () => {

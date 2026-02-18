@@ -1,85 +1,104 @@
-// Device fingerprinting for stable device identification
-// Uses multiple browser characteristics to create a stable fingerprint
+/**
+ * Device identification module.
+ *
+ * Uses a stable UUID stored in localStorage as the client-side device identifier.
+ * The server assigns its own UUID (devices.ID PK) which is returned after login/register
+ * and stored separately for use in encryption API calls.
+ */
 
-interface DeviceFingerprint {
-  id: string;
-  name: string;
-  type: 'web';
-}
+const CLIENT_DEVICE_ID_KEY = 'sentinel_device_id';
+const SERVER_DEVICE_UUID_KEY = 'sentinel_device_uuid';
 
-function generateFingerprint(): string {
+/**
+ * Get or create a stable client-side device ID (UUID v4).
+ * Persists across sessions in localStorage.
+ * Does NOT clear on logout — same browser = same device.
+ */
+export function getOrCreateClientDeviceId(): string {
   if (typeof window === 'undefined') return '';
-  
-  const components = [
-    navigator.userAgent,
-    navigator.language,
-    screen.colorDepth,
-    screen.width + 'x' + screen.height,
-    new Date().getTimezoneOffset(),
-    !!window.sessionStorage,
-    !!window.localStorage,
-    navigator.hardwareConcurrency || '',
-    (navigator as Navigator & { deviceMemory?: number }).deviceMemory || '',
-  ];
-  
-  // Simple hash function
-  const str = components.join('|');
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
+
+  let deviceId = localStorage.getItem(CLIENT_DEVICE_ID_KEY);
+  if (!deviceId) {
+    deviceId = crypto.randomUUID();
+    localStorage.setItem(CLIENT_DEVICE_ID_KEY, deviceId);
   }
-  return Math.abs(hash).toString(16).substring(0, 16);
+  return deviceId;
 }
 
-export function getDeviceFingerprint(): DeviceFingerprint {
-  if (typeof window === 'undefined') {
-    return { id: '', name: 'Unknown Device', type: 'web' };
-  }
-  
-  // Check for stored fingerprint
-  const stored = localStorage.getItem('device_fingerprint');
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      // Invalid stored data, generate new
-    }
-  }
-  
-  // Generate new fingerprint
-  const fingerprint: DeviceFingerprint = {
-    id: generateFingerprint(),
-    name: getDeviceName(),
-    type: 'web',
-  };
-  
-  // Store persistently
-  localStorage.setItem('device_fingerprint', JSON.stringify(fingerprint));
-  
-  return fingerprint;
-}
-
-function getDeviceName(): string {
+/**
+ * Get a human-readable device name from the user agent.
+ * Used for display in the "Active Sessions" UI.
+ */
+export function getDeviceName(): string {
   if (typeof window === 'undefined') return 'Web Browser';
-  
-  const userAgent = navigator.userAgent;
-  
-  // Detect browser
-  if (userAgent.includes('Chrome') && !userAgent.includes('Edg')) {
-    return 'Chrome';
-  } else if (userAgent.includes('Firefox')) {
-    return 'Firefox';
-  } else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
-    return 'Safari';
-  } else if (userAgent.includes('Edg')) {
-    return 'Edge';
+
+  const ua = navigator.userAgent;
+  let browser = 'Web Browser';
+
+  if (ua.includes('Edg')) {
+    browser = 'Edge';
+  } else if (ua.includes('Chrome') && !ua.includes('Edg')) {
+    browser = 'Chrome';
+  } else if (ua.includes('Firefox')) {
+    browser = 'Firefox';
+  } else if (ua.includes('Safari') && !ua.includes('Chrome')) {
+    browser = 'Safari';
   }
-  
-  return 'Web Browser';
+
+  let os = '';
+  if (ua.includes('Linux')) os = 'Linux';
+  else if (ua.includes('Mac')) os = 'macOS';
+  else if (ua.includes('Windows')) os = 'Windows';
+  else if (ua.includes('Android')) os = 'Android';
+  else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+
+  return os ? `${browser} on ${os}` : browser;
 }
 
-export function getDeviceId(): string {
-  return getDeviceFingerprint().id;
+/** Always 'web' for browser clients. */
+export function getDeviceType(): string {
+  return 'web';
+}
+
+/**
+ * Get all device info needed for login/register requests.
+ */
+export function getDeviceInfo(): { id: string; name: string; type: string } {
+  return {
+    id: getOrCreateClientDeviceId(),
+    name: getDeviceName(),
+    type: getDeviceType(),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Server-assigned device UUID (devices.ID primary key)
+// Set after successful login/register, used by encryption API calls.
+// ---------------------------------------------------------------------------
+
+/**
+ * Store the server-assigned device UUID (devices.ID PK).
+ * Called after successful login/register with `response.device_id`.
+ */
+export function setServerDeviceId(uuid: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(SERVER_DEVICE_UUID_KEY, uuid);
+}
+
+/**
+ * Retrieve the server-assigned device UUID.
+ * Returns null if user hasn't logged in yet on this device.
+ */
+export function getServerDeviceId(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(SERVER_DEVICE_UUID_KEY);
+}
+
+/**
+ * Clear the server-assigned device UUID (on logout).
+ * Keeps `sentinel_device_id` since the physical device hasn't changed.
+ */
+export function clearServerDeviceId(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(SERVER_DEVICE_UUID_KEY);
 }

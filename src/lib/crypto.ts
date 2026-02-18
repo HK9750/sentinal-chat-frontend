@@ -11,7 +11,7 @@
  * - HKDF for key derivation
  */
 
-import sodium from 'libsodium-wrappers';
+import sodium from 'libsodium-wrappers-sumo';
 
 // Ensure sodium is ready before use
 let sodiumReady = false;
@@ -95,14 +95,50 @@ export interface EncryptedMessage {
  */
 export async function generateIdentityKeyPair(): Promise<IdentityKeyPair> {
   await initCrypto();
-  
+
+  console.log('[Crypto] generateIdentityKeyPair: sodium ready, starting key generation');
+  console.log('[Crypto] sodium available functions check:', {
+    hasCryptoSignKeypair: typeof sodium.crypto_sign_keypair === 'function',
+    hasCryptoSignEd25519SkToSeed: typeof sodium.crypto_sign_ed25519_sk_to_seed === 'function',
+    hasCryptoBoxSeedKeypair: typeof sodium.crypto_box_seed_keypair === 'function',
+  });
+
   // Generate Ed25519 signing key pair
-  const signing = sodium.crypto_sign_keypair();
-  
+  let signing: { publicKey: Uint8Array; privateKey: Uint8Array; keyType: string };
+  try {
+    signing = sodium.crypto_sign_keypair();
+    console.log('[Crypto] Ed25519 signing keypair generated', {
+      publicKeyLength: signing.publicKey.length,
+      privateKeyLength: signing.privateKey.length,
+    });
+  } catch (err) {
+    console.error('[Crypto] FAILED at crypto_sign_keypair():', err);
+    throw err;
+  }
+
   // Derive X25519 key pair from Ed25519 seed
-  const seed = sodium.crypto_sign_ed25519_sk_to_seed(signing.privateKey);
-  const exchange = sodium.crypto_box_seed_keypair(seed);
-  
+  let seed: Uint8Array;
+  try {
+    seed = sodium.crypto_sign_ed25519_sk_to_seed(signing.privateKey);
+    console.log('[Crypto] Seed extracted from Ed25519 SK, length:', seed.length);
+  } catch (err) {
+    console.error('[Crypto] FAILED at crypto_sign_ed25519_sk_to_seed():', err);
+    throw err;
+  }
+
+  let exchange: { publicKey: Uint8Array; privateKey: Uint8Array; keyType: string };
+  try {
+    exchange = sodium.crypto_box_seed_keypair(seed);
+    console.log('[Crypto] X25519 exchange keypair derived', {
+      publicKeyLength: exchange.publicKey.length,
+      privateKeyLength: exchange.privateKey.length,
+    });
+  } catch (err) {
+    console.error('[Crypto] FAILED at crypto_box_seed_keypair():', err);
+    throw err;
+  }
+
+  console.log('[Crypto] generateIdentityKeyPair: SUCCESS');
   return {
     signing: {
       publicKey: signing.publicKey,
@@ -123,16 +159,16 @@ export async function generateSignedPreKey(
   keyId: number
 ): Promise<SignedKeyPair> {
   await initCrypto();
-  
+
   // Generate X25519 key pair
   const keyPair = sodium.crypto_box_keypair();
-  
+
   // Sign the public key with identity signing key
   const signature = sodium.crypto_sign_detached(
     keyPair.publicKey,
     identityKeyPair.signing.privateKey
   );
-  
+
   return {
     publicKey: keyPair.publicKey,
     privateKey: keyPair.privateKey,
@@ -149,9 +185,9 @@ export async function generateOneTimePreKeys(
   count: number
 ): Promise<Array<{ keyId: number; keyPair: KeyPair }>> {
   await initCrypto();
-  
+
   const keys: Array<{ keyId: number; keyPair: KeyPair }> = [];
-  
+
   for (let i = 0; i < count; i++) {
     const keyPair = sodium.crypto_box_keypair();
     keys.push({
@@ -162,7 +198,7 @@ export async function generateOneTimePreKeys(
       },
     });
   }
-  
+
   return keys;
 }
 
@@ -175,7 +211,7 @@ export async function verifySignedPreKey(
   identityPublicKey: Uint8Array
 ): Promise<boolean> {
   await initCrypto();
-  
+
   try {
     return sodium.crypto_sign_verify_detached(
       signature,
@@ -205,41 +241,41 @@ export async function x3dhInitiator(
   theirBundle: PreKeyBundle
 ): Promise<{ sharedSecret: Uint8Array; associatedData: Uint8Array }> {
   await initCrypto();
-  
+
   // Verify signed pre-key
   const isValid = await verifySignedPreKey(
     theirBundle.signedPreKey,
     theirBundle.signedPreKeySignature,
     theirBundle.identityKey
   );
-  
+
   if (!isValid) {
     throw new Error('Invalid signed pre-key signature');
   }
-  
+
   // Convert their Ed25519 identity key to X25519 for DH
   const theirIdentityX25519 = sodium.crypto_sign_ed25519_pk_to_curve25519(
     theirBundle.identityKey
   );
-  
+
   // DH1: Our identity key with their signed pre-key
   const dh1 = sodium.crypto_scalarmult(
     ourIdentity.exchange.privateKey,
     theirBundle.signedPreKey
   );
-  
+
   // DH2: Our ephemeral key with their identity key
   const dh2 = sodium.crypto_scalarmult(
     ourEphemeral.privateKey,
     theirIdentityX25519
   );
-  
+
   // DH3: Our ephemeral key with their signed pre-key
   const dh3 = sodium.crypto_scalarmult(
     ourEphemeral.privateKey,
     theirBundle.signedPreKey
   );
-  
+
   // DH4: Our ephemeral key with their one-time pre-key (if available)
   let dh4: Uint8Array | null = null;
   if (theirBundle.oneTimePreKey) {
@@ -248,21 +284,21 @@ export async function x3dhInitiator(
       theirBundle.oneTimePreKey
     );
   }
-  
+
   // Concatenate all DH outputs
   const dhConcat = dh4
     ? new Uint8Array([...dh1, ...dh2, ...dh3, ...dh4])
     : new Uint8Array([...dh1, ...dh2, ...dh3]);
-  
+
   // Derive shared secret using HKDF
   const sharedSecret = hkdfDerive(dhConcat, 32, 'X3DH');
-  
+
   // Associated data: our identity key || their identity key
   const associatedData = new Uint8Array([
     ...ourIdentity.signing.publicKey,
     ...theirBundle.identityKey,
   ]);
-  
+
   return { sharedSecret, associatedData };
 }
 
@@ -284,30 +320,30 @@ export async function x3dhResponder(
   theirEphemeralKey: Uint8Array
 ): Promise<{ sharedSecret: Uint8Array; associatedData: Uint8Array }> {
   await initCrypto();
-  
+
   // Convert their Ed25519 identity key to X25519 for DH
   const theirIdentityX25519 = sodium.crypto_sign_ed25519_pk_to_curve25519(
     theirIdentityKey
   );
-  
+
   // DH1: Our signed pre-key with their identity key
   const dh1 = sodium.crypto_scalarmult(
     ourSignedPreKey.privateKey,
     theirIdentityX25519
   );
-  
+
   // DH2: Our identity key with their ephemeral key
   const dh2 = sodium.crypto_scalarmult(
     ourIdentity.exchange.privateKey,
     theirEphemeralKey
   );
-  
+
   // DH3: Our signed pre-key with their ephemeral key
   const dh3 = sodium.crypto_scalarmult(
     ourSignedPreKey.privateKey,
     theirEphemeralKey
   );
-  
+
   // DH4: Our one-time pre-key with their ephemeral key (if used)
   let dh4: Uint8Array | null = null;
   if (ourOneTimePreKey) {
@@ -316,21 +352,21 @@ export async function x3dhResponder(
       theirEphemeralKey
     );
   }
-  
+
   // Concatenate all DH outputs (same order as initiator)
   const dhConcat = dh4
     ? new Uint8Array([...dh1, ...dh2, ...dh3, ...dh4])
     : new Uint8Array([...dh1, ...dh2, ...dh3]);
-  
+
   // Derive shared secret using HKDF
   const sharedSecret = hkdfDerive(dhConcat, 32, 'X3DH');
-  
+
   // Associated data: their identity key || our identity key
   const associatedData = new Uint8Array([
     ...theirIdentityKey,
     ...ourIdentity.signing.publicKey,
   ]);
-  
+
   return { sharedSecret, associatedData };
 }
 
@@ -347,19 +383,19 @@ export async function initializeSessionAsInitiator(
   theirRatchetKey: Uint8Array
 ): Promise<SessionState> {
   await initCrypto();
-  
+
   // Generate our first ratchet key pair
   const ourRatchetKey = sodium.crypto_box_keypair();
-  
+
   // Perform DH ratchet step
   const dhOutput = sodium.crypto_scalarmult(
     ourRatchetKey.privateKey,
     theirRatchetKey
   );
-  
+
   // Derive root key and sending chain key
   const { rootKey, chainKey } = kdfRatchet(sharedSecret, dhOutput);
-  
+
   return {
     rootKey,
     sendingChainKey: chainKey,
@@ -385,7 +421,7 @@ export async function initializeSessionAsResponder(
   ourRatchetKeyPair: KeyPair
 ): Promise<SessionState> {
   await initCrypto();
-  
+
   return {
     rootKey: sharedSecret,
     sendingChainKey: new Uint8Array(32), // Will be set on first ratchet
@@ -407,13 +443,13 @@ export async function encryptMessage(
   plaintext: string
 ): Promise<{ encrypted: EncryptedMessage; updatedSession: SessionState }> {
   await initCrypto();
-  
+
   // Derive message key from sending chain
   const { messageKey, nextChainKey } = kdfChain(session.sendingChainKey);
-  
+
   // Generate nonce
   const nonce = sodium.randombytes_buf(sodium.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
-  
+
   // Encrypt using XChaCha20-Poly1305
   const plaintextBytes = sodium.from_string(plaintext);
   const ciphertext = sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(
@@ -423,7 +459,7 @@ export async function encryptMessage(
     nonce,
     messageKey
   );
-  
+
   const encrypted: EncryptedMessage = {
     ciphertext,
     ratchetKey: session.ourRatchetKey.publicKey,
@@ -431,13 +467,13 @@ export async function encryptMessage(
     previousChainLength: session.receivingChainLength,
     nonce,
   };
-  
+
   const updatedSession: SessionState = {
     ...session,
     sendingChainKey: nextChainKey,
     sendingChainLength: session.sendingChainLength + 1,
   };
-  
+
   return { encrypted, updatedSession };
 }
 
@@ -449,13 +485,13 @@ export async function decryptMessage(
   encrypted: EncryptedMessage
 ): Promise<{ plaintext: string; updatedSession: SessionState }> {
   await initCrypto();
-  
+
   let currentSession = session;
-  
+
   // Check if we need to perform a DH ratchet step
   const theirKeyChanged = !session.theirRatchetKey ||
     !sodium.memcmp(encrypted.ratchetKey, session.theirRatchetKey);
-  
+
   if (theirKeyChanged) {
     // Store previous receiving chain
     if (session.receivingChainKey && session.theirRatchetKey) {
@@ -465,33 +501,33 @@ export async function decryptMessage(
         length: session.receivingChainLength,
       });
     }
-    
+
     // DH ratchet step
     const dhOutput = sodium.crypto_scalarmult(
       session.ourRatchetKey.privateKey,
       encrypted.ratchetKey
     );
-    
+
     // Derive new receiving chain key
     const { rootKey: newRootKey, chainKey: receivingChainKey } = kdfRatchet(
       session.rootKey,
       dhOutput
     );
-    
+
     // Generate new ratchet key pair
     const newRatchetKey = sodium.crypto_box_keypair();
-    
+
     // DH for new sending chain
     const dhOutput2 = sodium.crypto_scalarmult(
       newRatchetKey.privateKey,
       encrypted.ratchetKey
     );
-    
+
     const { rootKey: finalRootKey, chainKey: sendingChainKey } = kdfRatchet(
       newRootKey,
       dhOutput2
     );
-    
+
     currentSession = {
       ...session,
       rootKey: finalRootKey,
@@ -507,17 +543,17 @@ export async function decryptMessage(
       previousChains: session.previousChains,
     };
   }
-  
+
   // Skip to the correct message key
   let chainKey = currentSession.receivingChainKey!;
   for (let i = currentSession.receivingChainLength; i < encrypted.messageNumber; i++) {
     const { nextChainKey } = kdfChain(chainKey);
     chainKey = nextChainKey;
   }
-  
+
   // Derive message key
   const { messageKey, nextChainKey } = kdfChain(chainKey);
-  
+
   // Decrypt
   const plaintextBytes = sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(
     null,
@@ -526,15 +562,15 @@ export async function decryptMessage(
     encrypted.nonce,
     messageKey
   );
-  
+
   const plaintext = sodium.to_string(plaintextBytes);
-  
+
   const updatedSession: SessionState = {
     ...currentSession,
     receivingChainKey: nextChainKey,
     receivingChainLength: encrypted.messageNumber + 1,
   };
-  
+
   return { plaintext, updatedSession };
 }
 
@@ -553,10 +589,10 @@ function hkdfDerive(
   // Simple HKDF implementation using sodium
   const salt = new Uint8Array(32); // Zero salt for X3DH
   const prk = sodium.crypto_generichash(32, inputKeyMaterial, salt);
-  
+
   const infoBytes = sodium.from_string(info);
   const okm = sodium.crypto_generichash(length, new Uint8Array([...prk, ...infoBytes, 1]), null);
-  
+
   return okm;
 }
 
@@ -569,7 +605,7 @@ function kdfRatchet(
 ): { rootKey: Uint8Array; chainKey: Uint8Array } {
   const input = new Uint8Array([...rootKey, ...dhOutput]);
   const output = sodium.crypto_generichash(64, input, null);
-  
+
   return {
     rootKey: output.slice(0, 32),
     chainKey: output.slice(32, 64),
@@ -584,7 +620,7 @@ function kdfChain(
 ): { messageKey: Uint8Array; nextChainKey: Uint8Array } {
   const messageKey = sodium.crypto_generichash(32, chainKey, sodium.from_string('message'));
   const nextChainKey = sodium.crypto_generichash(32, chainKey, sodium.from_string('chain'));
-  
+
   return { messageKey, nextChainKey };
 }
 
@@ -618,7 +654,7 @@ export function serializeSession(session: SessionState): string {
     })),
     associatedData: sodium.to_base64(session.associatedData),
   };
-  
+
   return JSON.stringify(serialized);
 }
 
@@ -627,7 +663,7 @@ export function serializeSession(session: SessionState): string {
  */
 export function deserializeSession(json: string): SessionState {
   const data = JSON.parse(json);
-  
+
   const previousChains = new Map<string, { chainKey: Uint8Array; length: number }>();
   for (const { key, chainKey, length } of data.previousChains) {
     previousChains.set(key, {
@@ -635,7 +671,7 @@ export function deserializeSession(json: string): SessionState {
       length,
     });
   }
-  
+
   return {
     rootKey: sodium.from_base64(data.rootKey),
     sendingChainKey: sodium.from_base64(data.sendingChainKey),
@@ -691,14 +727,15 @@ export function deserializeEncryptedMessage(json: string): EncryptedMessage {
  * Convert a key to base64 string for API transmission
  */
 export function keyToBase64(key: Uint8Array): string {
-  return sodium.to_base64(key);
+  // Use ORIGINAL variant (standard base64 with +/= padding) to match Go's base64.StdEncoding
+  return sodium.to_base64(key, sodium.base64_variants.ORIGINAL);
 }
 
 /**
  * Convert a base64 string to key bytes
  */
 export function base64ToKey(base64: string): Uint8Array {
-  return sodium.from_base64(base64);
+  return sodium.from_base64(base64, sodium.base64_variants.ORIGINAL);
 }
 
 /**

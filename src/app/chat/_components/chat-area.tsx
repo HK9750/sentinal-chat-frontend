@@ -7,7 +7,7 @@ import { useMessages, useSendMessage } from '@/queries/use-message-queries';
 import { useSocket } from '@/providers/socket-provider';
 import { useChatStore } from '@/stores/chat-store';
 import { useEncryptionStatus, useEncryptMessageMutation, useDecryptMessageMutation } from '@/hooks/use-encryption';
-import { getDeviceId } from '@/lib/device';
+import { getServerDeviceId } from '@/lib/device';
 import { MessageBubble } from '@/components/shared/message-bubble';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { CallModal } from '@/components/shared/call-modal';
@@ -367,7 +367,7 @@ function MessageInput({ conversationId }: { conversationId: string }) {
         // Filter out the current user from recipients
         const recipients = participants?.filter((p) => p.user_id !== currentUser?.id) || [];
         // Our own device ID for self-encryption
-        const ownDeviceId = getDeviceId();
+        const ownDeviceId = getServerDeviceId() || '';
 
         if (isEncryptionEnabled && recipients.length > 0) {
           // Encrypt message for each recipient device

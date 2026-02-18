@@ -3,7 +3,7 @@ import { authService } from '@/services/auth-service';
 import { apiClient } from '@/services/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { LoginRequest, RegisterRequest } from '@/types';
-import { getDeviceFingerprint } from '@/lib/device';
+import { getDeviceInfo, setServerDeviceId } from '@/lib/device';
 
 export function useLogin() {
   const queryClient = useQueryClient();
@@ -11,7 +11,7 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: async (data: { identity: string; password: string }) => {
-      const device = getDeviceFingerprint();
+      const device = getDeviceInfo();
       const response = await authService.login({
         identity: data.identity,
         password: data.password,
@@ -24,12 +24,16 @@ export function useLogin() {
     onSuccess: async (response) => {
       if (response.success && response.data) {
         apiClient.setAuthTokens(response.data);
-        // Store auth tokens and user from response
+
+        // Store server-assigned device UUID for encryption APIs
+        if (response.data.device_id) {
+          setServerDeviceId(response.data.device_id);
+        }
+
         login(
           response.data.user,
           response.data
         );
-        // Invalidate and refetch user profile
         await queryClient.invalidateQueries({ queryKey: ['user', 'profile'] });
       }
     },
@@ -41,13 +45,13 @@ export function useRegister() {
   const login = useAuthStore((state) => state.login);
 
   return useMutation({
-    mutationFn: async (data: { 
-      email: string; 
-      username: string; 
+    mutationFn: async (data: {
+      email: string;
+      username: string;
       display_name?: string;
-      password: string 
+      password: string
     }) => {
-      const device = getDeviceFingerprint();
+      const device = getDeviceInfo();
       const response = await authService.register({
         email: data.email,
         username: data.username,
@@ -62,7 +66,12 @@ export function useRegister() {
     onSuccess: (response) => {
       if (response.success && response.data) {
         apiClient.setAuthTokens(response.data);
-        // Store auth tokens and user from response
+
+        // Store server-assigned device UUID for encryption APIs
+        if (response.data.device_id) {
+          setServerDeviceId(response.data.device_id);
+        }
+
         login(
           response.data.user,
           response.data
