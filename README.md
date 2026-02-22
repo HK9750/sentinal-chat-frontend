@@ -79,14 +79,4 @@ The codebase is organized adhering to stringent frontend engineering standards:
 - `/src/stores`: Global state management slices.
 - `/src/types`: TypeScript interfaces and type definitions.
 
-## Design Philosophy
-
-The Sentinel Chat frontend is the embodiment of modern frontend engineering techniques:
-- **Clean Code:** Adhering strictly to DRY principles and removing all unnecessary comments to ensure readability.
-- **Minimal `useEffect`:** Logic is managed through robust data fetching layers and state managers to avoid render lifecycles anti-patterns.
-- **Component Granularity:** Every component resides in its own isolated file, maximizing reusability and testing ease.
-- **Perfect User Flows:** Carefully managed redirect paths, route guards, and back-button behaviors for a seamless user journey.
-
-## License
-
 This project is licensed under the MIT License - see the LICENSE file for details.
