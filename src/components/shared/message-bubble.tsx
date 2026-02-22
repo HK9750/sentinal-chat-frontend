@@ -133,30 +133,4 @@ export function MessageBubble({
   );
 }
 
-// Group messages by sender for better UI
-export function groupMessages(messages: Message[]): {
-  message: Message;
-  isOwn: boolean;
-  showAvatar: boolean;
-  isFirstInGroup: boolean;
-  isLastInGroup: boolean;
-}[] {
-  return messages.map((message, index) => {
-    const prevMessage = messages[index - 1];
-    const nextMessage = messages[index + 1];
 
-    const isOwn = message.sender_id === message.sender?.id;
-    const isFirstInGroup =
-      !prevMessage || prevMessage.sender_id !== message.sender_id;
-    const isLastInGroup =
-      !nextMessage || nextMessage.sender_id !== message.sender_id;
-
-    return {
-      message,
-      isOwn,
-      showAvatar: isFirstInGroup && !isOwn,
-      isFirstInGroup,
-      isLastInGroup,
-    };
-  });
-}

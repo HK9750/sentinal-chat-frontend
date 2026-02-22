@@ -5,7 +5,7 @@
  * Combines crypto library, IndexedDB storage, and API queries.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   initCrypto,
@@ -89,42 +89,29 @@ export function useGenerateKeys() {
         throw new Error('User not authenticated');
       }
 
-      console.log('[GenerateKeys] Starting key generation for user:', user.id);
-
-      console.log('[GenerateKeys] Step 1/7: Initializing crypto library...');
       await initCrypto();
-      console.log('[GenerateKeys] Step 1/7: Crypto library initialized');
 
-      // Use the stable device fingerprint (same as login/register)
       const deviceId = getStableDeviceId();
-      console.log('[GenerateKeys] Step 2/7: Device ID resolved:', deviceId);
 
-      // Generate identity key pair
-      console.log('[GenerateKeys] Step 3/7: Generating identity key pair...');
+      // Generate and store identity key pair
       const identityKeyPair = await generateIdentityKeyPair();
       await storeIdentityKey(deviceId, identityKeyPair);
-      console.log('[GenerateKeys] Step 3/7: Identity key pair generated & stored locally');
 
       // Upload identity key to server
-      console.log('[GenerateKeys] Step 4/7: Uploading identity key to server...');
       const identityUploadResult = await encryptionService.uploadIdentityKey({
         user_id: user.id,
         device_id: deviceId,
         public_key: keyToBase64(identityKeyPair.signing.publicKey),
       });
-      console.log('[GenerateKeys] Step 4/7: Identity key uploaded', { success: identityUploadResult.success, error: identityUploadResult.error });
       if (!identityUploadResult.success) {
         throw new Error(`Identity key upload failed: ${identityUploadResult.error || 'unknown error'}`);
       }
 
-      // Generate signed pre-key
-      console.log('[GenerateKeys] Step 5/7: Generating signed pre-key...');
+      // Generate and store signed pre-key
       const signedPreKey = await generateSignedPreKey(identityKeyPair, 1);
       await storeSignedPreKey(deviceId, signedPreKey);
-      console.log('[GenerateKeys] Step 5/7: Signed pre-key generated & stored locally');
 
       // Upload signed pre-key to server
-      console.log('[GenerateKeys] Step 6/7: Uploading signed pre-key to server...');
       const signedUploadResult = await encryptionService.uploadSignedPreKey({
         user_id: user.id,
         device_id: deviceId,
@@ -132,19 +119,15 @@ export function useGenerateKeys() {
         public_key: keyToBase64(signedPreKey.publicKey),
         signature: keyToBase64(signedPreKey.signature),
       });
-      console.log('[GenerateKeys] Step 6/7: Signed pre-key uploaded', { success: signedUploadResult.success, error: signedUploadResult.error });
       if (!signedUploadResult.success) {
         throw new Error(`Signed pre-key upload failed: ${signedUploadResult.error || 'unknown error'}`);
       }
 
-      // Generate one-time pre-keys
-      console.log('[GenerateKeys] Step 7/7: Generating one-time pre-keys...');
+      // Generate and store one-time pre-keys
       const oneTimePreKeys = await generateOneTimePreKeys(1, PREKEY_BATCH_SIZE);
       await storeOneTimePreKeys(deviceId, oneTimePreKeys);
-      console.log(`[GenerateKeys] Step 7/7: ${oneTimePreKeys.length} one-time pre-keys generated & stored locally`);
 
       // Upload one-time pre-keys to server
-      console.log('[GenerateKeys] Uploading one-time pre-keys to server...');
       const otpUploadResult = await encryptionService.uploadOneTimePreKeys({
         keys: oneTimePreKeys.map((k) => ({
           user_id: user.id,
@@ -153,12 +136,10 @@ export function useGenerateKeys() {
           public_key: keyToBase64(k.keyPair.publicKey),
         })),
       });
-      console.log('[GenerateKeys] One-time pre-keys uploaded', { success: otpUploadResult.success, error: otpUploadResult.error });
       if (!otpUploadResult.success) {
         throw new Error(`One-time pre-key upload failed: ${otpUploadResult.error || 'unknown error'}`);
       }
 
-      console.log('[GenerateKeys] All keys generated and uploaded successfully!');
       return { deviceId, success: true };
     },
     onSuccess: () => {
@@ -435,7 +416,6 @@ export function useReplenishPreKeys() {
       }
 
       await initCrypto();
-
       const deviceId = getStableDeviceId();
 
       // Check server-side count
@@ -445,16 +425,11 @@ export function useReplenishPreKeys() {
       }
 
       const serverCount = countResponse.data?.count ?? 0;
-
       if (serverCount < MIN_PREKEY_COUNT) {
-        // Get next key ID
         const nextKeyId = await getNextOneTimePreKeyId(deviceId);
-
-        // Generate new keys
         const newKeys = await generateOneTimePreKeys(nextKeyId, PREKEY_BATCH_SIZE);
         await storeOneTimePreKeys(deviceId, newKeys);
 
-        // Upload to server
         await encryptionService.uploadOneTimePreKeys({
           keys: newKeys.map((k) => ({
             user_id: user.id,
@@ -486,56 +461,31 @@ export function useReplenishPreKeys() {
  */
 export function useEncryptionStatus() {
   const { user } = useAuthStore();
-  const [status, setStatus] = useState<{
-    isSetup: boolean;
-    deviceId: string | null;
-    isLoading: boolean;
-    error: Error | null;
-  }>({
-    isSetup: false,
-    deviceId: null,
-    isLoading: true,
-    error: null,
+
+  const query = useQuery({
+    queryKey: ['encryption', 'status', user?.id],
+    queryFn: async () => {
+      await initCrypto();
+      const deviceId = getStableDeviceId();
+      const identityKey = await getIdentityKey(deviceId);
+      const signedPreKey = await getActiveSignedPreKey(deviceId);
+
+      return {
+        isSetup: !!identityKey && !!signedPreKey,
+        deviceId,
+      };
+    },
+    enabled: !!user,
+    staleTime: Infinity, // Only refetch on explicit invalidation
+    retry: false,
   });
 
-  useEffect(() => {
-    async function checkStatus() {
-      if (!user) {
-        setStatus({
-          isSetup: false,
-          deviceId: null,
-          isLoading: false,
-          error: null,
-        });
-        return;
-      }
-
-      try {
-        await initCrypto();
-        const deviceId = getStableDeviceId();
-        const identityKey = await getIdentityKey(deviceId);
-        const signedPreKey = await getActiveSignedPreKey(deviceId);
-
-        setStatus({
-          isSetup: !!identityKey && !!signedPreKey,
-          deviceId,
-          isLoading: false,
-          error: null,
-        });
-      } catch (error) {
-        setStatus({
-          isSetup: false,
-          deviceId: null,
-          isLoading: false,
-          error: error as Error,
-        });
-      }
-    }
-
-    checkStatus();
-  }, [user]);
-
-  return status;
+  return {
+    isSetup: query.data?.isSetup ?? false,
+    deviceId: query.data?.deviceId ?? null,
+    isLoading: query.isLoading,
+    error: query.error,
+  };
 }
 
 // ============================================================================

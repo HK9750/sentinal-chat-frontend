@@ -41,13 +41,13 @@ interface SocketContextType {
   sendTypingStart: (conversationId: string) => void;
   sendTypingStop: (conversationId: string) => void;
   sendReadReceipt: (messageId: string) => void;
-  
+
   // Call signaling
   sendCallOffer: (callId: string, participantId: string, sdp: RTCSessionDescriptionInit) => void;
   sendCallAnswer: (callId: string, participantId: string, sdp: RTCSessionDescriptionInit) => void;
   sendIceCandidate: (callId: string, participantId: string, candidate: RTCIceCandidate) => void;
   sendCallEnd: (callId: string, reason?: string) => void;
-  
+
   isConnected: boolean;
 }
 
@@ -65,26 +65,28 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectingRef = useRef(false);
   const [isConnected, setIsConnected] = useState(false);
-  
+
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const tokens = useAuthStore((state) => state.tokens);
-  
+
   // Only typing users live in Zustand (real-time state)
   const addTypingUser = useChatStore((state) => state.addTypingUser);
   const removeTypingUser = useChatStore((state) => state.removeTypingUser);
-  
-  // Call state from Zustand
+
+  // Call state from Zustand — use stable selectors to avoid reconnect loops
   const setIncomingCall = useCallStore((state) => state.setIncomingCall);
-  const setActiveCall = useCallStore((state) => state.setActiveCall);
   const endCall = useCallStore((state) => state.endCall);
-  const setPeerConnection = useCallStore((state) => state.setPeerConnection);
-  const setRemoteStream = useCallStore((state) => state.setRemoteStream);
-  const peerConnections = useCallStore((state) => state.peerConnections);
 
   const connect = useCallback(() => {
     const accessToken = tokens?.access_token;
     if (!accessToken) return;
+
+    // Prevent concurrent connect attempts
+    if (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) {
+      return;
+    }
 
     // Clear any existing reconnect timeout
     if (reconnectTimeoutRef.current) {
@@ -96,8 +98,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-      console.log('WebSocket connected');
       setIsConnected(true);
+      reconnectingRef.current = false;
     };
 
     ws.onmessage = (event) => {
@@ -176,7 +178,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
               created_at: new Date().toISOString(),
             };
             setIncomingCall(incomingCall, payload.caller_id, payload.caller_name);
-            
+
             // Store the SDP for when user accepts
             sessionStorage.setItem(`call:${payload.call_id}:offer`, payload.sdp);
             break;
@@ -184,7 +186,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
           case 'call:answer': {
             const payload = data.payload as CallAnswerPayload;
-            const pc = peerConnections.get(payload.participant_id);
+            // Get peerConnections at call time rather than via dependency
+            const pc = useCallStore.getState().peerConnections.get(payload.participant_id);
             if (pc) {
               pc.setRemoteDescription(new RTCSessionDescription({
                 type: 'answer',
@@ -196,9 +199,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
           case 'call:ice': {
             const payload = data.payload as CallIcePayload;
-            const pc = peerConnections.get(payload.participant_id);
-            if (pc && payload.candidate) {
-              pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+            const pc2 = useCallStore.getState().peerConnections.get(payload.participant_id);
+            if (pc2 && payload.candidate) {
+              pc2.addIceCandidate(new RTCIceCandidate(payload.candidate));
             }
             break;
           }
@@ -221,26 +224,32 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    ws.onerror = (error) => {
-      console.warn('WebSocket error:', error);
+    ws.onerror = () => {
+      // Errors are usually followed by close events
     };
 
     ws.onclose = () => {
-      console.log('WebSocket disconnected');
       setIsConnected(false);
     };
 
     wsRef.current = ws;
-  }, [tokens?.access_token, queryClient, addTypingUser, removeTypingUser, setIncomingCall, endCall, peerConnections]);
+  }, [tokens?.access_token, queryClient, addTypingUser, removeTypingUser, setIncomingCall, endCall]);
 
-  // Handle reconnection
+  // Handle reconnection with guard against multiple attempts
   useEffect(() => {
-    if (!isConnected && isAuthenticated && tokens?.access_token && !reconnectTimeoutRef.current) {
+    if (!isConnected && isAuthenticated && tokens?.access_token && !reconnectingRef.current) {
+      reconnectingRef.current = true;
       reconnectTimeoutRef.current = setTimeout(() => {
-        reconnectTimeoutRef.current = null;
         connect();
       }, 3000);
     }
+
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+    };
   }, [isConnected, isAuthenticated, tokens?.access_token, connect]);
 
   // Initial connection

@@ -6,7 +6,7 @@ import { useConversation, useConversationParticipants } from '@/queries/use-conv
 import { useMessages, useSendMessage } from '@/queries/use-message-queries';
 import { useSocket } from '@/providers/socket-provider';
 import { useChatStore } from '@/stores/chat-store';
-import { useEncryptionStatus, useEncryptMessageMutation, useDecryptMessageMutation } from '@/hooks/use-encryption';
+import { useEncryptionStatus, useEncryptMessageMutation } from '@/hooks/use-encryption';
 import { getServerDeviceId } from '@/lib/device';
 import { MessageBubble } from '@/components/shared/message-bubble';
 import { UserAvatar } from '@/components/shared/user-avatar';
@@ -207,92 +207,40 @@ function MessageList({
   messageRefs: React.RefObject<Map<string, HTMLDivElement>>;
 }) {
   const { data: messages, isLoading } = useMessages(conversationId);
-  const { isSetup: isEncryptionEnabled } = useEncryptionStatus();
-  const decryptMutation = useDecryptMessageMutation();
 
-  // Cache for decrypted message content (messageId -> plaintext)
-  const decryptedCache = useRef<Map<string, string>>(new Map());
-  const [decryptedMessages, setDecryptedMessages] = useState<Map<string, string>>(new Map());
-  const decryptingIds = useRef<Set<string>>(new Set());
-
-  // Decrypt messages that have ciphertext but no content
-  useEffect(() => {
-    if (!messages || !isEncryptionEnabled || !currentUserId) return;
-
-    const messagesToDecrypt = messages.filter(
-      (msg) =>
-        msg.ciphertext &&
-        !msg.content &&
-        msg.sender_id !== currentUserId && // Only decrypt others' messages
-        !decryptedCache.current.has(msg.id) &&
-        !decryptingIds.current.has(msg.id)
-    );
-
-    if (messagesToDecrypt.length === 0) return;
-
-    for (const msg of messagesToDecrypt) {
-      decryptingIds.current.add(msg.id);
-
-      // Extract sender_device_id from the message
-      const senderDeviceId = msg.sender_device_id ||
-        (msg.metadata as Record<string, string> | undefined)?.sender_device_id;
-
-      if (!senderDeviceId) {
-        console.warn(`[Decrypt] No sender_device_id for message ${msg.id}`);
-        decryptingIds.current.delete(msg.id);
-        continue;
-      }
-
-      // Parse header for ephemeral key if present
-      let ephemeralPublicKey: string | undefined;
-      if (msg.header) {
-        try {
-          const headerData = typeof msg.header === 'string' ? JSON.parse(msg.header) : msg.header;
-          ephemeralPublicKey = headerData.ephemeral_key;
-        } catch {
-          // Header is not valid JSON, skip
-        }
-      }
-
-      decryptMutation
-        .mutateAsync({
-          senderUserId: msg.sender_id,
-          senderDeviceId,
-          encryptedContent: msg.ciphertext!,
-          ephemeralPublicKey,
-        })
-        .then((plaintext) => {
-          decryptedCache.current.set(msg.id, plaintext);
-          setDecryptedMessages(new Map(decryptedCache.current));
-        })
-        .catch((error) => {
-          console.warn(`[Decrypt] Failed to decrypt message ${msg.id}:`, error);
-        })
-        .finally(() => {
-          decryptingIds.current.delete(msg.id);
-        });
-    }
-  }, [messages, isEncryptionEnabled, currentUserId, decryptMutation]);
-
-  // Merge decrypted content into messages for display
+  // Try to decode base64-encoded plaintext messages
+  // Messages sent via btoa(content) will decode cleanly to readable text
   const displayMessages = useMemo(() => {
     if (!messages) return undefined;
     return messages.map((msg) => {
-      const decryptedContent = decryptedMessages.get(msg.id);
-      if (decryptedContent) {
-        return { ...msg, content: decryptedContent };
-      }
-      // For own messages, use the original content if available
-      if (msg.sender_id === currentUserId && msg.ciphertext && !msg.content) {
-        // Own encrypted messages need decryption too
-        const ownDecrypted = decryptedMessages.get(msg.id);
-        if (ownDecrypted) return { ...msg, content: ownDecrypted };
+      // If content already exists, use it directly
+      if (msg.content) return msg;
+
+      // Try to decode base64 ciphertext as plaintext fallback
+      if (msg.ciphertext) {
+        try {
+          const decoded = atob(msg.ciphertext);
+          // Check if the decoded string is readable text (not binary)
+          const isPrintable = /^[\x20-\x7E\s]+$/.test(decoded);
+          if (isPrintable && decoded.length > 0) {
+            return { ...msg, content: decoded };
+          }
+        } catch {
+          // Not valid base64, leave as encrypted
+        }
       }
       return msg;
     });
-  }, [messages, decryptedMessages, currentUserId]);
+  }, [messages]);
 
   const groupedMessages = useGroupedMessages(displayMessages, currentUserId);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (scrollRef.current && displayMessages?.length) {
+      scrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [displayMessages?.length, scrollRef]);
 
   // Register message ref for navigation
   const setMessageRef = useCallback(
@@ -317,7 +265,13 @@ function MessageList({
   if (!displayMessages?.length) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-slate-500">No messages yet. Start the conversation!</p>
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-4">
+            <Send className="w-7 h-7 text-slate-600" />
+          </div>
+          <p className="text-slate-400 font-medium mb-1">No messages yet</p>
+          <p className="text-slate-600 text-sm">Send a message to start the conversation</p>
+        </div>
       </div>
     );
   }
@@ -454,9 +408,25 @@ function MessageInput({ conversationId }: { conversationId: string }) {
     [conversationId, participants, currentUser, sendMessageMutation, encryptMessageMutation, sendTypingStop, isEncryptionEnabled]
   );
 
+  // Debounced typing indicator — only fire once per 2 seconds
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isTypingRef = useRef(false);
+
   const handleKeyDown = useCallback(() => {
-    sendTypingStart(conversationId);
-  }, [conversationId, sendTypingStart]);
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      sendTypingStart(conversationId);
+    }
+
+    // Reset the auto-stop timer
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      sendTypingStop(conversationId);
+    }, 3000);
+  }, [conversationId, sendTypingStart, sendTypingStop]);
 
   const isPending = sendMessageMutation.isPending || encryptMessageMutation.isPending;
 

@@ -8,10 +8,10 @@ import { z } from 'zod';
  */
 const envSchema = z.object({
   // API URL for backend requests
-  API_URL: z.url('NEXT_PUBLIC_API_URL must be a valid URL').describe('Backend API URL'),
+  API_URL: z.string({ message: 'NEXT_PUBLIC_API_URL must be set' }).url('NEXT_PUBLIC_API_URL must be a valid URL'),
 
   // WebSocket URL for real-time communication
-  SOCKET_URL: z.url('NEXT_PUBLIC_SOCKET_URL must be a valid URL').describe('WebSocket server URL'),
+  SOCKET_URL: z.string({ message: 'NEXT_PUBLIC_SOCKET_URL must be set' }).url('NEXT_PUBLIC_SOCKET_URL must be a valid URL'),
 });
 
 type Env = z.infer<typeof envSchema>;

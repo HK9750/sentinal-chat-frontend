@@ -122,19 +122,6 @@ export function useDevices() {
   });
 }
 
-export function useSessions() {
-  return useQuery({
-    queryKey: ['auth', 'sessions'],
-    queryFn: async () => {
-      const response = await userService.getSessions();
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data?.sessions || [];
-    },
-  });
-}
-
 /**
  * Search users by query string
  * Used for finding users when creating new conversations

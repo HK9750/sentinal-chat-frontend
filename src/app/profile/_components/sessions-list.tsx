@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useSessions } from '@/queries/use-user-queries';
+import { useSessions } from '@/queries/use-auth-queries';
 import { UserSession } from '@/types';
 import { Shield, Activity } from 'lucide-react';
 

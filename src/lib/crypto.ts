@@ -96,49 +96,13 @@ export interface EncryptedMessage {
 export async function generateIdentityKeyPair(): Promise<IdentityKeyPair> {
   await initCrypto();
 
-  console.log('[Crypto] generateIdentityKeyPair: sodium ready, starting key generation');
-  console.log('[Crypto] sodium available functions check:', {
-    hasCryptoSignKeypair: typeof sodium.crypto_sign_keypair === 'function',
-    hasCryptoSignEd25519SkToSeed: typeof sodium.crypto_sign_ed25519_sk_to_seed === 'function',
-    hasCryptoBoxSeedKeypair: typeof sodium.crypto_box_seed_keypair === 'function',
-  });
-
   // Generate Ed25519 signing key pair
-  let signing: { publicKey: Uint8Array; privateKey: Uint8Array; keyType: string };
-  try {
-    signing = sodium.crypto_sign_keypair();
-    console.log('[Crypto] Ed25519 signing keypair generated', {
-      publicKeyLength: signing.publicKey.length,
-      privateKeyLength: signing.privateKey.length,
-    });
-  } catch (err) {
-    console.error('[Crypto] FAILED at crypto_sign_keypair():', err);
-    throw err;
-  }
+  const signing = sodium.crypto_sign_keypair();
 
   // Derive X25519 key pair from Ed25519 seed
-  let seed: Uint8Array;
-  try {
-    seed = sodium.crypto_sign_ed25519_sk_to_seed(signing.privateKey);
-    console.log('[Crypto] Seed extracted from Ed25519 SK, length:', seed.length);
-  } catch (err) {
-    console.error('[Crypto] FAILED at crypto_sign_ed25519_sk_to_seed():', err);
-    throw err;
-  }
+  const seed = sodium.crypto_sign_ed25519_sk_to_seed(signing.privateKey);
+  const exchange = sodium.crypto_box_seed_keypair(seed);
 
-  let exchange: { publicKey: Uint8Array; privateKey: Uint8Array; keyType: string };
-  try {
-    exchange = sodium.crypto_box_seed_keypair(seed);
-    console.log('[Crypto] X25519 exchange keypair derived', {
-      publicKeyLength: exchange.publicKey.length,
-      privateKeyLength: exchange.privateKey.length,
-    });
-  } catch (err) {
-    console.error('[Crypto] FAILED at crypto_box_seed_keypair():', err);
-    throw err;
-  }
-
-  console.log('[Crypto] generateIdentityKeyPair: SUCCESS');
   return {
     signing: {
       publicKey: signing.publicKey,
