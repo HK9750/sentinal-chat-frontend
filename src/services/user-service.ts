@@ -36,9 +36,6 @@ export const userService = {
     return apiClient.put('/v1/users/me/settings', data);
   },
 
-  // Contacts
-  // Note: API returns UserContact[] but for convenience, the app may transform this
-  // to include embedded User data in the `contact` field based on implementation
   listContacts: async (): Promise<ApiResponse<{ contacts: UserContact[] }>> => {
     return apiClient.get('/v1/users/me/contacts');
   },
@@ -63,7 +60,6 @@ export const userService = {
     return apiClient.get('/v1/users/me/contacts/blocked');
   },
 
-  // Devices
   listDevices: async (): Promise<ApiResponse<{ devices: Device[] }>> => {
     return apiClient.get('/v1/users/me/devices');
   },
@@ -76,12 +72,10 @@ export const userService = {
     return apiClient.delete(`/v1/users/me/devices/${deviceId}`);
   },
 
-  // Push Tokens
   listPushTokens: async (): Promise<ApiResponse<{ tokens: PushToken[] }>> => {
     return apiClient.get('/v1/users/me/push-tokens');
   },
 
-  // Sessions
   getSessions: async (): Promise<ApiResponse<{ sessions: UserSession[] }>> => {
     return apiClient.get('/v1/auth/sessions');
   },

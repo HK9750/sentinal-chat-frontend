@@ -15,7 +15,6 @@ export default function SettingsPage() {
   return (
     <AuthGuard>
       <div className="min-h-screen bg-slate-950">
-        {/* Header */}
         <header className="border-b border-slate-800 bg-slate-900/50 sticky top-0 z-10">
           <div className="max-w-5xl mx-auto px-4 py-4">
             <div className="flex items-center gap-4">
@@ -34,7 +33,6 @@ export default function SettingsPage() {
           </div>
         </header>
 
-        {/* Content */}
         <main className="max-w-5xl mx-auto px-4 py-8">
           <Tabs defaultValue="profile" className="space-y-6">
             <TabsList className="bg-slate-900 border border-slate-800">

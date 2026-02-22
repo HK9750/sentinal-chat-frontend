@@ -1,7 +1,6 @@
 import { apiClient } from './api-client';
 import { ApiResponse, Broadcast, BroadcastRecipient } from '@/types';
 
-// Request DTOs
 export interface CreateBroadcastRequest {
   name: string;
   description?: string;
@@ -22,7 +21,6 @@ export interface BulkRecipientsRequest {
 }
 
 export const broadcastService = {
-  // Broadcast CRUD
   create: async (data: CreateBroadcastRequest): Promise<ApiResponse<Broadcast>> => {
     return apiClient.post('/v1/broadcasts', data);
   },
@@ -42,7 +40,6 @@ export const broadcastService = {
     return apiClient.delete(`/v1/broadcasts/${broadcastId}`);
   },
 
-  // List Broadcasts
   list: async (ownerId: string): Promise<ApiResponse<{ broadcasts: Broadcast[] }>> => {
     return apiClient.get('/v1/broadcasts', { params: { owner_id: ownerId } });
   },
@@ -51,7 +48,6 @@ export const broadcastService = {
     return apiClient.get('/v1/broadcasts/search', { params: { owner_id: ownerId, query } });
   },
 
-  // Recipient Management
   addRecipient: async (
     broadcastId: string,
     data: AddRecipientRequest
@@ -85,7 +81,6 @@ export const broadcastService = {
     return apiClient.get(`/v1/broadcasts/${broadcastId}/recipients/${userId}`);
   },
 
-  // Bulk Operations
   bulkAddRecipients: async (
     broadcastId: string,
     data: BulkRecipientsRequest

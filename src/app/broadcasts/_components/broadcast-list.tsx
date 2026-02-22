@@ -79,7 +79,6 @@ export function BroadcastList() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-slate-800">
         <h1 className="text-xl font-semibold text-slate-100">Broadcast Lists</h1>
         <Button
@@ -91,7 +90,6 @@ export function BroadcastList() {
         </Button>
       </div>
 
-      {/* Search */}
       <div className="p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
@@ -104,7 +102,6 @@ export function BroadcastList() {
         </div>
       </div>
 
-      {/* List */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
@@ -177,7 +174,6 @@ export function BroadcastList() {
         )}
       </div>
 
-      {/* Create Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="bg-slate-900 border-slate-700">
           <DialogHeader>

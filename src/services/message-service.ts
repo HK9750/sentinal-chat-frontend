@@ -47,9 +47,6 @@ export const messageService = {
     return apiClient.post(`/v1/messages/${id}/delivered`);
   },
 
-  /**
-   * Search messages within a conversation
-   */
   search: async (
     conversationId: string,
     query: string,
@@ -60,9 +57,6 @@ export const messageService = {
     });
   },
 
-  /**
-   * Global search across all conversations
-   */
   searchGlobal: async (
     query: string,
     limit = 50

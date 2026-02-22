@@ -9,9 +9,6 @@ import {
 } from '@/services/call-service';
 import { Call, CallParticipant } from '@/types';
 
-/**
- * Fetch a single call by ID
- */
 export function useCall(callId: string) {
   return useQuery({
     queryKey: ['calls', callId],
@@ -27,9 +24,6 @@ export function useCall(callId: string) {
   });
 }
 
-/**
- * Fetch calls for a conversation
- */
 export function useCalls(conversationId?: string) {
   return useQuery({
     queryKey: ['calls', { conversationId }],
@@ -44,9 +38,6 @@ export function useCalls(conversationId?: string) {
   });
 }
 
-/**
- * Fetch active calls for a user
- */
 export function useActiveCalls(userId: string) {
   return useQuery({
     queryKey: ['calls', 'active', userId],
@@ -58,14 +49,11 @@ export function useActiveCalls(userId: string) {
       return response.data?.calls || [];
     },
     enabled: !!userId,
-    staleTime: 5_000, // Active calls need frequent updates
-    refetchInterval: 10_000, // Refetch every 10 seconds
+    staleTime: 5_000,
+    refetchInterval: 10_000,
   });
 }
 
-/**
- * Fetch missed calls for a user
- */
 export function useMissedCalls(userId: string, since?: string) {
   return useQuery({
     queryKey: ['calls', 'missed', userId, since],
@@ -81,9 +69,6 @@ export function useMissedCalls(userId: string, since?: string) {
   });
 }
 
-/**
- * Fetch call participants
- */
 export function useCallParticipants(callId: string) {
   return useQuery({
     queryKey: ['calls', callId, 'participants'],
@@ -99,9 +84,6 @@ export function useCallParticipants(callId: string) {
   });
 }
 
-/**
- * Create a new call
- */
 export function useCreateCall() {
   const queryClient = useQueryClient();
 
@@ -115,12 +97,10 @@ export function useCreateCall() {
     },
     onSuccess: (newCall) => {
       if (newCall) {
-        // Add to active calls cache
         queryClient.setQueryData<Call[]>(['calls', 'active'], (old = []) => [
           newCall,
           ...old,
         ]);
-        // Invalidate conversation-specific calls
         queryClient.invalidateQueries({
           queryKey: ['calls', { conversationId: newCall.conversation_id }],
         });
@@ -129,9 +109,6 @@ export function useCreateCall() {
   });
 }
 
-/**
- * Add a participant to a call
- */
 export function useAddCallParticipant() {
   const queryClient = useQueryClient();
 
@@ -151,9 +128,6 @@ export function useAddCallParticipant() {
   });
 }
 
-/**
- * Remove a participant from a call
- */
 export function useRemoveCallParticipant() {
   const queryClient = useQueryClient();
 
@@ -173,9 +147,6 @@ export function useRemoveCallParticipant() {
   });
 }
 
-/**
- * Update participant status (INVITED, JOINED, LEFT)
- */
 export function useUpdateParticipantStatus() {
   const queryClient = useQueryClient();
 
@@ -205,9 +176,6 @@ export function useUpdateParticipantStatus() {
   });
 }
 
-/**
- * Update participant mute state
- */
 export function useUpdateParticipantMute() {
   const queryClient = useQueryClient();
 
@@ -233,7 +201,6 @@ export function useUpdateParticipantMute() {
       return response.data;
     },
     onMutate: async ({ callId, userId, audioMuted, videoMuted }) => {
-      // Optimistic update
       await queryClient.cancelQueries({
         queryKey: ['calls', callId, 'participants'],
       });
@@ -267,9 +234,6 @@ export function useUpdateParticipantMute() {
   });
 }
 
-/**
- * Mark a call as connected
- */
 export function useMarkCallConnected() {
   const queryClient = useQueryClient();
 
@@ -288,9 +252,6 @@ export function useMarkCallConnected() {
   });
 }
 
-/**
- * End a call
- */
 export function useEndCall() {
   const queryClient = useQueryClient();
 
@@ -309,7 +270,6 @@ export function useEndCall() {
       return response.data;
     },
     onSuccess: (_, { callId }) => {
-      // Remove from active calls
       queryClient.setQueryData<Call[]>(['calls', 'active'], (old = []) =>
         old.filter((c) => c.id !== callId)
       );
@@ -318,9 +278,6 @@ export function useEndCall() {
   });
 }
 
-/**
- * Get call duration
- */
 export function useCallDuration(callId: string) {
   return useQuery({
     queryKey: ['calls', callId, 'duration'],
@@ -332,14 +289,11 @@ export function useCallDuration(callId: string) {
       return response.data?.duration || 0;
     },
     enabled: !!callId,
-    staleTime: 1_000, // Duration changes frequently during active calls
+    staleTime: 1_000,
     refetchInterval: 5_000,
   });
 }
 
-/**
- * Record call quality metrics
- */
 export function useRecordQualityMetric() {
   return useMutation({
     mutationFn: async (data: RecordQualityMetricRequest) => {
@@ -352,10 +306,6 @@ export function useRecordQualityMetric() {
   });
 }
 
-/**
- * Accept an incoming call (convenience hook)
- * Updates participant status to JOINED
- */
 export function useAcceptCall() {
   const queryClient = useQueryClient();
 
@@ -374,10 +324,6 @@ export function useAcceptCall() {
   });
 }
 
-/**
- * Decline an incoming call (convenience hook)
- * Ends the call with DECLINED reason
- */
 export function useDeclineCall() {
   const queryClient = useQueryClient();
 

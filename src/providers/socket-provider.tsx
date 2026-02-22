@@ -9,7 +9,6 @@ import { useCallStore } from '@/stores/call-store';
 import { WebSocketEvent, WebSocketTypingEvent } from '@/types';
 import type { Call, CallType } from '@/types/call';
 
-// WebRTC signaling types
 interface CallOfferPayload {
   call_id: string;
   conversation_id: string;
@@ -37,12 +36,10 @@ interface CallEndedPayload {
 }
 
 interface SocketContextType {
-  // Typing indicators
   sendTypingStart: (conversationId: string) => void;
   sendTypingStop: (conversationId: string) => void;
   sendReadReceipt: (messageId: string) => void;
 
-  // Call signaling
   sendCallOffer: (callId: string, participantId: string, sdp: RTCSessionDescriptionInit) => void;
   sendCallAnswer: (callId: string, participantId: string, sdp: RTCSessionDescriptionInit) => void;
   sendIceCandidate: (callId: string, participantId: string, candidate: RTCIceCandidate) => void;
@@ -71,11 +68,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const tokens = useAuthStore((state) => state.tokens);
 
-  // Only typing users live in Zustand (real-time state)
   const addTypingUser = useChatStore((state) => state.addTypingUser);
   const removeTypingUser = useChatStore((state) => state.removeTypingUser);
 
-  // Call state from Zustand — use stable selectors to avoid reconnect loops
   const setIncomingCall = useCallStore((state) => state.setIncomingCall);
   const endCall = useCallStore((state) => state.endCall);
 
@@ -83,12 +78,10 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     const accessToken = tokens?.access_token;
     if (!accessToken) return;
 
-    // Prevent concurrent connect attempts
     if (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) {
       return;
     }
 
-    // Clear any existing reconnect timeout
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
@@ -113,7 +106,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
               conversation_id: string;
               sender_id: string;
             };
-            // Invalidate queries to fetch new messages
             queryClient.invalidateQueries({
               queryKey: ['conversations', payload.conversation_id, 'messages'],
             });
@@ -129,7 +121,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
               conversation_id: string;
               reader_id: string;
             };
-            // Invalidate to update read status
             queryClient.invalidateQueries({
               queryKey: ['conversations', payload.conversation_id, 'messages'],
             });
@@ -141,7 +132,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
               message_id: string;
               conversation_id: string;
             };
-            // Invalidate to update delivery status
             queryClient.invalidateQueries({
               queryKey: ['conversations', payload.conversation_id, 'messages'],
             });
@@ -162,13 +152,11 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
           case 'presence:online':
           case 'presence:offline': {
-            // Could invalidate user queries if needed
             break;
           }
 
           case 'call:offer': {
             const payload = data.payload as CallOfferPayload;
-            // Create a mock Call object from the offer
             const incomingCall: Call = {
               id: payload.call_id,
               conversation_id: payload.conversation_id,
@@ -179,14 +167,12 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
             };
             setIncomingCall(incomingCall, payload.caller_id, payload.caller_name);
 
-            // Store the SDP for when user accepts
             sessionStorage.setItem(`call:${payload.call_id}:offer`, payload.sdp);
             break;
           }
 
           case 'call:answer': {
             const payload = data.payload as CallAnswerPayload;
-            // Get peerConnections at call time rather than via dependency
             const pc = useCallStore.getState().peerConnections.get(payload.participant_id);
             if (pc) {
               pc.setRemoteDescription(new RTCSessionDescription({
@@ -209,9 +195,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
           case 'call:ended': {
             const payload = data.payload as CallEndedPayload;
             endCall();
-            // Clean up stored offer if any
             sessionStorage.removeItem(`call:${payload.call_id}:offer`);
-            // Invalidate call history
             queryClient.invalidateQueries({ queryKey: ['calls'] });
             break;
           }
@@ -225,7 +209,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     };
 
     ws.onerror = () => {
-      // Errors are usually followed by close events
     };
 
     ws.onclose = () => {
@@ -235,7 +218,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     wsRef.current = ws;
   }, [tokens?.access_token, queryClient, addTypingUser, removeTypingUser, setIncomingCall, endCall]);
 
-  // Handle reconnection with guard against multiple attempts
   useEffect(() => {
     if (!isConnected && isAuthenticated && tokens?.access_token && !reconnectingRef.current) {
       reconnectingRef.current = true;
@@ -252,7 +234,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     };
   }, [isConnected, isAuthenticated, tokens?.access_token, connect]);
 
-  // Initial connection
   useEffect(() => {
     if (isAuthenticated && tokens?.access_token) {
       connect();
@@ -302,7 +283,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Call signaling methods
   const sendCallOffer = useCallback((callId: string, participantId: string, sdp: RTCSessionDescriptionInit) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(

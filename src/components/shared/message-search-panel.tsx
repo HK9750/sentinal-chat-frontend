@@ -34,19 +34,16 @@ export function MessageSearchPanel({
     debouncedQuery
   );
 
-  // Focus input when panel opens
   useEffect(() => {
     if (isOpen) {
       inputRef.current?.focus();
     }
   }, [isOpen]);
 
-  // Reset selection when results change
   useEffect(() => {
     setSelectedIndex(0);
   }, [results]);
 
-  // Handle keyboard navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (!results?.length) return;
@@ -93,7 +90,6 @@ export function MessageSearchPanel({
 
   return (
     <div className="absolute top-0 right-0 w-80 h-full bg-slate-900/95 border-l border-slate-800 backdrop-blur-xl flex flex-col z-10">
-      {/* Header */}
       <div className="p-3 border-b border-slate-800">
         <div className="flex items-center gap-2">
           <div className="flex-1 relative">
@@ -127,7 +123,6 @@ export function MessageSearchPanel({
           </Button>
         </div>
 
-        {/* Navigation controls */}
         {results && results.length > 0 && (
           <div className="flex items-center justify-between mt-2">
             <span className="text-xs text-slate-500">
@@ -157,7 +152,6 @@ export function MessageSearchPanel({
         )}
       </div>
 
-      {/* Results */}
       <ScrollArea className="flex-1">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">

@@ -1,11 +1,6 @@
 import { z } from 'zod';
 import { VALIDATION } from './constants';
 
-/**
- * Validation schemas for forms
- * Per AGENTS.md: Centralize validation logic
- */
-
 export const loginSchema = z.object({
   identity: z.string().min(1, 'Email or username is required'),
   password: z.string().min(1, 'Password is required'),
@@ -52,7 +47,6 @@ export const messageSchema = z.object({
   content: z.string().min(1, 'Message cannot be empty').max(4096, 'Message is too long'),
 });
 
-// Type exports
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type ProfileInput = z.infer<typeof profileSchema>;

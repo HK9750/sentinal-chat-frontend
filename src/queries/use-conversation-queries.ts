@@ -4,10 +4,6 @@ import { CreateConversationRequest, Conversation, Participant } from '@/types';
 
 const CONVERSATIONS_PER_PAGE = 20;
 
-/**
- * Fetch all conversations for the current user
- * TanStack Query is the single source of truth - no Zustand sync needed
- */
 export function useConversations() {
   return useQuery({
     queryKey: ['conversations', 'list'],
@@ -18,13 +14,10 @@ export function useConversations() {
       }
       return response.data?.conversations || [];
     },
-    staleTime: 30_000, // Consider data fresh for 30 seconds
+    staleTime: 30_000,
   });
 }
 
-/**
- * Fetch a single conversation by ID
- */
 export function useConversation(conversationId: string) {
   return useQuery({
     queryKey: ['conversations', conversationId],
@@ -40,9 +33,6 @@ export function useConversation(conversationId: string) {
   });
 }
 
-/**
- * Create a new conversation with optimistic update
- */
 export function useCreateConversation() {
   const queryClient = useQueryClient();
 
@@ -56,7 +46,6 @@ export function useCreateConversation() {
     },
     onSuccess: (newConversation) => {
       if (newConversation) {
-        // Optimistically add to the list cache
         queryClient.setQueryData<Conversation[]>(
           ['conversations', 'list'],
           (old = []) => [newConversation, ...old]
@@ -66,9 +55,6 @@ export function useCreateConversation() {
   });
 }
 
-/**
- * Fetch participants for a conversation
- */
 export function useConversationParticipants(conversationId: string) {
   return useQuery({
     queryKey: ['conversations', conversationId, 'participants'],
@@ -80,13 +66,10 @@ export function useConversationParticipants(conversationId: string) {
       return response.data?.participants || [];
     },
     enabled: !!conversationId,
-    staleTime: 60_000, // Participants change less frequently
+    staleTime: 60_000,
   });
 }
 
-/**
- * Add a participant to a conversation
- */
 export function useAddParticipant() {
   const queryClient = useQueryClient();
 
@@ -114,9 +97,6 @@ export function useAddParticipant() {
   });
 }
 
-/**
- * Remove a participant from a conversation
- */
 export function useRemoveParticipant() {
   const queryClient = useQueryClient();
 
@@ -142,9 +122,6 @@ export function useRemoveParticipant() {
   });
 }
 
-/**
- * Mute a conversation
- */
 export function useMuteConversation() {
   const queryClient = useQueryClient();
 
@@ -169,9 +146,6 @@ export function useMuteConversation() {
   });
 }
 
-/**
- * Unmute a conversation
- */
 export function useUnmuteConversation() {
   const queryClient = useQueryClient();
 
@@ -190,9 +164,6 @@ export function useUnmuteConversation() {
   });
 }
 
-/**
- * Archive a conversation
- */
 export function useArchiveConversation() {
   const queryClient = useQueryClient();
 
@@ -205,7 +176,6 @@ export function useArchiveConversation() {
       return response.data;
     },
     onSuccess: (_, conversationId) => {
-      // Optimistically remove from list
       queryClient.setQueryData<Conversation[]>(
         ['conversations', 'list'],
         (old = []) => old.filter((c) => c.id !== conversationId)
@@ -214,9 +184,6 @@ export function useArchiveConversation() {
   });
 }
 
-/**
- * Unarchive a conversation
- */
 export function useUnarchiveConversation() {
   const queryClient = useQueryClient();
 
@@ -234,10 +201,6 @@ export function useUnarchiveConversation() {
   });
 }
 
-/**
- * Get or create a direct message conversation with a user
- * First tries to find existing DM, then creates one if not found
- */
 export function useGetOrCreateDM() {
   const queryClient = useQueryClient();
 
@@ -249,7 +212,6 @@ export function useGetOrCreateDM() {
       currentUserId: string;
       targetUserId: string;
     }) => {
-      // Validate user IDs before making API call
       if (!currentUserId || currentUserId.trim() === '') {
         throw new Error('Current user ID is required to create a DM conversation');
       }
@@ -257,22 +219,18 @@ export function useGetOrCreateDM() {
         throw new Error('Target user ID is required to create a DM conversation');
       }
 
-      // First try to get existing DM
       try {
         const existingResponse = await conversationService.getDirect(
           currentUserId,
           targetUserId
         );
 
-        // If existing DM found, return it
         if (existingResponse.success && existingResponse.data) {
           return existingResponse.data;
         }
       } catch {
-        // DM doesn't exist - this is expected, continue to create one
       }
 
-      // No existing DM found - create a new one
       const createResponse = await conversationService.create({
         type: 'DM',
         participants: [targetUserId],
@@ -286,11 +244,9 @@ export function useGetOrCreateDM() {
     },
     onSuccess: (conversation) => {
       if (conversation) {
-        // Add to conversations list cache
         queryClient.setQueryData<Conversation[]>(
           ['conversations', 'list'],
           (old = []) => {
-            // Check if already exists
             if (old.some((c) => c.id === conversation.id)) {
               return old;
             }
@@ -302,9 +258,6 @@ export function useGetOrCreateDM() {
   });
 }
 
-/**
- * Search conversations on the server
- */
 export function useSearchConversations(query: string) {
   return useQuery({
     queryKey: ['conversations', 'search', query],

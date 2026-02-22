@@ -12,12 +12,10 @@ function ChatPageContent() {
 
   return (
     <div className="flex h-screen bg-slate-950">
-      {/* Conversation list: visible when no conversation selected on mobile, always visible on desktop */}
       <div className={`${selectedConversationId ? 'hidden lg:block' : 'w-full lg:w-80'} lg:w-80 shrink-0`}>
         <ConversationList />
       </div>
 
-      {/* Chat area: visible when conversation selected on mobile, always visible on desktop */}
       <div className={`${selectedConversationId ? 'flex-1 flex flex-col' : 'hidden lg:flex lg:flex-1 lg:flex-col'} bg-slate-950 min-w-0`}>
         {selectedConversationId ? (
           <ChatArea conversationId={selectedConversationId} />

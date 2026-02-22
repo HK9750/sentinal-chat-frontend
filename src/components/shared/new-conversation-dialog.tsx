@@ -44,32 +44,26 @@ export function NewConversationDialog({
   const searchParams = useSearchParams();
   const currentUser = useAuthStore((state) => state.user);
 
-  // Dialog state
   const [tab, setTab] = useState<'dm' | 'group'>('dm');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [groupName, setGroupName] = useState('');
 
-  // Debounce search for API calls
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  // Queries
   const { data: contacts, isLoading: contactsLoading } = useContacts();
   const { data: searchResults, isLoading: searchLoading } = useSearchUsers(
     debouncedSearch,
     { enabled: debouncedSearch.length >= 2 }
   );
 
-  // Mutations
   const getOrCreateDM = useGetOrCreateDM();
   const createConversation = useCreateConversation();
 
-  // Filter out current user from results and show contacts + search results
   const displayUsers = useMemo(() => {
     const users: User[] = [];
     const seenIds = new Set<string>();
 
-    // If searching, show search results
     if (debouncedSearch.length >= 2 && searchResults) {
       searchResults.forEach((user) => {
         if (user.id !== currentUser?.id && !seenIds.has(user.id)) {
@@ -78,15 +72,12 @@ export function NewConversationDialog({
         }
       });
     } else if (contacts) {
-      // Otherwise show contacts - transform UserContact to User
       contacts.forEach((contact) => {
-        // Use embedded contact user data if available
         const user = contact.contact;
         if (user && user.id !== currentUser?.id && !seenIds.has(user.id)) {
           users.push(user);
           seenIds.add(user.id);
         } else if (!user && contact.contact_user_id !== currentUser?.id && !seenIds.has(contact.contact_user_id)) {
-          // Fallback: create a minimal User object from contact data
           users.push({
             id: contact.contact_user_id,
             email: '',
@@ -101,7 +92,6 @@ export function NewConversationDialog({
     return users;
   }, [contacts, searchResults, debouncedSearch, currentUser?.id]);
 
-  // Handle selecting/deselecting a user
   const handleToggleUser = useCallback((user: User) => {
     setSelectedUsers((prev) => {
       const isSelected = prev.some((u) => u.id === user.id);
@@ -112,7 +102,6 @@ export function NewConversationDialog({
     });
   }, []);
 
-  // Handle starting a DM
   const handleStartDM = useCallback(
     async (user: User) => {
       if (!currentUser?.id) {
@@ -127,7 +116,6 @@ export function NewConversationDialog({
         });
 
         if (conversation) {
-          // Navigate to the conversation
           const params = new URLSearchParams(searchParams);
           params.set('conversation', conversation.id);
           router.push(`/chat?${params.toString()}`);
@@ -141,7 +129,6 @@ export function NewConversationDialog({
     [currentUser, getOrCreateDM, router, searchParams, onOpenChange]
   );
 
-  // Handle creating a group
   const handleCreateGroup = useCallback(async () => {
     if (selectedUsers.length < 2 || !groupName.trim()) return;
 
@@ -153,7 +140,6 @@ export function NewConversationDialog({
       });
 
       if (conversation) {
-        // Navigate to the conversation
         const params = new URLSearchParams(searchParams);
         params.set('conversation', conversation.id);
         router.push(`/chat?${params.toString()}`);
@@ -165,7 +151,6 @@ export function NewConversationDialog({
     }
   }, [selectedUsers, groupName, createConversation, router, searchParams, onOpenChange]);
 
-  // Reset dialog state
   const resetDialog = useCallback(() => {
     setSearchQuery('');
     setSelectedUsers([]);
@@ -173,7 +158,6 @@ export function NewConversationDialog({
     setTab('dm');
   }, []);
 
-  // Handle dialog close
   const handleOpenChange = useCallback(
     (open: boolean) => {
       if (!open) {
@@ -217,7 +201,6 @@ export function NewConversationDialog({
             </TabsTrigger>
           </TabsList>
 
-          {/* Search Input */}
           <div className="relative mt-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
             <Input
@@ -238,7 +221,6 @@ export function NewConversationDialog({
             )}
           </div>
 
-          {/* Group: Selected users and group name */}
           {tab === 'group' && selectedUsers.length > 0 && (
             <div className="mt-4 space-y-3">
               <div className="flex flex-wrap gap-2">
@@ -268,7 +250,6 @@ export function NewConversationDialog({
             </div>
           )}
 
-          {/* User list */}
           <TabsContent value="dm" className="mt-4">
             <ScrollArea className="h-75">
               {isLoading ? (
@@ -371,7 +352,6 @@ export function NewConversationDialog({
               )}
             </ScrollArea>
 
-            {/* Create group button */}
             <div className="mt-4 flex justify-end">
               <Button
                 onClick={handleCreateGroup}

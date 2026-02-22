@@ -14,7 +14,6 @@ import { Card } from '@/components/ui/card';
 import { useGenerateKeys, useEncryptionStatus, useReplenishPreKeys } from '@/hooks/use-encryption';
 import { cn } from '@/lib/utils';
 
-// Number of one-time prekeys to generate initially
 const INITIAL_PREKEY_COUNT = 20;
 
 type SetupStep = 'idle' | 'generating' | 'complete' | 'error';
@@ -36,16 +35,12 @@ export function EncryptionSetup({
   const generateKeysMutation = useGenerateKeys();
   const { isSetup, isLoading: statusLoading, deviceId } = useEncryptionStatus();
 
-  // If already set up, show complete state
   useEffect(() => {
     if (isSetup && !statusLoading) {
       setStep('complete');
     }
   }, [isSetup, statusLoading]);
 
-  /**
-   * Handle the full setup flow using the new crypto library
-   */
   const handleSetup = useCallback(async () => {
     setStep('generating');
     setError(null);
@@ -61,9 +56,6 @@ export function EncryptionSetup({
     }
   }, [generateKeysMutation, onComplete]);
 
-  /**
-   * Reset and close the dialog
-   */
   const handleClose = useCallback(() => {
     onOpenChange(false);
   }, [onOpenChange]);
@@ -117,7 +109,6 @@ export function EncryptionSetup({
           </div>
         </DialogHeader>
 
-        {/* Progress indicator */}
         {isProcessing && (
           <div className="py-6">
             <div className="space-y-4">
@@ -149,7 +140,6 @@ export function EncryptionSetup({
           </div>
         )}
 
-        {/* Idle state - explanation */}
         {step === 'idle' && !isProcessing && (
           <div className="py-4 space-y-4">
             <Card className="bg-slate-800/50 border-slate-700 p-4">
@@ -192,7 +182,6 @@ export function EncryptionSetup({
           </div>
         )}
 
-        {/* Complete state */}
         {step === 'complete' && (
           <div className="py-4 space-y-4">
             <Card className="bg-emerald-500/10 border-emerald-500/30 p-4">
@@ -222,7 +211,6 @@ export function EncryptionSetup({
           </div>
         )}
 
-        {/* Error state */}
         {step === 'error' && (
           <div className="py-4">
             <Card className="bg-red-500/10 border-red-500/30 p-4">
@@ -239,7 +227,6 @@ export function EncryptionSetup({
           </div>
         )}
 
-        {/* Action buttons */}
         <div className="flex justify-end gap-3 pt-4">
           {step === 'idle' && !isProcessing && (
             <>

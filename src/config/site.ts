@@ -1,13 +1,8 @@
-/**
- * Site configuration
- * Per AGENTS.md: Centralize site metadata and configuration
- */
 
 export const siteConfig = {
   name: 'Sentinel Chat',
   description: 'Secure end-to-end encrypted messaging platform',
   
-  // Navigation
   nav: {
     main: [
       { label: 'Home', href: '/' },
@@ -19,13 +14,11 @@ export const siteConfig = {
     },
   },
   
-  // External links
   links: {
     github: 'https://github.com/sentinel-chat',
     twitter: 'https://twitter.com/sentinelchat',
   },
   
-  // SEO defaults
   seo: {
     title: 'Sentinel Chat',
     titleTemplate: '%s | Sentinel Chat',
@@ -38,10 +31,9 @@ export const siteConfig = {
     },
   },
   
-  // Feature flags
   features: {
-    videoCalls: false, // Coming soon
-    voiceCalls: false, // Coming soon
-    groupBroadcasts: false, // Coming soon
+    videoCalls: false,
+    voiceCalls: false,
+    groupBroadcasts: false,
   },
 } as const;

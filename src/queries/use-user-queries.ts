@@ -122,10 +122,6 @@ export function useDevices() {
   });
 }
 
-/**
- * Search users by query string
- * Used for finding users when creating new conversations
- */
 export function useSearchUsers(query: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['users', 'search', query],
@@ -141,9 +137,6 @@ export function useSearchUsers(query: string, options?: { enabled?: boolean }) {
   });
 }
 
-/**
- * Get a paginated list of users
- */
 export function useUsers(page = 1, limit = 20) {
   return useQuery({
     queryKey: ['users', 'list', page, limit],

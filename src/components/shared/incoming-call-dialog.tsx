@@ -36,7 +36,6 @@ export function IncomingCallDialog() {
     if (!activeCall) return;
 
     try {
-      // Get user media
       const constraints: MediaStreamConstraints = {
         audio: true,
         video: incomingCallType === 'VIDEO',
@@ -44,14 +43,11 @@ export function IncomingCallDialog() {
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       setLocalStream(stream);
 
-      // Accept the call via API
       await acceptCallMutation.mutateAsync(activeCall.id);
 
-      // Update local state
       acceptCallState();
     } catch (error) {
       console.error('Failed to accept call:', error);
-      // If we fail to get media, decline the call
       handleDecline();
     }
   }, [activeCall, incomingCallType, setLocalStream, acceptCallMutation, acceptCallState]);
@@ -69,15 +65,12 @@ export function IncomingCallDialog() {
     }
   }, [activeCall, declineCallMutation, sendCallEnd, declineCallState]);
 
-  // Play ringtone when incoming call
   useEffect(() => {
     if (!isOpen) return;
 
-    // Browser will require user interaction for audio, but we can try
     const audio = new Audio('/sounds/ringtone.mp3');
     audio.loop = true;
     audio.play().catch(() => {
-      // Audio playback was blocked, ignore
     });
 
     return () => {

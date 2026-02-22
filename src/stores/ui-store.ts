@@ -4,26 +4,21 @@ import { persist } from 'zustand/middleware';
 type Theme = 'light' | 'dark' | 'system';
 
 interface UIState {
-  // Theme
   theme: Theme;
   setTheme: (theme: Theme) => void;
   
-  // Sidebar
   isSidebarOpen: boolean;
   toggleSidebar: () => void;
   setSidebarOpen: (isOpen: boolean) => void;
   
-  // Modals
   activeModal: string | null;
   modalData: unknown;
   openModal: (modal: string, data?: unknown) => void;
   closeModal: () => void;
   
-  // Mobile
   isMobile: boolean;
   setIsMobile: (isMobile: boolean) => void;
   
-  // Notifications
   notifications: Array<{
     id: string;
     type: 'success' | 'error' | 'warning' | 'info';
@@ -32,7 +27,6 @@ interface UIState {
   addNotification: (notification: Omit<UIState['notifications'][0], 'id'>) => void;
   removeNotification: (id: string) => void;
   
-  // Loading states
   loadingStates: Map<string, boolean>;
   setLoading: (key: string, isLoading: boolean) => void;
   isLoading: (key: string) => boolean;

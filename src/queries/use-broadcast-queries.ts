@@ -7,9 +7,6 @@ import {
 } from '@/services/broadcast-service';
 import { Broadcast, BroadcastRecipient } from '@/types';
 
-/**
- * Fetch a single broadcast by ID
- */
 export function useBroadcast(broadcastId: string) {
   return useQuery({
     queryKey: ['broadcasts', broadcastId],
@@ -25,9 +22,6 @@ export function useBroadcast(broadcastId: string) {
   });
 }
 
-/**
- * Fetch all broadcasts for a specific owner
- */
 export function useBroadcasts(ownerId: string) {
   return useQuery({
     queryKey: ['broadcasts', 'list', ownerId],
@@ -43,9 +37,6 @@ export function useBroadcasts(ownerId: string) {
   });
 }
 
-/**
- * Search broadcasts for a specific owner
- */
 export function useSearchBroadcasts(ownerId: string, query: string) {
   return useQuery({
     queryKey: ['broadcasts', 'search', ownerId, query],
@@ -61,9 +52,6 @@ export function useSearchBroadcasts(ownerId: string, query: string) {
   });
 }
 
-/**
- * Fetch broadcast recipients
- */
 export function useBroadcastRecipients(broadcastId: string) {
   return useQuery({
     queryKey: ['broadcasts', broadcastId, 'recipients'],
@@ -79,9 +67,6 @@ export function useBroadcastRecipients(broadcastId: string) {
   });
 }
 
-/**
- * Fetch broadcast recipient count
- */
 export function useBroadcastRecipientCount(broadcastId: string) {
   return useQuery({
     queryKey: ['broadcasts', broadcastId, 'recipients', 'count'],
@@ -97,9 +82,6 @@ export function useBroadcastRecipientCount(broadcastId: string) {
   });
 }
 
-/**
- * Create a new broadcast
- */
 export function useCreateBroadcast() {
   const queryClient = useQueryClient();
 
@@ -113,7 +95,6 @@ export function useCreateBroadcast() {
     },
     onSuccess: (newBroadcast) => {
       if (newBroadcast) {
-        // Optimistically add to list
         queryClient.setQueryData<Broadcast[]>(['broadcasts', 'list'], (old = []) => [
           newBroadcast,
           ...old,
@@ -123,9 +104,6 @@ export function useCreateBroadcast() {
   });
 }
 
-/**
- * Update a broadcast
- */
 export function useUpdateBroadcast() {
   const queryClient = useQueryClient();
 
@@ -144,9 +122,7 @@ export function useUpdateBroadcast() {
       return response.data;
     },
     onSuccess: (updatedBroadcast, { broadcastId }) => {
-      // Update individual broadcast cache
       queryClient.setQueryData(['broadcasts', broadcastId], updatedBroadcast);
-      // Update list cache
       queryClient.setQueryData<Broadcast[]>(['broadcasts', 'list'], (old = []) =>
         old.map((b) => (b.id === broadcastId ? updatedBroadcast! : b))
       );
@@ -154,9 +130,6 @@ export function useUpdateBroadcast() {
   });
 }
 
-/**
- * Delete a broadcast
- */
 export function useDeleteBroadcast() {
   const queryClient = useQueryClient();
 
@@ -169,19 +142,14 @@ export function useDeleteBroadcast() {
       return response.data;
     },
     onSuccess: (_, broadcastId) => {
-      // Remove from list cache
       queryClient.setQueryData<Broadcast[]>(['broadcasts', 'list'], (old = []) =>
         old.filter((b) => b.id !== broadcastId)
       );
-      // Remove individual cache
       queryClient.removeQueries({ queryKey: ['broadcasts', broadcastId] });
     },
   });
 }
 
-/**
- * Add a recipient to a broadcast
- */
 export function useAddBroadcastRecipient() {
   const queryClient = useQueryClient();
 
@@ -212,9 +180,6 @@ export function useAddBroadcastRecipient() {
   });
 }
 
-/**
- * Remove a recipient from a broadcast
- */
 export function useRemoveBroadcastRecipient() {
   const queryClient = useQueryClient();
 
@@ -233,7 +198,6 @@ export function useRemoveBroadcastRecipient() {
       return response.data;
     },
     onMutate: async ({ broadcastId, userId }) => {
-      // Optimistic update
       await queryClient.cancelQueries({
         queryKey: ['broadcasts', broadcastId, 'recipients'],
       });
@@ -267,9 +231,6 @@ export function useRemoveBroadcastRecipient() {
   });
 }
 
-/**
- * Bulk add recipients to a broadcast
- */
 export function useBulkAddBroadcastRecipients() {
   const queryClient = useQueryClient();
 
@@ -300,9 +261,6 @@ export function useBulkAddBroadcastRecipients() {
   });
 }
 
-/**
- * Bulk remove recipients from a broadcast
- */
 export function useBulkRemoveBroadcastRecipients() {
   const queryClient = useQueryClient();
 
@@ -333,9 +291,6 @@ export function useBulkRemoveBroadcastRecipients() {
   });
 }
 
-/**
- * Check if a user is a recipient of a broadcast
- */
 export function useIsRecipient(broadcastId: string, userId: string) {
   return useQuery({
     queryKey: ['broadcasts', broadcastId, 'recipients', userId],

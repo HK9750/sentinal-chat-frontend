@@ -1,9 +1,3 @@
-/**
- * Encryption Hooks
- *
- * High-level hooks for end-to-end encryption using Signal Protocol.
- * Combines crypto library, IndexedDB storage, and API queries.
- */
 
 import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -48,22 +42,9 @@ import { useAuthStore } from '@/stores/auth-store';
 import { getServerDeviceId } from '@/lib/device';
 import type { KeyBundle } from '@/types';
 
-// ============================================================================
-// Constants
-// ============================================================================
-
 const MIN_PREKEY_COUNT = 10;
 const PREKEY_BATCH_SIZE = 20;
 
-// ============================================================================
-// Device ID Helper
-// ============================================================================
-
-/**
- * Get the server-assigned device UUID (devices.ID primary key).
- * This is set after login/register and used for all encryption API calls.
- * Throws if not yet available (user hasn't logged in on this device).
- */
 function getStableDeviceId(): string {
   const id = getServerDeviceId();
   if (!id) {
@@ -72,13 +53,6 @@ function getStableDeviceId(): string {
   return id;
 }
 
-// ============================================================================
-// Key Generation Hook
-// ============================================================================
-
-/**
- * Generate and upload encryption keys for this device
- */
 export function useGenerateKeys() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
@@ -93,11 +67,9 @@ export function useGenerateKeys() {
 
       const deviceId = getStableDeviceId();
 
-      // Generate and store identity key pair
       const identityKeyPair = await generateIdentityKeyPair();
       await storeIdentityKey(deviceId, identityKeyPair);
 
-      // Upload identity key to server
       const identityUploadResult = await encryptionService.uploadIdentityKey({
         user_id: user.id,
         device_id: deviceId,
@@ -107,11 +79,9 @@ export function useGenerateKeys() {
         throw new Error(`Identity key upload failed: ${identityUploadResult.error || 'unknown error'}`);
       }
 
-      // Generate and store signed pre-key
       const signedPreKey = await generateSignedPreKey(identityKeyPair, 1);
       await storeSignedPreKey(deviceId, signedPreKey);
 
-      // Upload signed pre-key to server
       const signedUploadResult = await encryptionService.uploadSignedPreKey({
         user_id: user.id,
         device_id: deviceId,
@@ -123,11 +93,9 @@ export function useGenerateKeys() {
         throw new Error(`Signed pre-key upload failed: ${signedUploadResult.error || 'unknown error'}`);
       }
 
-      // Generate and store one-time pre-keys
       const oneTimePreKeys = await generateOneTimePreKeys(1, PREKEY_BATCH_SIZE);
       await storeOneTimePreKeys(deviceId, oneTimePreKeys);
 
-      // Upload one-time pre-keys to server
       const otpUploadResult = await encryptionService.uploadOneTimePreKeys({
         keys: oneTimePreKeys.map((k) => ({
           user_id: user.id,
@@ -148,13 +116,6 @@ export function useGenerateKeys() {
   });
 }
 
-// ============================================================================
-// Session Establishment Hook
-// ============================================================================
-
-/**
- * Establish an encrypted session with another user
- */
 export function useEstablishSession() {
   const { user } = useAuthStore();
 
@@ -174,19 +135,16 @@ export function useEstablishSession() {
 
       const deviceId = getStableDeviceId();
 
-      // Check if we already have a session
       const existingSession = await getSession(recipientUserId, recipientDeviceId);
       if (existingSession) {
         return { session: existingSession, isNew: false };
       }
 
-      // Get our identity key
       const ourIdentity = await getIdentityKey(deviceId);
       if (!ourIdentity) {
         throw new Error('No identity key found. Please set up encryption first.');
       }
 
-      // Fetch recipient's key bundle from server
       const bundleResponse = await encryptionService.getKeyBundle({
         user_id: recipientUserId,
         device_id: recipientDeviceId,
@@ -199,7 +157,6 @@ export function useEstablishSession() {
 
       const keyBundle = bundleResponse.data;
 
-      // Convert API bundle to crypto bundle
       const preKeyBundle: PreKeyBundle = {
         identityKey: base64ToKey(keyBundle.identity_key.public_key),
         signedPreKey: base64ToKey(keyBundle.signed_pre_key.public_key),
@@ -211,24 +168,20 @@ export function useEstablishSession() {
         oneTimePreKeyId: keyBundle.one_time_pre_key?.key_id,
       };
 
-      // Generate ephemeral key pair for X3DH
       const ephemeralKeyPair = await generateEphemeralKeyPair();
 
-      // Perform X3DH key agreement
       const { sharedSecret, associatedData } = await x3dhInitiator(
         ourIdentity,
         ephemeralKeyPair,
         preKeyBundle
       );
 
-      // Initialize Double Ratchet session
       const session = await initializeSessionAsInitiator(
         sharedSecret,
         associatedData,
-        preKeyBundle.signedPreKey // Use signed pre-key as initial ratchet key
+        preKeyBundle.signedPreKey
       );
 
-      // Store session
       await storeSession(recipientUserId, recipientDeviceId, session);
 
       return { session, isNew: true, ephemeralPublicKey: ephemeralKeyPair.publicKey };
@@ -236,19 +189,12 @@ export function useEstablishSession() {
   });
 }
 
-// ============================================================================
-// Message Encryption Hook
-// ============================================================================
-
 export interface EncryptMessageResult {
   encryptedContent: string;
   ephemeralPublicKey?: string;
   usedOneTimePreKeyId?: number;
 }
 
-/**
- * Hook for encrypting messages
- */
 export function useEncryptMessageMutation() {
   const establishSession = useEstablishSession();
 
@@ -264,12 +210,10 @@ export function useEncryptMessageMutation() {
     }): Promise<EncryptMessageResult> => {
       await initCrypto();
 
-      // Ensure we have a session
       let session = await getSession(recipientUserId, recipientDeviceId);
       let ephemeralPublicKey: Uint8Array | undefined;
 
       if (!session) {
-        // Establish session first
         const result = await establishSession.mutateAsync({
           recipientUserId,
           recipientDeviceId,
@@ -278,13 +222,10 @@ export function useEncryptMessageMutation() {
         ephemeralPublicKey = result.ephemeralPublicKey;
       }
 
-      // Encrypt the message
       const { encrypted, updatedSession } = await encryptMessage(session, plaintext);
 
-      // Update stored session
       await storeSession(recipientUserId, recipientDeviceId, updatedSession);
 
-      // Serialize for transmission
       const encryptedContent = serializeEncryptedMessage(encrypted);
 
       return {
@@ -297,13 +238,6 @@ export function useEncryptMessageMutation() {
   });
 }
 
-// ============================================================================
-// Message Decryption Hook
-// ============================================================================
-
-/**
- * Hook for decrypting messages
- */
 export function useDecryptMessageMutation() {
   const { user } = useAuthStore();
 
@@ -330,8 +264,6 @@ export function useDecryptMessageMutation() {
       const deviceId = getStableDeviceId();
       let session = await getSession(senderUserId, senderDeviceId);
 
-      // If no session and we have ephemeral key, this is the first message
-      // We need to complete X3DH as responder
       if (!session && ephemeralPublicKey) {
         const ourIdentity = await getIdentityKey(deviceId);
         if (!ourIdentity) {
@@ -351,7 +283,6 @@ export function useDecryptMessageMutation() {
           }
         }
 
-        // Get sender's identity key from server
         const identityResponse = await encryptionService.getIdentityKey(
           senderUserId,
           senderDeviceId
@@ -363,7 +294,6 @@ export function useDecryptMessageMutation() {
         const senderIdentityKey = base64ToKey(identityResponse.data.public_key);
         const senderEphemeralKey = base64ToKey(ephemeralPublicKey);
 
-        // Perform X3DH as responder
         const { sharedSecret, associatedData } = await x3dhResponder(
           ourIdentity,
           ourSignedPreKey,
@@ -372,7 +302,6 @@ export function useDecryptMessageMutation() {
           senderEphemeralKey
         );
 
-        // Initialize session as responder
         session = await initializeSessionAsResponder(
           sharedSecret,
           associatedData,
@@ -386,11 +315,9 @@ export function useDecryptMessageMutation() {
         throw new Error('No session found and cannot establish one');
       }
 
-      // Decrypt the message
       const encrypted = deserializeEncryptedMessage(encryptedContent);
       const { plaintext, updatedSession } = await decryptMessage(session, encrypted);
 
-      // Update stored session
       await storeSession(senderUserId, senderDeviceId, updatedSession);
 
       return plaintext;
@@ -398,13 +325,6 @@ export function useDecryptMessageMutation() {
   });
 }
 
-// ============================================================================
-// Prekey Replenishment Hook
-// ============================================================================
-
-/**
- * Check and replenish one-time prekeys if needed
- */
 export function useReplenishPreKeys() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
@@ -418,7 +338,6 @@ export function useReplenishPreKeys() {
       await initCrypto();
       const deviceId = getStableDeviceId();
 
-      // Check server-side count
       const countResponse = await encryptionService.getPreKeyCount(user.id, deviceId);
       if (!countResponse.success) {
         throw new Error('Failed to check prekey count');
@@ -452,13 +371,6 @@ export function useReplenishPreKeys() {
   });
 }
 
-// ============================================================================
-// Encryption Status Hook
-// ============================================================================
-
-/**
- * Check if encryption is set up for the current device
- */
 export function useEncryptionStatus() {
   const { user } = useAuthStore();
 
@@ -476,7 +388,7 @@ export function useEncryptionStatus() {
       };
     },
     enabled: !!user,
-    staleTime: Infinity, // Only refetch on explicit invalidation
+    staleTime: Infinity,
     retry: false,
   });
 
@@ -488,13 +400,6 @@ export function useEncryptionStatus() {
   };
 }
 
-// ============================================================================
-// Has Session Hook
-// ============================================================================
-
-/**
- * Check if we have an encrypted session with a user
- */
 export function useHasSession(recipientUserId: string, recipientDeviceId: string) {
   return useQuery({
     queryKey: ['crypto', 'session', recipientUserId, recipientDeviceId],
@@ -503,13 +408,6 @@ export function useHasSession(recipientUserId: string, recipientDeviceId: string
   });
 }
 
-// ============================================================================
-// Reset Encryption Hook
-// ============================================================================
-
-/**
- * Clear all local encryption data (useful for logout or key rotation)
- */
 export function useResetEncryption() {
   const queryClient = useQueryClient();
 
@@ -525,13 +423,6 @@ export function useResetEncryption() {
   });
 }
 
-// ============================================================================
-// Convenience Hooks for Components
-// ============================================================================
-
-/**
- * Combined hook for message encryption with automatic session establishment
- */
 export function useSecureMessage() {
   const encryptMutation = useEncryptMessageMutation();
   const decryptMutation = useDecryptMessageMutation();

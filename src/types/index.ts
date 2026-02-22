@@ -1,25 +1,17 @@
-// User types
 export * from './user';
 
-// Message types
 export * from './message';
 
-// Conversation types
 export * from './conversation';
 
-// Call types
 export * from './call';
 
-// Broadcast types
 export * from './broadcast';
 
-// Upload types
 export * from './upload';
 
-// Encryption types
 export * from './encryption';
 
-// Common types
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -43,7 +35,6 @@ export interface AuthTokens {
   device_id?: string;
 }
 
-// WebSocket types
 export interface WebSocketEvent {
   type: string;
   timestamp: string;
@@ -109,7 +100,6 @@ export type WebSocketClientMessage =
   | { type: 'presence:online'; status?: string }
   | { type: 'ping' };
 
-// Request DTOs
 export interface RegisterRequest {
   email: string;
   username: string;
@@ -165,5 +155,3 @@ export interface UpdateSettingsRequest {
   theme?: 'LIGHT' | 'DARK' | 'SYSTEM';
   language?: string;
 }
-
-

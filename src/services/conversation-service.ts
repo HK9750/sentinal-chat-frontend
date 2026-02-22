@@ -48,7 +48,6 @@ export const conversationService = {
     return apiClient.post(`/v1/conversations/${id}/invite`);
   },
 
-  // Participants
   addParticipant: async (conversationId: string, userId: string, role?: string): Promise<ApiResponse<void>> => {
     return apiClient.post(`/v1/conversations/${conversationId}/participants`, { user_id: userId, role });
   },
@@ -65,7 +64,6 @@ export const conversationService = {
     return apiClient.put(`/v1/conversations/${conversationId}/participants/${userId}/role`, { role });
   },
 
-  // Actions
   mute: async (conversationId: string, until: string): Promise<ApiResponse<void>> => {
     return apiClient.post(`/v1/conversations/${conversationId}/mute`, { until });
   },
@@ -90,7 +88,6 @@ export const conversationService = {
     return apiClient.post(`/v1/conversations/${conversationId}/unarchive`);
   },
 
-  // Sequence
   updateLastReadSequence: async (conversationId: string, seqId: number): Promise<ApiResponse<void>> => {
     return apiClient.post(`/v1/conversations/${conversationId}/read-sequence`, { seq_id: seqId });
   },

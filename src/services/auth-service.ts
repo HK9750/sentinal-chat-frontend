@@ -9,7 +9,6 @@ import {
   UserSession,
 } from '@/types';
 
-// Auth response includes user object per API documentation
 export interface AuthResponse extends AuthTokens {
   user: User;
 }

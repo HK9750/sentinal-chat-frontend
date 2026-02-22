@@ -1,26 +1,17 @@
-/**
- * Application-wide constants
- * 
- * Per AGENTS.md: Centralize magic numbers and strings
- */
 
-// Pagination
 export const CONVERSATIONS_PER_PAGE = 20;
 export const MESSAGES_PER_PAGE = 50;
 export const CONTACTS_PER_PAGE = 50;
 
-// Query stale times (in milliseconds)
 export const STALE_TIME = {
-  SHORT: 10_000,      // 10 seconds - for frequently changing data
-  MEDIUM: 30_000,     // 30 seconds - for moderately changing data
-  LONG: 60_000,       // 1 minute - for rarely changing data
-  VERY_LONG: 300_000, // 5 minutes - for static data
+  SHORT: 10_000,
+  MEDIUM: 30_000,
+  LONG: 60_000,
+  VERY_LONG: 300_000,
 } as const;
 
-// WebSocket reconnection
-export const WS_RECONNECT_DELAY = 3000; // 3 seconds
+export const WS_RECONNECT_DELAY = 3000;
 
-// Form validation
 export const VALIDATION = {
   PASSWORD_MIN_LENGTH: 8,
   USERNAME_MIN_LENGTH: 3,
@@ -30,22 +21,19 @@ export const VALIDATION = {
   STATUS_MAX_LENGTH: 100,
 } as const;
 
-// Date formatting
 export const DATE_FORMATS = {
   TIME: 'h:mm a',
   DATE: 'MMM d',
   FULL: 'MMM d, yyyy h:mm a',
-  RELATIVE_THRESHOLD: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+  RELATIVE_THRESHOLD: 7 * 24 * 60 * 60 * 1000,
 } as const;
 
-// Local storage keys
 export const STORAGE_KEYS = {
   AUTH: 'auth-storage',
   THEME: 'theme',
   SIDEBAR_COLLAPSED: 'sidebar-collapsed',
 } as const;
 
-// Routes
 export const ROUTES = {
   HOME: '/',
   LOGIN: '/login',
@@ -55,7 +43,6 @@ export const ROUTES = {
   PROFILE: '/profile',
 } as const;
 
-// API routes (relative to API_URL)
 export const API_ROUTES = {
   AUTH: {
     LOGIN: '/v1/auth/login',

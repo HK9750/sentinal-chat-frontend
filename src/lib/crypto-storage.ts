@@ -1,9 +1,3 @@
-/**
- * IndexedDB Storage for Encryption Keys and Sessions
- *
- * Stores private keys and Double Ratchet session state locally.
- * All keys are stored encrypted when possible.
- */
 
 import {
   IdentityKeyPair,
@@ -19,7 +13,6 @@ import {
 const DB_NAME = 'sentinel-crypto';
 const DB_VERSION = 1;
 
-// Store names
 const STORES = {
   IDENTITY_KEYS: 'identityKeys',
   SIGNED_PRE_KEYS: 'signedPreKeys',
@@ -27,10 +20,6 @@ const STORES = {
   SESSIONS: 'sessions',
   METADATA: 'metadata',
 } as const;
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface StoredIdentityKey {
   deviceId: string;
@@ -63,7 +52,7 @@ export interface StoredOneTimePreKey {
 export interface StoredSession {
   recipientUserId: string;
   recipientDeviceId: string;
-  sessionData: string; // Serialized SessionState
+  sessionData: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -72,10 +61,6 @@ export interface CryptoMetadata {
   key: string;
   value: string;
 }
-
-// ============================================================================
-// Database Initialization
-// ============================================================================
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -99,12 +84,10 @@ function openDatabase(): Promise<IDBDatabase> {
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
 
-      // Identity keys store (one per device)
       if (!db.objectStoreNames.contains(STORES.IDENTITY_KEYS)) {
         db.createObjectStore(STORES.IDENTITY_KEYS, { keyPath: 'deviceId' });
       }
 
-      // Signed pre-keys store
       if (!db.objectStoreNames.contains(STORES.SIGNED_PRE_KEYS)) {
         const signedPreKeyStore = db.createObjectStore(STORES.SIGNED_PRE_KEYS, {
           keyPath: 'keyId',
@@ -113,7 +96,6 @@ function openDatabase(): Promise<IDBDatabase> {
         signedPreKeyStore.createIndex('isActive', 'isActive', { unique: false });
       }
 
-      // One-time pre-keys store
       if (!db.objectStoreNames.contains(STORES.ONE_TIME_PRE_KEYS)) {
         const oneTimePreKeyStore = db.createObjectStore(STORES.ONE_TIME_PRE_KEYS, {
           keyPath: 'keyId',
@@ -122,7 +104,6 @@ function openDatabase(): Promise<IDBDatabase> {
         oneTimePreKeyStore.createIndex('isConsumed', 'isConsumed', { unique: false });
       }
 
-      // Sessions store (keyed by recipient user+device)
       if (!db.objectStoreNames.contains(STORES.SESSIONS)) {
         const sessionStore = db.createObjectStore(STORES.SESSIONS, {
           keyPath: ['recipientUserId', 'recipientDeviceId'],
@@ -130,17 +111,12 @@ function openDatabase(): Promise<IDBDatabase> {
         sessionStore.createIndex('recipientUserId', 'recipientUserId', { unique: false });
       }
 
-      // Metadata store (for misc settings like next key IDs)
       if (!db.objectStoreNames.contains(STORES.METADATA)) {
         db.createObjectStore(STORES.METADATA, { keyPath: 'key' });
       }
     };
   });
 }
-
-// ============================================================================
-// Identity Key Operations
-// ============================================================================
 
 export async function storeIdentityKey(
   deviceId: string,
@@ -210,17 +186,12 @@ export async function deleteIdentityKey(deviceId: string): Promise<void> {
   });
 }
 
-// ============================================================================
-// Signed Pre-Key Operations
-// ============================================================================
-
 export async function storeSignedPreKey(
   deviceId: string,
   signedKey: SignedKeyPair
 ): Promise<void> {
   const db = await openDatabase();
 
-  // Deactivate all other signed pre-keys for this device
   await deactivateAllSignedPreKeys(deviceId);
 
   const stored: StoredSignedPreKey = {
@@ -320,10 +291,6 @@ async function deactivateAllSignedPreKeys(deviceId: string): Promise<void> {
     };
   });
 }
-
-// ============================================================================
-// One-Time Pre-Key Operations
-// ============================================================================
 
 export async function storeOneTimePreKeys(
   deviceId: string,
@@ -451,10 +418,6 @@ export async function getNextOneTimePreKeyId(deviceId: string): Promise<number> 
   });
 }
 
-// ============================================================================
-// Session Operations
-// ============================================================================
-
 export async function storeSession(
   recipientUserId: string,
   recipientDeviceId: string,
@@ -559,10 +522,6 @@ export async function hasSession(
   return session !== null;
 }
 
-// ============================================================================
-// Metadata Operations
-// ============================================================================
-
 export async function setMetadata(key: string, value: string): Promise<void> {
   const db = await openDatabase();
 
@@ -592,10 +551,6 @@ export async function getMetadata(key: string): Promise<string | null> {
   });
 }
 
-// ============================================================================
-// Clear All Data
-// ============================================================================
-
 export async function clearAllCryptoData(): Promise<void> {
   const db = await openDatabase();
 
@@ -624,17 +579,12 @@ export async function clearAllCryptoData(): Promise<void> {
   });
 }
 
-// ============================================================================
-// Device ID Management
-// ============================================================================
-
 const DEVICE_ID_KEY = 'deviceId';
 
 export async function getOrCreateDeviceId(): Promise<string> {
   let deviceId = await getMetadata(DEVICE_ID_KEY);
 
   if (!deviceId) {
-    // Generate a new device ID
     deviceId = crypto.randomUUID();
     await setMetadata(DEVICE_ID_KEY, deviceId);
   }

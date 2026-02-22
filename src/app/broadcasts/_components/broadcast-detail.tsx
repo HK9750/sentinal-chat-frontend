@@ -88,7 +88,6 @@ export function BroadcastDetail({ broadcast, onBack }: BroadcastDetailProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center gap-4 p-4 border-b border-slate-800">
         <Button
           variant="ghost"
@@ -153,7 +152,6 @@ export function BroadcastDetail({ broadcast, onBack }: BroadcastDetailProps) {
         </Button>
       </div>
 
-      {/* Search */}
       <div className="p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
@@ -166,7 +164,6 @@ export function BroadcastDetail({ broadcast, onBack }: BroadcastDetailProps) {
         </div>
       </div>
 
-      {/* Recipients List */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
@@ -220,7 +217,6 @@ export function BroadcastDetail({ broadcast, onBack }: BroadcastDetailProps) {
         )}
       </div>
 
-      {/* Add Recipient Dialog */}
       <Dialog open={addRecipientDialogOpen} onOpenChange={setAddRecipientDialogOpen}>
         <DialogContent className="bg-slate-900 border-slate-700">
           <DialogHeader>

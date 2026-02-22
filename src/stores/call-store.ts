@@ -1,14 +1,6 @@
 import { create } from 'zustand';
 import type { Call, CallParticipant, CallType } from '@/types/call';
 
-/**
- * Call Store - Real-time call state management
- * 
- * Per AGENTS.md: Server state (call history) lives in TanStack Query.
- * This store only handles active call state that requires immediate
- * real-time updates for the call UI.
- */
-
 export type CallUIState = 'idle' | 'outgoing' | 'incoming' | 'connecting' | 'active';
 
 export interface LocalMediaState {
@@ -25,30 +17,23 @@ export interface RemoteStream {
 }
 
 interface CallState {
-  // Current call state
   uiState: CallUIState;
   activeCall: Call | null;
   participants: CallParticipant[];
   
-  // Local media state
   localStream: MediaStream | null;
   localMediaState: LocalMediaState;
   
-  // Remote streams (keyed by participant ID)
   remoteStreams: Map<string, MediaStream>;
   
-  // WebRTC peer connections (keyed by participant ID)
   peerConnections: Map<string, RTCPeerConnection>;
   
-  // Incoming call info
   incomingCallerId: string | null;
   incomingCallerName: string | null;
   incomingCallType: CallType | null;
   
-  // Call timing
   callStartTime: number | null;
   
-  // Actions
   initiateCall: (conversationId: string, callType: CallType) => void;
   setIncomingCall: (call: Call, callerId: string, callerName: string) => void;
   acceptCall: () => void;
@@ -77,7 +62,6 @@ const initialLocalMediaState: LocalMediaState = {
 };
 
 export const useCallStore = create<CallState>((set, get) => ({
-  // Initial state
   uiState: 'idle',
   activeCall: null,
   participants: [],
@@ -154,7 +138,6 @@ export const useCallStore = create<CallState>((set, get) => ({
   },
 
   setLocalStream: (stream) => {
-    // Clean up old stream
     const oldStream = get().localStream;
     if (oldStream) {
       oldStream.getTracks().forEach((track) => track.stop());
@@ -180,7 +163,6 @@ export const useCallStore = create<CallState>((set, get) => ({
       if (pc) {
         newConnections.set(participantId, pc);
       } else {
-        // Close existing connection before removing
         const existing = newConnections.get(participantId);
         if (existing) {
           existing.close();
@@ -257,15 +239,12 @@ export const useCallStore = create<CallState>((set, get) => ({
   endCall: () => {
     const { localStream, peerConnections, remoteStreams } = get();
     
-    // Stop all local tracks
     if (localStream) {
       localStream.getTracks().forEach((track) => track.stop());
     }
     
-    // Close all peer connections
     peerConnections.forEach((pc) => pc.close());
     
-    // Clear remote streams
     remoteStreams.forEach((stream) => {
       stream.getTracks().forEach((track) => track.stop());
     });

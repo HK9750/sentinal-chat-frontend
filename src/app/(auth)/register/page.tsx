@@ -8,7 +8,6 @@ import { Spinner } from '@/components/shared/spinner';
 
 export default function RegisterPage() {
   const registerMutation = useRegister();
-  // Only validation error needs local state (not in mutation)
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleSubmit = useCallback(
@@ -23,7 +22,6 @@ export default function RegisterPage() {
       const password = formData.get('password') as string;
       const confirmPassword = formData.get('confirmPassword') as string;
 
-      // Client-side validation
       if (password !== confirmPassword) {
         setValidationError('Passwords do not match');
         return;
@@ -43,17 +41,14 @@ export default function RegisterPage() {
         });
 
         if (response.success) {
-          // Hard redirect to ensure middleware picks up cookies
           window.location.href = '/chat';
         }
       } catch {
-        // Error is handled by mutation state
       }
     },
     [registerMutation]
   );
 
-  // Derive error message from mutation state or validation
   const errorMessage =
     validationError ||
     registerMutation.error?.message ||
@@ -65,7 +60,6 @@ export default function RegisterPage() {
     <GuestGuard>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          {/* Logo */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 mb-4">
               <svg
@@ -86,7 +80,6 @@ export default function RegisterPage() {
             <p className="text-slate-400">Create your secure account</p>
           </div>
 
-          {/* Card */}
           <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-8">
             <h2 className="text-xl font-semibold text-white mb-6 text-center">
               Create account

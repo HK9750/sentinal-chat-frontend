@@ -10,7 +10,6 @@ interface AuthState {
   isAuthenticated: boolean;
   isHydrated: boolean;
 
-  // Actions
   login: (user: User, tokens: AuthTokens) => void;
   logout: () => void;
   setUser: (user: User | null) => void;
@@ -63,7 +62,6 @@ export const useAuthStore = create<AuthState>()(
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.setHydrated(true);
-          // Restore cookie from persisted token
           if (state.tokens?.access_token) {
             setAuthCookie(state.tokens.access_token);
           }

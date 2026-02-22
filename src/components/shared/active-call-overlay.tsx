@@ -31,7 +31,6 @@ export function ActiveCallOverlay() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isMinimized, setIsMinimized] = useState(false);
 
-  // Call state
   const uiState = useCallStore((state) => state.uiState);
   const activeCall = useCallStore((state) => state.activeCall);
   const localStream = useCallStore((state) => state.localStream);
@@ -49,21 +48,18 @@ export function ActiveCallOverlay() {
   const endCallMutation = useEndCall();
   const updateMuteMutation = useUpdateParticipantMute();
 
-  // Fetch participants if we have an active call
   const { data: fetchedParticipants } = useCallParticipants(activeCall?.id || '');
 
   const isVisible = uiState === 'active' || uiState === 'connecting';
   const isConnecting = uiState === 'connecting';
   const isVideoCall = activeCall?.type === 'VIDEO';
 
-  // Set local video stream
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
     }
   }, [localStream]);
 
-  // Timer for call duration
   useEffect(() => {
     if (!callStartTime || !isVisible) return;
 
@@ -118,7 +114,6 @@ export function ActiveCallOverlay() {
 
   if (!isVisible) return null;
 
-  // Get other participants (not the current user)
   const otherParticipants = (fetchedParticipants || participants).filter(
     (p) => p.user_id !== user?.id
   );
@@ -176,7 +171,6 @@ export function ActiveCallOverlay() {
         'flex flex-col'
       )}
     >
-      {/* Header */}
       <div className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-4">
           <div
@@ -207,11 +201,9 @@ export function ActiveCallOverlay() {
         </Button>
       </div>
 
-      {/* Video Grid */}
       <div className="flex-1 p-6">
         {isVideoCall ? (
           <div className="relative h-full">
-            {/* Remote videos */}
             <div className="grid gap-4 h-full grid-cols-1 md:grid-cols-2">
               {otherParticipants.map((participant) => {
                 const remoteStream = remoteStreams.get(participant.user_id);
@@ -249,7 +241,6 @@ export function ActiveCallOverlay() {
                       </div>
                     )}
 
-                    {/* Participant info overlay */}
                     <div className="absolute bottom-3 left-3 flex items-center gap-2">
                       <span className="text-sm text-white font-medium px-2 py-1 bg-black/50 rounded-md">
                         {participant.user?.display_name || 'Participant'}
@@ -271,7 +262,6 @@ export function ActiveCallOverlay() {
               )}
             </div>
 
-            {/* Local video (picture-in-picture) */}
             <div
               className={cn(
                 'absolute bottom-4 right-4',
@@ -301,7 +291,6 @@ export function ActiveCallOverlay() {
             </div>
           </div>
         ) : (
-          /* Audio-only call view */
           <div className="flex items-center justify-center h-full">
             <div className="flex flex-col items-center gap-6">
               <div className="flex gap-4">
@@ -339,7 +328,6 @@ export function ActiveCallOverlay() {
         )}
       </div>
 
-      {/* Controls */}
       <div className="flex items-center justify-center gap-4 py-6 bg-slate-800/50">
         <Button
           variant="ghost"

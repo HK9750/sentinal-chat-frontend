@@ -1,4 +1,3 @@
-// API supports both uppercase and lowercase, we normalize to lowercase
 export type MessageType =
   | 'text'
   | 'image'

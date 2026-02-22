@@ -9,7 +9,6 @@ import {
   ParticipantStatus,
 } from '@/types';
 
-// Request DTOs
 export interface CreateCallRequest {
   conversation_id: string;
   type: CallType;
@@ -52,7 +51,6 @@ export interface RecordQualityMetricRequest {
 }
 
 export const callService = {
-  // Call CRUD
   create: async (data: CreateCallRequest): Promise<ApiResponse<Call>> => {
     return apiClient.post('/v1/calls', data);
   },
@@ -83,7 +81,6 @@ export const callService = {
     return apiClient.get('/v1/calls/missed', { params: { user_id: userId, since } });
   },
 
-  // Call Participants
   addParticipant: async (
     callId: string,
     data: AddCallParticipantRequest
@@ -117,7 +114,6 @@ export const callService = {
     return apiClient.put(`/v1/calls/${callId}/participants/${userId}/mute`, data);
   },
 
-  // Call Actions
   markConnected: async (callId: string): Promise<ApiResponse<void>> => {
     return apiClient.post(`/v1/calls/${callId}/connected`);
   },
@@ -130,7 +126,6 @@ export const callService = {
     return apiClient.get(`/v1/calls/${callId}/duration`);
   },
 
-  // Quality Metrics
   recordQualityMetric: async (
     data: RecordQualityMetricRequest
   ): Promise<ApiResponse<CallQualityMetric>> => {

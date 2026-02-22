@@ -1,7 +1,6 @@
 import { apiClient } from './api-client';
 import { ApiResponse, Upload } from '@/types';
 
-// Request DTOs
 export interface CreateUploadRequest {
   file_name: string;
   file_size: number;
@@ -14,7 +13,6 @@ export interface UpdateUploadProgressRequest {
 }
 
 export const uploadService = {
-  // Upload Session Management
   create: async (data: CreateUploadRequest): Promise<ApiResponse<Upload & { upload_url: string }>> => {
     return apiClient.post('/v1/uploads', data);
   },
@@ -42,7 +40,6 @@ export const uploadService = {
     return apiClient.delete(`/v1/uploads/${uploadId}`);
   },
 
-  // List Uploads
   list: async (
     uploaderId: string,
     page = 1,
@@ -65,7 +62,6 @@ export const uploadService = {
     });
   },
 
-  // Stale Uploads Management
   listStale: async (
     olderThanSec: number
   ): Promise<ApiResponse<{ uploads: Upload[] }>> => {

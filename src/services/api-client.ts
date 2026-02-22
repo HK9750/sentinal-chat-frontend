@@ -18,7 +18,6 @@ class ApiClient {
   }
 
   private setupInterceptors() {
-    // Request interceptor
     this.client.interceptors.request.use(
       (config) => {
         const tokens = this.getTokens();
@@ -30,7 +29,6 @@ class ApiClient {
       (error) => Promise.reject(error)
     );
 
-    // Response interceptor
     this.client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError<ApiResponse<unknown>>) => {
@@ -108,7 +106,6 @@ class ApiClient {
     return this.refreshPromise;
   }
 
-  // Generic HTTP methods
   async get<T>(url: string, config?: AxiosRequestConfig) {
     const response = await this.client.get<ApiResponse<T>>(url, config);
     return response.data;
@@ -129,7 +126,6 @@ class ApiClient {
     return response.data;
   }
 
-  // Auth helper methods
   setAuthTokens(tokens: AuthTokens) {
     this.setTokens(tokens);
   }

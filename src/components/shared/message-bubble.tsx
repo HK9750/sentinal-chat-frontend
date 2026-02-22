@@ -40,7 +40,6 @@ export function MessageBubble({
           isOwn ? 'flex-row-reverse' : ''
         )}
       >
-        {/* Avatar - only show for others and first message in group */}
         {showAvatar && !isOwn && message.sender ? (
           <UserAvatar
             user={message.sender}
@@ -51,7 +50,6 @@ export function MessageBubble({
           <div className="w-8 shrink-0" />
         ) : null}
 
-        {/* Message Content */}
         <Tooltip>
           <TooltipTrigger asChild>
             <div
@@ -62,19 +60,16 @@ export function MessageBubble({
                   : 'bg-slate-800 text-slate-200 rounded-bl-md'
               )}
             >
-              {/* Sender name for group chats */}
               {!isOwn && message.sender && showAvatar && (
                 <p className="text-xs font-medium text-blue-400 mb-1">
                   {message.sender.display_name}
                 </p>
               )}
 
-              {/* Message text */}
               <p className="text-sm leading-relaxed whitespace-pre-wrap">
                 {message.content || (message.ciphertext ? '🔒 Encrypted message' : '[No content]')}
               </p>
 
-              {/* Footer with time and status */}
               <div
                 className={cn(
                   'flex items-center gap-1 mt-1',
@@ -90,7 +85,6 @@ export function MessageBubble({
                   {formatTime(message.created_at)}
                 </span>
 
-                {/* Status indicator for own messages */}
                 {isOwn && (
                   <StatusIcon
                     className={cn(
@@ -104,7 +98,6 @@ export function MessageBubble({
                 )}
               </div>
 
-              {/* Edited indicator */}
               {message.is_edited && (
                 <span
                   className={cn(
@@ -132,5 +125,3 @@ export function MessageBubble({
     </div>
   );
 }
-
-

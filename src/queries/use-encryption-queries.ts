@@ -9,9 +9,6 @@ import {
   GetKeyBundleParams,
 } from '@/services/encryption-service';
 
-/**
- * Fetch identity key for a user/device
- */
 export function useIdentityKey(userId: string, deviceId: string) {
   return useQuery({
     queryKey: ['encryption', 'identity', userId, deviceId],
@@ -23,13 +20,10 @@ export function useIdentityKey(userId: string, deviceId: string) {
       return response.data;
     },
     enabled: !!userId && !!deviceId,
-    staleTime: 5 * 60 * 1000, // Identity keys don't change often (5 min)
+    staleTime: 5 * 60 * 1000,
   });
 }
 
-/**
- * Upload a new identity key
- */
 export function useUploadIdentityKey() {
   const queryClient = useQueryClient();
 
@@ -49,9 +43,6 @@ export function useUploadIdentityKey() {
   });
 }
 
-/**
- * Deactivate an identity key
- */
 export function useDeactivateIdentityKey() {
   const queryClient = useQueryClient();
 
@@ -71,9 +62,6 @@ export function useDeactivateIdentityKey() {
   });
 }
 
-/**
- * Delete an identity key
- */
 export function useDeleteIdentityKey() {
   const queryClient = useQueryClient();
 
@@ -93,9 +81,6 @@ export function useDeleteIdentityKey() {
   });
 }
 
-/**
- * Fetch signed prekey
- */
 export function useSignedPreKey(userId: string, deviceId: string, keyId: number) {
   return useQuery({
     queryKey: ['encryption', 'signed-prekey', userId, deviceId, keyId],
@@ -111,9 +96,6 @@ export function useSignedPreKey(userId: string, deviceId: string, keyId: number)
   });
 }
 
-/**
- * Fetch active signed prekey for a user/device
- */
 export function useActiveSignedPreKey(userId: string, deviceId: string) {
   return useQuery({
     queryKey: ['encryption', 'signed-prekey', 'active', userId, deviceId],
@@ -129,9 +111,6 @@ export function useActiveSignedPreKey(userId: string, deviceId: string) {
   });
 }
 
-/**
- * Upload a signed prekey
- */
 export function useUploadSignedPreKey() {
   const queryClient = useQueryClient();
 
@@ -151,9 +130,6 @@ export function useUploadSignedPreKey() {
   });
 }
 
-/**
- * Rotate signed prekey
- */
 export function useRotateSignedPreKey() {
   const queryClient = useQueryClient();
 
@@ -173,9 +149,6 @@ export function useRotateSignedPreKey() {
   });
 }
 
-/**
- * Fetch prekey count for a device
- */
 export function usePreKeyCount(userId: string, deviceId: string) {
   return useQuery({
     queryKey: ['encryption', 'onetime-prekeys', 'count', userId, deviceId],
@@ -187,13 +160,10 @@ export function usePreKeyCount(userId: string, deviceId: string) {
       return response.data?.count || 0;
     },
     enabled: !!userId && !!deviceId,
-    staleTime: 30_000, // Check count every 30 seconds
+    staleTime: 30_000,
   });
 }
 
-/**
- * Upload one-time prekeys
- */
 export function useUploadOneTimePreKeys() {
   const queryClient = useQueryClient();
 
@@ -213,9 +183,6 @@ export function useUploadOneTimePreKeys() {
   });
 }
 
-/**
- * Consume a one-time prekey
- */
 export function useConsumeOneTimePreKey() {
   const queryClient = useQueryClient();
 
@@ -241,9 +208,6 @@ export function useConsumeOneTimePreKey() {
   });
 }
 
-/**
- * Fetch key bundle for establishing a session
- */
 export function useKeyBundle(params: GetKeyBundleParams) {
   return useQuery({
     queryKey: [
@@ -261,13 +225,10 @@ export function useKeyBundle(params: GetKeyBundleParams) {
       return response.data;
     },
     enabled: !!params.user_id && !!params.device_id && !!params.consumer_device_id,
-    staleTime: 0, // Always fetch fresh bundle when establishing sessions
+    staleTime: 0,
   });
 }
 
-/**
- * Check if user/device has active keys
- */
 export function useHasActiveKeys(userId: string, deviceId: string) {
   return useQuery({
     queryKey: ['encryption', 'keys', 'active', userId, deviceId],

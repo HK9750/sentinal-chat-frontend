@@ -54,7 +54,6 @@ export function CallModal({
       setCallStatus('initiating');
       initiateCall(conversationId, callType);
 
-      // Get user media first
       const constraints: MediaStreamConstraints = {
         audio: true,
         video: callType === 'VIDEO',
@@ -63,7 +62,6 @@ export function CallModal({
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       setLocalStream(stream);
 
-      // Create call via API
       const call = await createCallMutation.mutateAsync({
         conversation_id: conversationId,
         type: callType,
@@ -74,8 +72,6 @@ export function CallModal({
         setActiveCall(call);
         setCallStatus('ringing');
         
-        // The actual WebRTC offer would be created here and sent via socket
-        // For now, we'll handle this in a separate WebRTC manager
       }
     } catch (error) {
       console.error('Failed to initiate call:', error);
@@ -91,12 +87,11 @@ export function CallModal({
     createCallMutation,
   ]);
 
-  // Start call when modal opens
   useEffect(() => {
     if (isOpen) {
       handleInitiateCall();
     }
-  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const handleCancel = useCallback(() => {
     const activeCall = useCallStore.getState().activeCall;
@@ -112,7 +107,6 @@ export function CallModal({
     handleInitiateCall();
   }, [handleInitiateCall]);
 
-  // Close modal when call connects (uiState changes to 'active')
   useEffect(() => {
     if (uiState === 'active') {
       onClose();

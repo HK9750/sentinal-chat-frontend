@@ -40,7 +40,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('dark');
   const [mounted, setMounted] = useState(false);
 
-  // Initialize theme from localStorage
   useEffect(() => {
     const stored = getStoredTheme();
     setThemeState(stored);
@@ -48,20 +47,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
-  // Update resolved theme when theme changes
   useEffect(() => {
     if (!mounted) return;
 
     const resolved = theme === 'system' ? getSystemTheme() : theme;
     setResolvedTheme(resolved);
 
-    // Update document class
     const root = document.documentElement;
     root.classList.remove('light', 'dark');
     root.classList.add(resolved);
   }, [theme, mounted]);
 
-  // Listen for system theme changes
   useEffect(() => {
     if (!mounted || theme !== 'system') return;
 
@@ -79,7 +75,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEYS.THEME, newTheme);
   }, []);
 
-  // Prevent flash of incorrect theme
   if (!mounted) {
     return null;
   }

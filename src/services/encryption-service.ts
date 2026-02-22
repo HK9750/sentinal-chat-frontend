@@ -7,7 +7,6 @@ import {
   KeyBundle,
 } from '@/types';
 
-// Request DTOs
 export interface UploadIdentityKeyRequest {
   user_id: string;
   device_id: string;
@@ -55,7 +54,6 @@ export interface GetKeyBundleParams {
 }
 
 export const encryptionService = {
-  // Identity Keys
   uploadIdentityKey: async (
     data: UploadIdentityKeyRequest
   ): Promise<ApiResponse<IdentityKey>> => {
@@ -79,7 +77,6 @@ export const encryptionService = {
     return apiClient.delete(`/v1/encryption/identity/${keyId}`);
   },
 
-  // Signed PreKeys
   uploadSignedPreKey: async (
     data: UploadSignedPreKeyRequest
   ): Promise<ApiResponse<SignedPreKey>> => {
@@ -111,7 +108,6 @@ export const encryptionService = {
     return apiClient.post('/v1/encryption/signed-prekeys/rotate', data);
   },
 
-  // One-Time PreKeys
   uploadOneTimePreKeys: async (
     data: UploadOneTimePreKeysRequest
   ): Promise<ApiResponse<{ uploaded: number }>> => {
@@ -140,7 +136,6 @@ export const encryptionService = {
     });
   },
 
-  // Key Bundle
   getKeyBundle: async (params: GetKeyBundleParams): Promise<ApiResponse<KeyBundle>> => {
     return apiClient.get('/v1/encryption/bundles', {
       params: {
@@ -151,7 +146,6 @@ export const encryptionService = {
     });
   },
 
-  // Check Active Keys
   checkActiveKeys: async (
     userId: string,
     deviceId: string

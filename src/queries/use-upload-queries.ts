@@ -6,9 +6,6 @@ import {
 } from '@/services/upload-service';
 import { Upload } from '@/types';
 
-/**
- * Fetch upload status by ID
- */
 export function useUpload(uploadId: string) {
   return useQuery({
     queryKey: ['uploads', uploadId],
@@ -20,13 +17,10 @@ export function useUpload(uploadId: string) {
       return response.data;
     },
     enabled: !!uploadId,
-    staleTime: 5_000, // Uploads status can change frequently
+    staleTime: 5_000,
   });
 }
 
-/**
- * Fetch user's uploads
- */
 export function useUploads(uploaderId: string) {
   return useQuery({
     queryKey: ['uploads', { uploaderId }],
@@ -42,9 +36,6 @@ export function useUploads(uploaderId: string) {
   });
 }
 
-/**
- * Fetch completed uploads for a user
- */
 export function useCompletedUploads(uploaderId: string) {
   return useQuery({
     queryKey: ['uploads', 'completed', uploaderId],
@@ -60,9 +51,6 @@ export function useCompletedUploads(uploaderId: string) {
   });
 }
 
-/**
- * Fetch in-progress uploads for a user
- */
 export function useInProgressUploads(uploaderId: string) {
   return useQuery({
     queryKey: ['uploads', 'in-progress', uploaderId],
@@ -75,13 +63,10 @@ export function useInProgressUploads(uploaderId: string) {
     },
     enabled: !!uploaderId,
     staleTime: 10_000,
-    refetchInterval: 15_000, // Refetch periodically to track progress
+    refetchInterval: 15_000,
   });
 }
 
-/**
- * Create a new upload session
- */
 export function useCreateUpload() {
   const queryClient = useQueryClient();
 
@@ -95,7 +80,6 @@ export function useCreateUpload() {
     },
     onSuccess: (newUpload) => {
       if (newUpload) {
-        // Add to in-progress uploads cache
         queryClient.setQueryData<Upload[]>(['uploads', 'in-progress'], (old = []) => [
           newUpload,
           ...old,
@@ -105,9 +89,6 @@ export function useCreateUpload() {
   });
 }
 
-/**
- * Update upload progress
- */
 export function useUpdateUploadProgress() {
   const queryClient = useQueryClient();
 
@@ -128,7 +109,6 @@ export function useUpdateUploadProgress() {
       return response.data;
     },
     onMutate: async ({ uploadId, uploadedBytes }) => {
-      // Optimistic update
       await queryClient.cancelQueries({ queryKey: ['uploads', uploadId] });
 
       const previousUpload = queryClient.getQueryData<Upload>(['uploads', uploadId]);
@@ -147,9 +127,6 @@ export function useUpdateUploadProgress() {
   });
 }
 
-/**
- * Mark upload as complete
- */
 export function useCompleteUpload() {
   const queryClient = useQueryClient();
 
@@ -162,10 +139,8 @@ export function useCompleteUpload() {
       return response.data;
     },
     onSuccess: (completedUpload, uploadId) => {
-      // Update upload cache
       queryClient.setQueryData(['uploads', uploadId], completedUpload);
 
-      // Move from in-progress to completed
       queryClient.setQueryData<Upload[]>(['uploads', 'in-progress'], (old = []) =>
         old.filter((u) => u.id !== uploadId)
       );
@@ -180,9 +155,6 @@ export function useCompleteUpload() {
   });
 }
 
-/**
- * Mark upload as failed
- */
 export function useFailUpload() {
   const queryClient = useQueryClient();
 
@@ -195,7 +167,6 @@ export function useFailUpload() {
       return response.data;
     },
     onSuccess: (_, uploadId) => {
-      // Remove from in-progress
       queryClient.setQueryData<Upload[]>(['uploads', 'in-progress'], (old = []) =>
         old.filter((u) => u.id !== uploadId)
       );
@@ -204,9 +175,6 @@ export function useFailUpload() {
   });
 }
 
-/**
- * Delete an upload
- */
 export function useDeleteUpload() {
   const queryClient = useQueryClient();
 
@@ -219,7 +187,6 @@ export function useDeleteUpload() {
       return response.data;
     },
     onSuccess: (_, uploadId) => {
-      // Remove from all caches
       queryClient.removeQueries({ queryKey: ['uploads', uploadId] });
       queryClient.setQueryData<Upload[]>(['uploads', 'in-progress'], (old = []) =>
         old.filter((u) => u.id !== uploadId)
@@ -231,9 +198,6 @@ export function useDeleteUpload() {
   });
 }
 
-/**
- * Delete stale uploads (admin function)
- */
 export function useDeleteStaleUploads() {
   const queryClient = useQueryClient();
 

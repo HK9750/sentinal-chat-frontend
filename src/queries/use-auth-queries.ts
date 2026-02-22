@@ -25,7 +25,6 @@ export function useLogin() {
       if (response.success && response.data) {
         apiClient.setAuthTokens(response.data);
 
-        // Store server-assigned device UUID for encryption APIs
         if (response.data.device_id) {
           setServerDeviceId(response.data.device_id);
         }
@@ -67,7 +66,6 @@ export function useRegister() {
       if (response.success && response.data) {
         apiClient.setAuthTokens(response.data);
 
-        // Store server-assigned device UUID for encryption APIs
         if (response.data.device_id) {
           setServerDeviceId(response.data.device_id);
         }
@@ -99,7 +97,6 @@ export function useLogout() {
       window.location.href = '/login';
     },
     onError: () => {
-      // Even if logout fails, clear local state
       apiClient.clearAuth();
       logout();
       queryClient.clear();

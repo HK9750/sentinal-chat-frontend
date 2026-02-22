@@ -25,24 +25,20 @@ function LoginForm() {
       try {
         const response = await loginMutation.mutateAsync({ identity, password });
         if (response.success) {
-          // Hard redirect to ensure middleware picks up cookies
           window.location.href = redirectTo;
         }
       } catch {
-        // Error is handled by mutation state
       }
     },
     [loginMutation, redirectTo]
   );
 
-  // Derive error message from mutation state
   const errorMessage = loginMutation.error?.message ||
     (loginMutation.data && !loginMutation.data.success ? loginMutation.data.error : null);
 
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 mb-4">
             <svg
@@ -63,7 +59,6 @@ function LoginForm() {
           <p className="text-slate-400">Secure messaging for everyone</p>
         </div>
 
-        {/* Card */}
         <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-8">
           <h2 className="text-xl font-semibold text-white mb-6 text-center">
             Welcome back

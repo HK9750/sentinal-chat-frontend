@@ -1,14 +1,6 @@
 import { create } from 'zustand';
 import type { UploadStatus } from '@/types/upload';
 
-/**
- * Upload Store - Real-time upload progress tracking
- * 
- * Per AGENTS.md: Server state (completed uploads) lives in TanStack Query.
- * This store only handles active upload progress that requires immediate
- * real-time updates for the upload UI.
- */
-
 export interface UploadProgress {
   id: string;
   fileName: string;
@@ -18,14 +10,12 @@ export interface UploadProgress {
   status: UploadStatus;
   error?: string;
   abortController?: AbortController;
-  conversationId?: string; // For associating uploads with conversations
+  conversationId?: string;
 }
 
 interface UploadState {
-  // Active uploads (keyed by upload ID)
   uploads: Map<string, UploadProgress>;
   
-  // Actions
   startUpload: (upload: Omit<UploadProgress, 'status' | 'uploadedBytes'>) => void;
   updateProgress: (id: string, uploadedBytes: number) => void;
   setUploadStatus: (id: string, status: UploadStatus, error?: string) => void;
@@ -129,7 +119,6 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   },
 }));
 
-// Selector hooks for common use cases
 export const useActiveUploads = () => {
   const uploads = useUploadStore((state) => state.uploads);
   return Array.from(uploads.values()).filter(

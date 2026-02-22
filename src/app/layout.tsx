@@ -41,7 +41,6 @@ export default function RootLayout({
               <EncryptionProvider>
                 <TooltipProvider delayDuration={200}>
                   {children}
-                  {/* Global call UI components */}
                   <IncomingCallDialog />
                   <ActiveCallOverlay />
                 </TooltipProvider>
