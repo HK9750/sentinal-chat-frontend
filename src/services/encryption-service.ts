@@ -40,6 +40,23 @@ export interface UploadOneTimePreKeysRequest {
   }>;
 }
 
+export interface SetupEncryptionRequest {
+  user_id: string;
+  device_id: string;
+  identity_key: string;
+  signed_prekey: {
+    key_id: number;
+    public_key: string;
+    signature: string;
+  };
+  one_time_keys: Array<{
+    user_id: string;
+    device_id: string;
+    key_id: number;
+    public_key: string;
+  }>;
+}
+
 export interface ConsumeOneTimePreKeyParams {
   user_id: string;
   device_id: string;
@@ -54,6 +71,10 @@ export interface GetKeyBundleParams {
 }
 
 export const encryptionService = {
+  setupEncryption: async (data: SetupEncryptionRequest): Promise<ApiResponse<void>> => {
+    return apiClient.post('/v1/encryption/setup', data);
+  },
+
   uploadIdentityKey: async (
     data: UploadIdentityKeyRequest
   ): Promise<ApiResponse<IdentityKey>> => {

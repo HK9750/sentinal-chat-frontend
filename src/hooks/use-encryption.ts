@@ -70,42 +70,31 @@ export function useGenerateKeys() {
       const identityKeyPair = await generateIdentityKeyPair();
       await storeIdentityKey(deviceId, identityKeyPair);
 
-      const identityUploadResult = await encryptionService.uploadIdentityKey({
-        user_id: user.id,
-        device_id: deviceId,
-        public_key: keyToBase64(identityKeyPair.signing.publicKey),
-      });
-      if (!identityUploadResult.success) {
-        throw new Error(`Identity key upload failed: ${identityUploadResult.error || 'unknown error'}`);
-      }
-
       const signedPreKey = await generateSignedPreKey(identityKeyPair, 1);
       await storeSignedPreKey(deviceId, signedPreKey);
-
-      const signedUploadResult = await encryptionService.uploadSignedPreKey({
-        user_id: user.id,
-        device_id: deviceId,
-        key_id: signedPreKey.keyId,
-        public_key: keyToBase64(signedPreKey.publicKey),
-        signature: keyToBase64(signedPreKey.signature),
-      });
-      if (!signedUploadResult.success) {
-        throw new Error(`Signed pre-key upload failed: ${signedUploadResult.error || 'unknown error'}`);
-      }
 
       const oneTimePreKeys = await generateOneTimePreKeys(1, PREKEY_BATCH_SIZE);
       await storeOneTimePreKeys(deviceId, oneTimePreKeys);
 
-      const otpUploadResult = await encryptionService.uploadOneTimePreKeys({
-        keys: oneTimePreKeys.map((k) => ({
+      const setupResult = await encryptionService.setupEncryption({
+        user_id: user.id,
+        device_id: deviceId,
+        identity_key: keyToBase64(identityKeyPair.signing.publicKey),
+        signed_prekey: {
+          key_id: signedPreKey.keyId,
+          public_key: keyToBase64(signedPreKey.publicKey),
+          signature: keyToBase64(signedPreKey.signature),
+        },
+        one_time_keys: oneTimePreKeys.map((k) => ({
           user_id: user.id,
           device_id: deviceId,
           key_id: k.keyId,
           public_key: keyToBase64(k.keyPair.publicKey),
         })),
       });
-      if (!otpUploadResult.success) {
-        throw new Error(`One-time pre-key upload failed: ${otpUploadResult.error || 'unknown error'}`);
+
+      if (!setupResult.success) {
+        throw new Error(`Encryption setup failed: ${setupResult.error || 'unknown error'}`);
       }
 
       return { deviceId, success: true };
@@ -382,8 +371,22 @@ export function useEncryptionStatus() {
       const identityKey = await getIdentityKey(deviceId);
       const signedPreKey = await getActiveSignedPreKey(deviceId);
 
+      const isSetupLocal = !!identityKey && !!signedPreKey;
+
+      if (isSetupLocal && user) {
+        try {
+          const res = await encryptionService.checkActiveKeys(user.id, deviceId);
+          if (res.success && res.data && !res.data.has_active_keys) {
+            await clearAllCryptoData();
+            return { isSetup: false, deviceId };
+          }
+        } catch (error) {
+          console.error('Failed to verify active keys with server:', error);
+        }
+      }
+
       return {
-        isSetup: !!identityKey && !!signedPreKey,
+        isSetup: isSetupLocal,
         deviceId,
       };
     },

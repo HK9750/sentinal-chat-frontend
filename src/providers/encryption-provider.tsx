@@ -17,6 +17,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
     const retryCount = useRef(0);
     const setupAttempted = useRef(false);
     const replenishTimer = useRef<NodeJS.Timeout | null>(null);
+    const isReplenishing = useRef(false);
 
     const attemptSetup = useCallback(async () => {
         if (retryCount.current >= MAX_RETRIES) return;
@@ -43,9 +44,13 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
         if (!isAuthenticated || !user || !isSetup) return;
 
         const replenish = async () => {
+            if (isReplenishing.current) return;
+            isReplenishing.current = true;
             try {
                 await replenishPreKeys.mutateAsync();
             } catch {
+            } finally {
+                isReplenishing.current = false;
             }
         };
 
@@ -58,7 +63,8 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
                 clearInterval(replenishTimer.current);
             }
         };
-    }, [isAuthenticated, user, isSetup, replenishPreKeys]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isAuthenticated, user, isSetup]); // Removed replenishPreKeys dependency to prevent loop on reference change
 
     useEffect(() => {
         if (!isAuthenticated) {
