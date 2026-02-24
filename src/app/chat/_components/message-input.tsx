@@ -5,9 +5,9 @@ import { useConversationParticipants } from '@/queries/use-conversation-queries'
 import { useSendMessage } from '@/queries/use-message-queries';
 import { useSocket } from '@/providers/socket-provider';
 import { useEncryptionStatus, useEncryptMessageMutation } from '@/hooks/use-encryption';
-import { encryptionService } from '@/services/encryption-service';
 import { getServerDeviceId } from '@/lib/device';
 import { useAuthStore } from '@/stores/auth-store';
+import type { Participant } from '@/types';
 import { FileUploadButton } from '@/components/shared/file-upload-button';
 import { UploadProgressList } from '@/components/shared/upload-progress-list';
 import { Button } from '@/components/ui/button';
@@ -42,77 +42,129 @@ export function MessageInput({ conversationId }: MessageInputProps) {
             sendTypingStop(conversationId);
 
             try {
-                const recipients = participants?.filter((p: any) => p.user_id !== currentUser?.id) || [];
-                const ownDeviceId = getServerDeviceId() || '';
+                if (!currentUser?.id) {
+                    throw new Error('User not available');
+                }
+                if (!participants) {
+                    throw new Error('Participants not loaded');
+                }
 
-                if (isEncryptionEnabled && recipients.length > 0) {
-                    const ciphertexts = [];
+                const ownDeviceId = getServerDeviceId();
+                if (!ownDeviceId) {
+                    throw new Error('Device ID not available');
+                }
 
-                    for (const p of recipients) {
-                        try {
-                            const deviceBundles = await encryptionService.getKeyBundle({
-                                user_id: p.user_id,
-                                device_id: p.user_id, // We don't know the exact device ID here without a better route, but let's assume we can fetch bundles for all devices later.
-                                consumer_device_id: ownDeviceId
+                const recipients = participants.filter(
+                    (p: Participant) => p.user_id !== currentUser.id
+                );
+                const selfParticipant = participants.find(
+                    (p: Participant) => p.user_id === currentUser.id
+                );
+
+                const recipientDeviceEntries = new Map<string, { userId: string; deviceId: string }>();
+                for (const recipient of recipients) {
+                    for (const deviceId of recipient.device_ids || []) {
+                        const key = `${recipient.user_id}:${deviceId}`;
+                        if (!recipientDeviceEntries.has(key)) {
+                            recipientDeviceEntries.set(key, {
+                                userId: recipient.user_id,
+                                deviceId,
                             });
-                            // If the backend doesn't support fetching all device IDs for a user yet, we might need to fallback to just using user_id as device_id for now, 
-                            // but the error shows recipient_device_id cannot be parsed correctly if it's not a UUID.
-                            // The user error showed: recipient_device_id: "3c78b109-3b49-4e88-b2e8-19d3bf890e0b"
-                            // Wait, the error was about the metadata JSON structure, which we already fixed on the backend!
-                            // But wait, user_id and device_id are both valid UUIDs.
-                        } catch (e) {
-                            console.warn("Could not fetch key bundle for", p.user_id);
                         }
                     }
+                }
 
-                    // For now, if device_id is 1:1 with user_id in the test case:
-                    for (const p of recipients) {
+                const selfDeviceIds = (selfParticipant?.device_ids || []).filter(
+                    (deviceId) => deviceId !== ownDeviceId
+                );
+                for (const deviceId of selfDeviceIds) {
+                    const key = `${currentUser.id}:${deviceId}`;
+                    if (!recipientDeviceEntries.has(key)) {
+                        recipientDeviceEntries.set(key, {
+                            userId: currentUser.id,
+                            deviceId,
+                        });
+                    }
+                }
+
+                if ((recipients.length > 0 || selfDeviceIds.length > 0) && recipientDeviceEntries.size === 0) {
+                    throw new Error('No recipient devices available');
+                }
+
+                if (isEncryptionEnabled && recipientDeviceEntries.size > 0) {
+                    const ciphertexts = [] as Array<{
+                        recipient_device_id: string;
+                        ciphertext: string;
+                        header?: Record<string, unknown>;
+                    }>;
+
+                    for (const entry of recipientDeviceEntries.values()) {
                         try {
-                            // First, try to get the active devices for this user.
-                            // However, we don't have a specific endpoint for that exposed cleanly to the frontend yet.
-                            // Assuming for now the device ID is the same as the one we get from participant/user data or we default to the backend's behavior.
-                            // Actually, let's keep the user_id as a stand-in if we don't know the device ID, but wait, the device ID is needed.
-                            // Let's look at the error the user gave: 
-                            // {recipient_device_id: "3c78b109-3b49-4e88-b2e8-19d3bf890e0b", ciphertext: "aGVsbG8gaXRzIG1l"}
-                            // This means the device ID WAS somehow correct or it was just using user_id.
-                            const recipientDeviceId = p.user_id; // TO DO: Fetch actual device IDs from backend
-
                             const result = await encryptMessageMutation.mutateAsync({
-                                recipientUserId: p.user_id,
-                                recipientDeviceId: recipientDeviceId,
+                                recipientUserId: entry.userId,
+                                recipientDeviceId: entry.deviceId,
                                 plaintext: content,
                             });
+                            const header = result.ephemeralPublicKey
+                                ? {
+                                    ephemeral_key: result.ephemeralPublicKey,
+                                    one_time_pre_key_id: result.usedOneTimePreKeyId,
+                                }
+                                : undefined;
                             ciphertexts.push({
-                                recipient_device_id: recipientDeviceId,
+                                recipient_device_id: entry.deviceId,
                                 ciphertext: btoa(result.encryptedContent),
-                                header: result.ephemeralPublicKey ? { ephemeral_key: result.ephemeralPublicKey } : undefined,
+                                header,
                             });
                         } catch {
-                            ciphertexts.push({ recipient_device_id: p.user_id, ciphertext: btoa(content) });
+                            ciphertexts.push({
+                                recipient_device_id: entry.deviceId,
+                                ciphertext: btoa(content),
+                            });
                         }
                     }
 
                     try {
                         const selfResult = await encryptMessageMutation.mutateAsync({
-                            recipientUserId: currentUser?.id || '',
+                            recipientUserId: currentUser.id,
                             recipientDeviceId: ownDeviceId,
                             plaintext: content,
                         });
+                        const header = selfResult.ephemeralPublicKey
+                            ? {
+                                ephemeral_key: selfResult.ephemeralPublicKey,
+                                one_time_pre_key_id: selfResult.usedOneTimePreKeyId,
+                            }
+                            : undefined;
                         ciphertexts.push({
                             recipient_device_id: ownDeviceId,
                             ciphertext: btoa(selfResult.encryptedContent),
-                            header: selfResult.ephemeralPublicKey ? { ephemeral_key: selfResult.ephemeralPublicKey } : undefined,
+                            header,
                         });
                     } catch {
-                        ciphertexts.push({ recipient_device_id: ownDeviceId, ciphertext: btoa(content) });
+                        ciphertexts.push({
+                            recipient_device_id: ownDeviceId,
+                            ciphertext: btoa(content),
+                        });
                     }
 
-                    await sendMessageMutation.mutateAsync({ conversation_id: conversationId, ciphertexts, message_type: 'TEXT' });
-                } else {
-                    const allDevices = [...(recipients.map((p: any) => p.user_id) || []), ownDeviceId];
                     await sendMessageMutation.mutateAsync({
                         conversation_id: conversationId,
-                        ciphertexts: allDevices.map((id) => ({ recipient_device_id: id, ciphertext: btoa(content) })),
+                        ciphertexts,
+                        message_type: 'TEXT',
+                    });
+                } else {
+                    const deviceIds = new Set<string>([ownDeviceId]);
+                    for (const entry of recipientDeviceEntries.values()) {
+                        deviceIds.add(entry.deviceId);
+                    }
+
+                    await sendMessageMutation.mutateAsync({
+                        conversation_id: conversationId,
+                        ciphertexts: Array.from(deviceIds).map((id) => ({
+                            recipient_device_id: id,
+                            ciphertext: btoa(content),
+                        })),
                         message_type: 'TEXT',
                     });
                 }
@@ -120,7 +172,15 @@ export function MessageInput({ conversationId }: MessageInputProps) {
                 if (inputRef.current) inputRef.current.value = content;
             }
         },
-        [conversationId, participants, currentUser, sendMessageMutation, encryptMessageMutation, sendTypingStop, isEncryptionEnabled]
+        [
+            conversationId,
+            participants,
+            currentUser?.id,
+            sendMessageMutation,
+            encryptMessageMutation,
+            sendTypingStop,
+            isEncryptionEnabled,
+        ]
     );
 
     const handleKeyDown = useCallback(() => {

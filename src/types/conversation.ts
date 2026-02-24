@@ -32,6 +32,7 @@ export interface Participant {
   username?: string;
   role: ParticipantRole;
   joined_at: string;
+  device_ids?: string[];
   added_by?: string;
   muted_until?: string;
   pinned_at?: string;

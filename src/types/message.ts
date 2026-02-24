@@ -16,7 +16,7 @@ export interface Message {
   sequence_number: number;
   message_type?: MessageType;
   content?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown> | string;
   is_forwarded?: boolean;
   is_deleted: boolean;
   is_edited: boolean;

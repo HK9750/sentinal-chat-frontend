@@ -173,7 +173,12 @@ export function useEstablishSession() {
 
       await storeSession(recipientUserId, recipientDeviceId, session);
 
-      return { session, isNew: true, ephemeralPublicKey: ephemeralKeyPair.publicKey };
+      return {
+        session,
+        isNew: true,
+        ephemeralPublicKey: ephemeralKeyPair.publicKey,
+        usedOneTimePreKeyId: preKeyBundle.oneTimePreKeyId,
+      };
     },
   });
 }
@@ -201,6 +206,7 @@ export function useEncryptMessageMutation() {
 
       let session = await getSession(recipientUserId, recipientDeviceId);
       let ephemeralPublicKey: Uint8Array | undefined;
+      let usedOneTimePreKeyId: number | undefined;
 
       if (!session) {
         const result = await establishSession.mutateAsync({
@@ -209,6 +215,7 @@ export function useEncryptMessageMutation() {
         });
         session = result.session;
         ephemeralPublicKey = result.ephemeralPublicKey;
+        usedOneTimePreKeyId = result.usedOneTimePreKeyId;
       }
 
       const { encrypted, updatedSession } = await encryptMessage(session, plaintext);
@@ -222,6 +229,7 @@ export function useEncryptMessageMutation() {
         ephemeralPublicKey: ephemeralPublicKey
           ? keyToBase64(ephemeralPublicKey)
           : undefined,
+        usedOneTimePreKeyId,
       };
     },
   });
@@ -312,6 +320,60 @@ export function useDecryptMessageMutation() {
       return plaintext;
     },
   });
+}
+
+export function useDecryptCiphertext() {
+  const decryptMutation = useDecryptMessageMutation();
+
+  const decryptCiphertext = useCallback(
+    async ({
+      senderUserId,
+      senderDeviceId,
+      ciphertext,
+      header,
+    }: {
+      senderUserId: string;
+      senderDeviceId: string;
+      ciphertext: string;
+      header?: string | Record<string, unknown> | null;
+    }): Promise<string> => {
+      const rawCiphertext = atob(ciphertext);
+
+      let parsedHeader: Record<string, unknown> = {};
+      if (typeof header === 'string' && header.trim()) {
+        try {
+          parsedHeader = JSON.parse(header) as Record<string, unknown>;
+        } catch {
+          parsedHeader = {};
+        }
+      } else if (header && typeof header === 'object') {
+        parsedHeader = header as Record<string, unknown>;
+      }
+
+      const maybeJson = rawCiphertext.trim();
+      const hasEncryptedPayload = maybeJson.startsWith('{') && maybeJson.includes('ratchetKey');
+      if (!hasEncryptedPayload) {
+        return rawCiphertext;
+      }
+
+      const ephemeralKey = parsedHeader.ephemeral_key;
+      const usedOneTimePreKeyId = parsedHeader.one_time_pre_key_id;
+
+      return decryptMutation.mutateAsync({
+        senderUserId,
+        senderDeviceId,
+        encryptedContent: rawCiphertext,
+        ephemeralPublicKey: typeof ephemeralKey === 'string' ? ephemeralKey : undefined,
+        usedOneTimePreKeyId: typeof usedOneTimePreKeyId === 'number' ? usedOneTimePreKeyId : undefined,
+      });
+    },
+    [decryptMutation]
+  );
+
+  return {
+    decryptCiphertext,
+    isDecrypting: decryptMutation.isPending,
+  };
 }
 
 export function useReplenishPreKeys() {

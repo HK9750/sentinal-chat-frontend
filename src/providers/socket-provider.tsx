@@ -98,16 +98,17 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     ws.onmessage = (event) => {
       try {
         const data: WebSocketEvent = JSON.parse(event.data);
+        const payload = (data as { payload?: unknown }).payload ?? data;
 
         switch (data.type) {
           case 'message:new': {
-            const payload = data.payload as {
-              message_id: string;
-              conversation_id: string;
-              sender_id: string;
+            const messagePayload = payload as {
+              message_id?: string;
+              conversation_id?: string;
+              sender_id?: string;
             };
             queryClient.invalidateQueries({
-              queryKey: ['conversations', payload.conversation_id, 'messages'],
+              queryKey: ['conversations', messagePayload.conversation_id, 'messages'],
             });
             queryClient.invalidateQueries({
               queryKey: ['conversations', 'list'],
@@ -116,37 +117,37 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
           }
 
           case 'message:read': {
-            const payload = data.payload as {
-              message_id: string;
-              conversation_id: string;
-              reader_id: string;
+            const messagePayload = payload as {
+              message_id?: string;
+              conversation_id?: string;
+              reader_id?: string;
             };
             queryClient.invalidateQueries({
-              queryKey: ['conversations', payload.conversation_id, 'messages'],
+              queryKey: ['conversations', messagePayload.conversation_id, 'messages'],
             });
             break;
           }
 
           case 'message:delivered': {
-            const payload = data.payload as {
-              message_id: string;
-              conversation_id: string;
+            const messagePayload = payload as {
+              message_id?: string;
+              conversation_id?: string;
             };
             queryClient.invalidateQueries({
-              queryKey: ['conversations', payload.conversation_id, 'messages'],
+              queryKey: ['conversations', messagePayload.conversation_id, 'messages'],
             });
             break;
           }
 
           case 'typing:started': {
-            const payload = (data as WebSocketTypingEvent).payload;
-            addTypingUser(payload.conversation_id, payload.user_id);
+            const typingPayload = payload as WebSocketTypingEvent['payload'];
+            addTypingUser(typingPayload.conversation_id, typingPayload.user_id);
             break;
           }
 
           case 'typing:stopped': {
-            const payload = (data as WebSocketTypingEvent).payload;
-            removeTypingUser(payload.conversation_id, payload.user_id);
+            const typingPayload = payload as WebSocketTypingEvent['payload'];
+            removeTypingUser(typingPayload.conversation_id, typingPayload.user_id);
             break;
           }
 
@@ -254,7 +255,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(
         JSON.stringify({
-          type: 'typing:started',
+          type: 'typing:start',
           conversation_id: conversationId,
         })
       );
@@ -265,7 +266,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(
         JSON.stringify({
-          type: 'typing:stopped',
+          type: 'typing:stop',
           conversation_id: conversationId,
         })
       );

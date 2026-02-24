@@ -1,10 +1,11 @@
 'use client';
 
-import { useRef, useCallback, useMemo, useEffect } from 'react';
+import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
 import { useMessages } from '@/queries/use-message-queries';
 import { MessageBubble } from '@/components/shared/message-bubble';
 import { Message } from '@/types';
 import { Send } from 'lucide-react';
+import { useDecryptCiphertext } from '@/hooks/use-encryption';
 
 interface GroupedMessage {
     message: Message;
@@ -37,23 +38,79 @@ interface MessageListProps {
 
 export function MessageList({ conversationId, currentUserId, scrollRef, messageRefs }: MessageListProps) {
     const { data: messages, isLoading } = useMessages(conversationId);
+    const { decryptCiphertext } = useDecryptCiphertext();
+    const [decryptedContent, setDecryptedContent] = useState<Map<string, string>>(new Map());
 
     const displayMessages = useMemo(() => {
         if (!messages) return undefined;
         return messages.map((msg) => {
             if (msg.content) return msg;
-            if (msg.ciphertext) {
-                try {
-                    const decoded = atob(msg.ciphertext);
-                    if (/^[\x20-\x7E\s]+$/.test(decoded) && decoded.length > 0) {
-                        return { ...msg, content: decoded };
-                    }
-                } catch {
-                }
+            const cached = decryptedContent.get(msg.id);
+            if (cached) {
+                return { ...msg, content: cached };
             }
             return msg;
         });
-    }, [messages]);
+    }, [messages, decryptedContent]);
+
+    useEffect(() => {
+        if (!messages) return;
+
+        const pending = messages.filter(
+            (msg) =>
+                !!msg.ciphertext &&
+                !!msg.sender_id &&
+                !!msg.sender_device_id &&
+                !decryptedContent.has(msg.id)
+        ) as Array<Message & { ciphertext: string; sender_device_id: string }>;
+
+        if (pending.length === 0) return;
+
+        let isActive = true;
+
+        const decryptAll = async () => {
+            for (const msg of pending) {
+                if (!isActive) return;
+                try {
+                    let headerValue = msg.header as string | Record<string, unknown> | null | undefined;
+                    if (msg.metadata && typeof msg.metadata === 'string') {
+                        try {
+                            const parsed = JSON.parse(msg.metadata) as Record<string, unknown>;
+                            const rawHeader = parsed?.signal_header;
+                            if (typeof rawHeader === 'string') {
+                                headerValue = rawHeader;
+                            } else if (rawHeader && typeof rawHeader === 'object') {
+                                headerValue = rawHeader as Record<string, unknown>;
+                            }
+                        } catch {
+                        }
+                    }
+
+                    const plaintext = await decryptCiphertext({
+                        senderUserId: msg.sender_id,
+                        senderDeviceId: msg.sender_device_id,
+                        ciphertext: msg.ciphertext,
+                        header: headerValue,
+                    });
+                    if (!isActive) return;
+                    setDecryptedContent((prev) => {
+                        if (prev.has(msg.id)) return prev;
+                        const next = new Map(prev);
+                        next.set(msg.id, plaintext);
+                        return next;
+                    });
+                } catch {
+                    // leave ciphertext as-is
+                }
+            }
+        };
+
+        decryptAll();
+
+        return () => {
+            isActive = false;
+        };
+    }, [messages, decryptedContent, decryptCiphertext]);
 
     const groupedMessages = useGroupedMessages(displayMessages, currentUserId);
 
