@@ -49,10 +49,11 @@ export function useInfiniteMessages(conversationId: string) {
 
 export function useSendMessage() {
   const queryClient = useQueryClient();
+  type SendMessagePayload = SendMessageRequest & { local_content?: string };
 
   return useMutation({
-    mutationFn: async (data: SendMessageRequest) => {
-      const response = await messageService.send(data);
+    mutationFn: async ({ local_content, ...payload }: SendMessagePayload) => {
+      const response = await messageService.send(payload);
       if (!response.success) {
         throw new Error(response.error);
       }
@@ -60,9 +61,12 @@ export function useSendMessage() {
     },
     onSuccess: (newMessage, variables) => {
       if (newMessage) {
+        const messageWithContent = variables.local_content
+          ? { ...newMessage, content: variables.local_content }
+          : newMessage;
         queryClient.setQueryData<Message[]>(
           ['conversations', variables.conversation_id, 'messages'],
-          (old = []) => [...old, newMessage]
+          (old = []) => [...old, messageWithContent]
         );
         queryClient.invalidateQueries({
           queryKey: ['conversations', 'list'],

@@ -152,6 +152,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
                         conversation_id: conversationId,
                         ciphertexts,
                         message_type: 'TEXT',
+                        local_content: content,
                     });
                 } else {
                     const deviceIds = new Set<string>([ownDeviceId]);
@@ -166,6 +167,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
                             ciphertext: btoa(content),
                         })),
                         message_type: 'TEXT',
+                        local_content: content,
                     });
                 }
             } catch {
