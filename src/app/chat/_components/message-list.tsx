@@ -100,7 +100,13 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
                         return next;
                     });
                 } catch {
-                    // leave ciphertext as-is
+                    const fallback = atob(msg.ciphertext);
+                    setDecryptedContent((prev) => {
+                        if (prev.has(msg.id)) return prev;
+                        const next = new Map(prev);
+                        next.set(msg.id, fallback);
+                        return next;
+                    });
                 }
             }
         };

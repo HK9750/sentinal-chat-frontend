@@ -427,10 +427,16 @@ export async function storeSession(
 
   const existing = await getStoredSession(recipientUserId, recipientDeviceId);
 
+  const normalizedSession: SessionState = {
+    ...session,
+    sendingChainLength: session.sendingChainLength ?? 0,
+    receivingChainLength: session.receivingChainLength ?? 0,
+  };
+
   const stored: StoredSession = {
     recipientUserId,
     recipientDeviceId,
-    sessionData: serializeSession(session),
+    sessionData: serializeSession(normalizedSession),
     createdAt: existing?.createdAt ?? Date.now(),
     updatedAt: Date.now(),
   };

@@ -339,6 +339,12 @@ export function useDecryptCiphertext() {
     }): Promise<string> => {
       const rawCiphertext = atob(ciphertext);
 
+      const maybeJson = rawCiphertext.trim();
+      const hasEncryptedPayload = maybeJson.startsWith('{') && maybeJson.includes('ratchetKey');
+      if (!hasEncryptedPayload) {
+        return rawCiphertext;
+      }
+
       let parsedHeader: Record<string, unknown> = {};
       if (typeof header === 'string' && header.trim()) {
         try {
@@ -350,20 +356,18 @@ export function useDecryptCiphertext() {
         parsedHeader = header as Record<string, unknown>;
       }
 
-      const maybeJson = rawCiphertext.trim();
-      const hasEncryptedPayload = maybeJson.startsWith('{') && maybeJson.includes('ratchetKey');
-      if (!hasEncryptedPayload) {
-        return rawCiphertext;
-      }
-
       const ephemeralKey = parsedHeader.ephemeral_key;
       const usedOneTimePreKeyId = parsedHeader.one_time_pre_key_id;
+
+      if (!ephemeralKey || typeof ephemeralKey !== 'string') {
+        throw new Error('Missing ephemeral key for encrypted payload');
+      }
 
       return decryptMutation.mutateAsync({
         senderUserId,
         senderDeviceId,
         encryptedContent: rawCiphertext,
-        ephemeralPublicKey: typeof ephemeralKey === 'string' ? ephemeralKey : undefined,
+        ephemeralPublicKey: ephemeralKey,
         usedOneTimePreKeyId: typeof usedOneTimePreKeyId === 'number' ? usedOneTimePreKeyId : undefined,
       });
     },
