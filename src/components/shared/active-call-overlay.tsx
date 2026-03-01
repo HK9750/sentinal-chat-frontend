@@ -72,7 +72,7 @@ export function ActiveCallOverlay() {
 
   const handleToggleAudio = useCallback(() => {
     toggleAudio();
-    
+
     if (activeCall && user) {
       updateMuteMutation.mutate({
         callId: activeCall.id,
@@ -85,7 +85,7 @@ export function ActiveCallOverlay() {
 
   const handleToggleVideo = useCallback(() => {
     toggleVideo();
-    
+
     if (activeCall && user) {
       updateMuteMutation.mutate({
         callId: activeCall.id,
@@ -124,7 +124,7 @@ export function ActiveCallOverlay() {
         className={cn(
           'fixed bottom-4 right-4 z-50',
           'flex items-center gap-3 rounded-full',
-          'bg-slate-800/95 backdrop-blur-xl border border-slate-700',
+          'bg-background/95 backdrop-blur-xl border border-border',
           'px-4 py-2 shadow-2xl cursor-pointer'
         )}
         onClick={() => setIsMinimized(false)}
@@ -138,14 +138,14 @@ export function ActiveCallOverlay() {
             />
           ))}
         </div>
-        <span className="text-sm text-slate-300 font-medium">
+        <span className="text-sm text-foreground font-medium">
           {formatDuration(elapsedTime)}
         </span>
         <div className="flex items-center gap-1">
           {localMediaState.audioEnabled ? (
-            <Mic className="h-4 w-4 text-emerald-400" />
+            <Mic className="h-4 w-4 text-green-500" />
           ) : (
-            <MicOff className="h-4 w-4 text-red-400" />
+            <MicOff className="h-4 w-4 text-destructive" />
           )}
         </div>
         <Button
@@ -155,7 +155,7 @@ export function ActiveCallOverlay() {
             e.stopPropagation();
             handleEndCall();
           }}
-          className="h-8 w-8 rounded-full bg-red-600 hover:bg-red-700"
+          className="h-8 w-8 rounded-full bg-destructive hover:bg-destructive/90"
         >
           <PhoneOff className="h-4 w-4" />
         </Button>
@@ -167,7 +167,7 @@ export function ActiveCallOverlay() {
     <div
       className={cn(
         'fixed inset-0 z-50',
-        'bg-slate-900/98 backdrop-blur-xl',
+        'bg-background/98 backdrop-blur-xl',
         'flex flex-col'
       )}
     >
@@ -177,13 +177,13 @@ export function ActiveCallOverlay() {
             className={cn(
               'px-3 py-1 rounded-full text-sm font-medium',
               isConnecting
-                ? 'bg-yellow-600/20 text-yellow-400'
-                : 'bg-emerald-600/20 text-emerald-400'
+                ? 'bg-yellow-500/20 text-yellow-500'
+                : 'bg-green-500/20 text-green-500'
             )}
           >
             {isConnecting ? 'Connecting...' : formatDuration(elapsedTime)}
           </div>
-          <div className="flex items-center gap-2 text-slate-400">
+          <div className="flex items-center gap-2 text-muted-foreground">
             <Users className="h-4 w-4" />
             <span className="text-sm">
               {(fetchedParticipants || participants).length} participant(s)
@@ -195,7 +195,7 @@ export function ActiveCallOverlay() {
           variant="ghost"
           size="icon"
           onClick={() => setIsMinimized(true)}
-          className="text-slate-400 hover:text-slate-100"
+          className="text-muted-foreground hover:text-foreground hover:bg-transparent"
         >
           <Minimize2 className="h-5 w-5" />
         </Button>
@@ -212,7 +212,7 @@ export function ActiveCallOverlay() {
                     key={participant.user_id}
                     className={cn(
                       'relative rounded-2xl overflow-hidden',
-                      'bg-slate-800 border border-slate-700'
+                      'bg-muted border border-border'
                     )}
                   >
                     {remoteStream ? (
@@ -230,11 +230,11 @@ export function ActiveCallOverlay() {
                           user={participant.user}
                           size="xl"
                         />
-                        <span className="mt-4 text-slate-300 font-medium">
+                        <span className="mt-4 text-foreground font-medium">
                           {participant.user?.display_name || 'Participant'}
                         </span>
                         {participant.video_muted && (
-                          <span className="mt-2 text-sm text-slate-500">
+                          <span className="mt-2 text-sm text-muted-foreground">
                             Camera off
                           </span>
                         )}
@@ -246,7 +246,7 @@ export function ActiveCallOverlay() {
                         {participant.user?.display_name || 'Participant'}
                       </span>
                       {participant.audio_muted && (
-                        <MicOff className="h-4 w-4 text-red-400" />
+                        <MicOff className="h-4 w-4 text-destructive" />
                       )}
                     </div>
                   </div>
@@ -254,8 +254,8 @@ export function ActiveCallOverlay() {
               })}
 
               {otherParticipants.length === 0 && (
-                <div className="flex items-center justify-center h-full rounded-2xl bg-slate-800 border border-slate-700">
-                  <span className="text-slate-400">
+                <div className="flex items-center justify-center h-full rounded-2xl bg-muted border border-border">
+                  <span className="text-muted-foreground">
                     Waiting for others to join...
                   </span>
                 </div>
@@ -266,7 +266,7 @@ export function ActiveCallOverlay() {
               className={cn(
                 'absolute bottom-4 right-4',
                 'w-48 h-36 rounded-xl overflow-hidden',
-                'bg-slate-800 border-2 border-slate-600',
+                'bg-muted border-2 border-border',
                 'shadow-2xl'
               )}
             >
@@ -285,7 +285,7 @@ export function ActiveCallOverlay() {
               )}
               {!localMediaState.audioEnabled && (
                 <div className="absolute bottom-2 right-2">
-                  <MicOff className="h-4 w-4 text-red-400" />
+                  <MicOff className="h-4 w-4 text-destructive" />
                 </div>
               )}
             </div>
@@ -300,18 +300,18 @@ export function ActiveCallOverlay() {
                     className="flex flex-col items-center"
                   >
                     <div className="relative">
-                      <div className="absolute inset-0 animate-pulse rounded-full bg-blue-500/20" />
+                      <div className="absolute inset-0 animate-pulse rounded-full bg-primary/20" />
                       <UserAvatar
                         user={participant.user}
                         size="xl"
                         className="relative"
                       />
                     </div>
-                    <span className="mt-3 text-slate-200 font-medium">
+                    <span className="mt-3 text-foreground font-medium">
                       {participant.user?.display_name || 'Participant'}
                     </span>
                     {participant.audio_muted && (
-                      <span className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                      <span className="mt-1 text-xs text-destructive flex items-center gap-1">
                         <MicOff className="h-3 w-3" /> Muted
                       </span>
                     )}
@@ -319,7 +319,7 @@ export function ActiveCallOverlay() {
                 ))}
               </div>
               {otherParticipants.length === 0 && (
-                <span className="text-slate-400">
+                <span className="text-muted-foreground">
                   Waiting for others to join...
                 </span>
               )}
@@ -328,7 +328,7 @@ export function ActiveCallOverlay() {
         )}
       </div>
 
-      <div className="flex items-center justify-center gap-4 py-6 bg-slate-800/50">
+      <div className="flex items-center justify-center gap-4 py-6 bg-background/50">
         <Button
           variant="ghost"
           size="icon-lg"
@@ -336,8 +336,8 @@ export function ActiveCallOverlay() {
           className={cn(
             'h-14 w-14 rounded-full',
             localMediaState.audioEnabled
-              ? 'bg-slate-700 hover:bg-slate-600 text-white'
-              : 'bg-red-600 hover:bg-red-700 text-white'
+              ? 'bg-muted hover:bg-muted/80 text-foreground'
+              : 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
           )}
         >
           {localMediaState.audioEnabled ? (
@@ -356,8 +356,8 @@ export function ActiveCallOverlay() {
               className={cn(
                 'h-14 w-14 rounded-full',
                 localMediaState.videoEnabled
-                  ? 'bg-slate-700 hover:bg-slate-600 text-white'
-                  : 'bg-red-600 hover:bg-red-700 text-white'
+                  ? 'bg-muted hover:bg-muted/80 text-foreground'
+                  : 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
               )}
             >
               {localMediaState.videoEnabled ? (
@@ -374,8 +374,8 @@ export function ActiveCallOverlay() {
               className={cn(
                 'h-14 w-14 rounded-full',
                 localMediaState.screenShareEnabled
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                  : 'bg-slate-700 hover:bg-slate-600 text-white'
+                  ? 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                  : 'bg-muted hover:bg-muted/80 text-foreground'
               )}
             >
               <Monitor className="h-6 w-6" />
@@ -388,7 +388,7 @@ export function ActiveCallOverlay() {
           size="icon-lg"
           onClick={handleEndCall}
           disabled={endCallMutation.isPending}
-          className="h-14 w-14 rounded-full bg-red-600 hover:bg-red-700"
+          className="h-14 w-14 rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground"
         >
           <PhoneOff className="h-6 w-6" />
         </Button>

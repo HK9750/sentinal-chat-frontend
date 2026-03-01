@@ -58,7 +58,7 @@ export function CallModal({
         audio: true,
         video: callType === 'VIDEO',
       };
-      
+
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       setLocalStream(stream);
 
@@ -71,7 +71,7 @@ export function CallModal({
       if (call) {
         setActiveCall(call);
         setCallStatus('ringing');
-        
+
       }
     } catch (error) {
       console.error('Failed to initiate call:', error);
@@ -117,14 +117,14 @@ export function CallModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleCancel()}>
       <DialogContent
         showCloseButton={false}
-        className="bg-slate-900/95 border-slate-700 backdrop-blur-xl sm:max-w-md"
+        className="bg-background/95 border-border backdrop-blur-xl sm:max-w-md"
       >
         <DialogHeader className="items-center space-y-4">
           <div className="relative">
             {callStatus === 'ringing' && (
               <>
-                <div className="absolute inset-0 animate-ping rounded-full bg-blue-500/30" />
-                <div className="absolute inset-0 animate-pulse rounded-full bg-blue-500/20" />
+                <div className="absolute inset-0 animate-ping rounded-full bg-primary/30" />
+                <div className="absolute inset-0 animate-pulse rounded-full bg-primary/20" />
               </>
             )}
             <UserAvatar
@@ -137,12 +137,12 @@ export function CallModal({
               className="relative"
             />
           </div>
-          
+
           <div className="text-center">
-            <DialogTitle className="text-xl text-slate-100">
+            <DialogTitle className="text-xl text-foreground">
               {recipientName}
             </DialogTitle>
-            <DialogDescription className="text-slate-400 flex items-center justify-center gap-2">
+            <DialogDescription className="text-muted-foreground flex items-center justify-center gap-2">
               {callStatus === 'initiating' && (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -160,7 +160,7 @@ export function CallModal({
                 </>
               )}
               {callStatus === 'failed' && (
-                <span className="text-red-400">Call failed. Please try again.</span>
+                <span className="text-destructive">Call failed. Please try again.</span>
               )}
             </DialogDescription>
           </div>
@@ -172,14 +172,14 @@ export function CallModal({
               <Button
                 variant="outline"
                 onClick={handleCancel}
-                className="border-slate-600 text-slate-300"
+                className="border-input text-foreground"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleRetry}
                 className={cn(
-                  'bg-emerald-600 hover:bg-emerald-700',
+                  'bg-green-500 hover:bg-green-600',
                   'text-white'
                 )}
               >
@@ -198,8 +198,8 @@ export function CallModal({
               onClick={handleCancel}
               className={cn(
                 'h-14 w-14 rounded-full',
-                'bg-red-600 hover:bg-red-700',
-                'shadow-lg shadow-red-900/50'
+                'bg-destructive hover:bg-destructive/90',
+                'shadow-lg shadow-destructive/20'
               )}
             >
               <PhoneOff className="h-6 w-6" />

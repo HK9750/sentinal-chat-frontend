@@ -11,20 +11,20 @@ function ChatPageContent() {
   const selectedConversationId = searchParams.get('conversation');
 
   return (
-    <div className="flex h-screen bg-slate-950">
-      <div className={`${selectedConversationId ? 'hidden lg:block' : 'w-full lg:w-80'} lg:w-80 shrink-0`}>
+    <div className="flex h-screen bg-background">
+      <div className={`${selectedConversationId ? 'hidden lg:block' : 'w-full lg:w-80'} lg:w-80 shrink-0 border-r`}>
         <ConversationList />
       </div>
 
-      <div className={`${selectedConversationId ? 'flex-1 flex flex-col' : 'hidden lg:flex lg:flex-1 lg:flex-col'} bg-slate-950 min-w-0`}>
+      <div className={`${selectedConversationId ? 'flex-1 flex flex-col' : 'hidden lg:flex lg:flex-1 lg:flex-col'} bg-background min-w-0`}>
         {selectedConversationId ? (
           <ChatArea conversationId={selectedConversationId} />
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <div className="w-24 h-24 rounded-full bg-slate-800 flex items-center justify-center mx-auto mb-6">
+              <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
                 <svg
-                  className="w-12 h-12 text-slate-600"
+                  className="w-12 h-12 text-muted-foreground"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -37,10 +37,10 @@ function ChatPageContent() {
                   />
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold text-slate-300 mb-2">
+              <h2 className="text-2xl font-semibold text-foreground mb-2">
                 Select a conversation
               </h2>
-              <p className="text-slate-500">
+              <p className="text-muted-foreground">
                 Choose from your existing conversations or start a new one
               </p>
             </div>
@@ -56,8 +56,8 @@ export default function ChatPage() {
     <AuthGuard>
       <Suspense
         fallback={
-          <div className="flex h-screen items-center justify-center bg-slate-950">
-            <div className="animate-spin rounded-full h-10 w-10 border-3 border-slate-800 border-t-blue-500" />
+          <div className="flex h-screen items-center justify-center bg-background">
+            <div className="animate-spin rounded-full h-10 w-10 border-3 border-muted border-t-primary" />
           </div>
         }
       >

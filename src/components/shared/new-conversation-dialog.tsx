@@ -173,28 +173,28 @@ export function NewConversationDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="bg-slate-900/95 border-slate-700 backdrop-blur-xl sm:max-w-lg">
+      <DialogContent className="bg-background/95 border-border backdrop-blur-xl sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-xl text-slate-100">
+          <DialogTitle className="text-xl text-foreground">
             New Conversation
           </DialogTitle>
-          <DialogDescription className="text-slate-400">
+          <DialogDescription className="text-muted-foreground">
             Start a direct message or create a group chat
           </DialogDescription>
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as 'dm' | 'group')}>
-          <TabsList className="grid w-full grid-cols-2 bg-slate-800/50">
+          <TabsList className="grid w-full grid-cols-2 bg-muted/50">
             <TabsTrigger
               value="dm"
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               Direct Message
             </TabsTrigger>
             <TabsTrigger
               value="group"
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
               <Users className="h-4 w-4 mr-2" />
               Group Chat
@@ -202,18 +202,18 @@ export function NewConversationDialog({
           </TabsList>
 
           <div className="relative mt-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by name or username..."
-              className="pl-10 pr-10 bg-slate-800/50 border-slate-700 text-slate-200"
+              className="pl-10 pr-10 bg-background border-input text-foreground"
             />
             {searchQuery && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-slate-400 hover:text-white"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:text-foreground"
                 onClick={() => setSearchQuery('')}
               >
                 <X className="h-4 w-4" />
@@ -228,13 +228,13 @@ export function NewConversationDialog({
                   <Badge
                     key={user.id}
                     variant="secondary"
-                    className="bg-blue-600/20 text-blue-300 border-blue-500/30 pl-1 pr-2 py-1"
+                    className="bg-primary/20 text-primary border-primary/30 pl-1 pr-2 py-1"
                   >
                     <UserAvatar user={user} size="xs" className="mr-1.5" />
                     {user.display_name || user.username}
                     <button
                       onClick={() => handleToggleUser(user)}
-                      className="ml-1.5 hover:text-white"
+                      className="ml-1.5 hover:text-foreground"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -245,7 +245,7 @@ export function NewConversationDialog({
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
                 placeholder="Group name (required)"
-                className="bg-slate-800/50 border-slate-700 text-slate-200"
+                className="bg-background border-input text-foreground"
               />
             </div>
           )}
@@ -254,10 +254,10 @@ export function NewConversationDialog({
             <ScrollArea className="h-75">
               {isLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : displayUsers.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/80">
                   <UserPlus className="h-10 w-10 mb-3 opacity-50" />
                   <p className="text-sm">
                     {debouncedSearch.length >= 2
@@ -274,21 +274,21 @@ export function NewConversationDialog({
                       disabled={isPending}
                       className={cn(
                         'w-full flex items-center gap-3 p-3 rounded-lg transition-colors',
-                        'hover:bg-slate-800/70 text-left',
+                        'hover:bg-muted text-left',
                         isPending && 'opacity-50 cursor-not-allowed'
                       )}
                     >
                       <UserAvatar user={user} size="md" />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-200 truncate">
+                        <p className="font-medium text-foreground truncate">
                           {user.display_name || user.username}
                         </p>
-                        <p className="text-sm text-slate-500 truncate">
+                        <p className="text-sm text-muted-foreground truncate">
                           @{user.username}
                         </p>
                       </div>
                       {user.is_online && (
-                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                        <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
                       )}
                     </button>
                   ))}
@@ -301,10 +301,10 @@ export function NewConversationDialog({
             <ScrollArea className="h-75">
               {isLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : displayUsers.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/80">
                   <UserPlus className="h-10 w-10 mb-3 opacity-50" />
                   <p className="text-sm">
                     {debouncedSearch.length >= 2
@@ -323,26 +323,26 @@ export function NewConversationDialog({
                         className={cn(
                           'w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left',
                           isSelected
-                            ? 'bg-blue-600/20 border border-blue-500/30'
-                            : 'hover:bg-slate-800/70 border border-transparent'
+                            ? 'bg-primary/20 border-primary/30'
+                            : 'hover:bg-muted border border-transparent'
                         )}
                       >
                         <UserAvatar user={user} size="md" />
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-200 truncate">
+                          <p className="font-medium text-foreground truncate">
                             {user.display_name || user.username}
                           </p>
-                          <p className="text-sm text-slate-500 truncate">
+                          <p className="text-sm text-muted-foreground truncate">
                             @{user.username}
                           </p>
                         </div>
                         {isSelected ? (
-                          <div className="h-6 w-6 rounded-full bg-blue-600 flex items-center justify-center">
-                            <Check className="h-4 w-4 text-white" />
+                          <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="h-4 w-4 text-primary-foreground" />
                           </div>
                         ) : (
                           user.is_online && (
-                            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                            <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
                           )
                         )}
                       </button>
@@ -360,7 +360,7 @@ export function NewConversationDialog({
                   !groupName.trim() ||
                   isPending
                 }
-                className="bg-blue-600 hover:bg-blue-500"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 {isPending ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

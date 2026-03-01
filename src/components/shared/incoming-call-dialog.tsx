@@ -83,12 +83,12 @@ export function IncomingCallDialog() {
     <Dialog open={isOpen}>
       <DialogContent
         showCloseButton={false}
-        className="bg-slate-900/95 border-slate-700 backdrop-blur-xl sm:max-w-md"
+        className="bg-background/95 border-border backdrop-blur-xl sm:max-w-md"
       >
         <DialogHeader className="items-center space-y-4">
           <div className="relative">
-            <div className="absolute inset-0 animate-ping rounded-full bg-blue-500/30" />
-            <div className="absolute inset-0 animate-pulse rounded-full bg-blue-500/20" />
+            <div className="absolute inset-0 animate-ping rounded-full bg-primary/30" />
+            <div className="absolute inset-0 animate-pulse rounded-full bg-primary/20" />
             <UserAvatar
               user={{
                 id: incomingCallerId || '',
@@ -99,10 +99,10 @@ export function IncomingCallDialog() {
             />
           </div>
           <div className="text-center">
-            <DialogTitle className="text-xl text-slate-100">
+            <DialogTitle className="text-xl text-foreground">
               {incomingCallerName || 'Unknown'}
             </DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-muted-foreground">
               Incoming {incomingCallType === 'VIDEO' ? 'video' : 'voice'} call...
             </DialogDescription>
           </div>
@@ -116,8 +116,8 @@ export function IncomingCallDialog() {
             disabled={declineCallMutation.isPending}
             className={cn(
               'h-16 w-16 rounded-full',
-              'bg-red-600 hover:bg-red-700',
-              'shadow-lg shadow-red-900/50'
+              'bg-destructive hover:bg-destructive/90',
+              'shadow-lg shadow-destructive/20'
             )}
           >
             <PhoneOff className="h-7 w-7" />
@@ -129,8 +129,8 @@ export function IncomingCallDialog() {
             disabled={acceptCallMutation.isPending}
             className={cn(
               'h-16 w-16 rounded-full',
-              'bg-emerald-600 hover:bg-emerald-700',
-              'shadow-lg shadow-emerald-900/50'
+              'bg-green-500 hover:bg-green-600 text-white',
+              'shadow-lg shadow-green-500/20'
             )}
           >
             {incomingCallType === 'VIDEO' ? (

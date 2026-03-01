@@ -137,7 +137,7 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
     if (isLoading) {
         return (
             <div className="flex-1 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-600 border-t-blue-500" />
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-muted border-t-primary" />
             </div>
         );
     }
@@ -146,11 +146,11 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
         return (
             <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-4">
-                        <Send className="w-7 h-7 text-slate-600" />
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                        <Send className="w-7 h-7 text-muted-foreground" />
                     </div>
-                    <p className="text-slate-400 font-medium mb-1">No messages yet</p>
-                    <p className="text-slate-600 text-sm">Send a message to start the conversation</p>
+                    <p className="text-foreground font-medium mb-1">No messages yet</p>
+                    <p className="text-muted-foreground text-sm">Send a message to start the conversation</p>
                 </div>
             </div>
         );

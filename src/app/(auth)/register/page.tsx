@@ -58,12 +58,12 @@ export default function RegisterPage() {
 
   return (
     <GuestGuard>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary mb-4">
               <svg
-                className="w-8 h-8 text-white"
+                className="w-8 h-8 text-primary-foreground"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -76,12 +76,12 @@ export default function RegisterPage() {
                 />
               </svg>
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">Sentinel Chat</h1>
-            <p className="text-slate-400">Create your secure account</p>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Sentinel Chat</h1>
+            <p className="text-muted-foreground">Create your secure account</p>
           </div>
 
-          <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-8">
-            <h2 className="text-xl font-semibold text-white mb-6 text-center">
+          <div className="bg-card border text-card-foreground shadow-sm rounded-2xl p-8">
+            <h2 className="text-xl font-semibold mb-6 text-center">
               Create account
             </h2>
 
@@ -95,7 +95,7 @@ export default function RegisterPage() {
               <div>
                 <label
                   htmlFor="email"
-                  className="block text-sm font-medium text-slate-300 mb-2"
+                  className="block text-sm font-medium text-foreground mb-2"
                 >
                   Email address
                 </label>
@@ -105,7 +105,7 @@ export default function RegisterPage() {
                   type="email"
                   required
                   autoComplete="email"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 bg-background border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
                   placeholder="you@example.com"
                 />
               </div>
@@ -113,7 +113,7 @@ export default function RegisterPage() {
               <div>
                 <label
                   htmlFor="username"
-                  className="block text-sm font-medium text-slate-300 mb-2"
+                  className="block text-sm font-medium text-foreground mb-2"
                 >
                   Username
                 </label>
@@ -123,7 +123,7 @@ export default function RegisterPage() {
                   type="text"
                   required
                   autoComplete="username"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 bg-background border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
                   placeholder="Choose a username"
                 />
               </div>
@@ -131,16 +131,16 @@ export default function RegisterPage() {
               <div>
                 <label
                   htmlFor="display_name"
-                  className="block text-sm font-medium text-slate-300 mb-2"
+                  className="block text-sm font-medium text-foreground mb-2"
                 >
-                  Display Name <span className="text-slate-500">(optional)</span>
+                  Display Name <span className="text-muted-foreground text-xs">(optional)</span>
                 </label>
                 <input
                   id="display_name"
                   name="display_name"
                   type="text"
                   autoComplete="name"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 bg-background border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
                   placeholder="How you want to be called"
                 />
               </div>
@@ -148,7 +148,7 @@ export default function RegisterPage() {
               <div>
                 <label
                   htmlFor="password"
-                  className="block text-sm font-medium text-slate-300 mb-2"
+                  className="block text-sm font-medium text-foreground mb-2"
                 >
                   Password
                 </label>
@@ -159,7 +159,7 @@ export default function RegisterPage() {
                   required
                   minLength={8}
                   autoComplete="new-password"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 bg-background border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
                   placeholder="Create a strong password"
                 />
               </div>
@@ -167,7 +167,7 @@ export default function RegisterPage() {
               <div>
                 <label
                   htmlFor="confirmPassword"
-                  className="block text-sm font-medium text-slate-300 mb-2"
+                  className="block text-sm font-medium text-foreground mb-2"
                 >
                   Confirm Password
                 </label>
@@ -178,7 +178,7 @@ export default function RegisterPage() {
                   required
                   minLength={8}
                   autoComplete="new-password"
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 bg-background border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
                   placeholder="Confirm your password"
                 />
               </div>
@@ -186,11 +186,11 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 disabled={registerMutation.isPending}
-                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
+                className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 font-medium rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
               >
                 {registerMutation.isPending ? (
                   <>
-                    <Spinner size="sm" className="border-white/30 border-t-white" />
+                    <Spinner size="sm" className="border-primary-foreground/30 border-t-primary-foreground" />
                     Creating account...
                   </>
                 ) : (
@@ -200,11 +200,11 @@ export default function RegisterPage() {
             </form>
 
             <div className="mt-6 text-center">
-              <p className="text-slate-400 text-sm">
+              <p className="text-muted-foreground text-sm">
                 Already have an account?{' '}
                 <Link
                   href="/login"
-                  className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                  className="text-primary hover:underline font-medium transition-colors"
                 >
                   Sign in
                 </Link>

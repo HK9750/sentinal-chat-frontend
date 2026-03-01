@@ -56,15 +56,15 @@ export function UserAvatar({
     <div className={cn('relative inline-block', className)}>
       <Avatar className={cn(sizeClasses[size])}>
         <AvatarImage src={imageUrl} alt={name} />
-        <AvatarFallback className="bg-linear-to-br from-slate-600 to-slate-700 text-slate-200 font-medium">
+        <AvatarFallback className="bg-muted text-foreground font-medium border border-border">
           {initials}
         </AvatarFallback>
       </Avatar>
       {showStatus && (
         <span
           className={cn(
-            'absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-slate-900',
-            isOnline ? 'bg-emerald-500' : 'bg-slate-500'
+            'absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-background',
+            isOnline ? 'bg-green-500' : 'bg-muted-foreground'
           )}
         />
       )}

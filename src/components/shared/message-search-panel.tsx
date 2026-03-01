@@ -89,24 +89,24 @@ export function MessageSearchPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute top-0 right-0 w-80 h-full bg-slate-900/95 border-l border-slate-800 backdrop-blur-xl flex flex-col z-10">
-      <div className="p-3 border-b border-slate-800">
+    <div className="absolute top-0 right-0 w-80 h-full bg-background/95 border-l border-border backdrop-blur-xl flex flex-col z-10">
+      <div className="p-3 border-b border-border">
         <div className="flex items-center gap-2">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Search in conversation..."
-              className="pl-10 pr-10 bg-slate-800/50 border-slate-700 text-slate-200 text-sm"
+              className="pl-10 pr-10 bg-background border-input text-foreground text-sm"
             />
             {query && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-slate-400 hover:text-white"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-foreground"
                 onClick={() => setQuery('')}
               >
                 <X className="h-3 w-3" />
@@ -117,7 +117,7 @@ export function MessageSearchPanel({
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="text-slate-400 hover:text-white h-8 w-8"
+            className="text-muted-foreground hover:text-foreground h-8 w-8"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -125,7 +125,7 @@ export function MessageSearchPanel({
 
         {results && results.length > 0 && (
           <div className="flex items-center justify-between mt-2">
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-muted-foreground">
               {selectedIndex + 1} of {results.length} results
             </span>
             <div className="flex gap-1">
@@ -134,7 +134,7 @@ export function MessageSearchPanel({
                 size="icon"
                 onClick={handleNavigatePrev}
                 disabled={selectedIndex === 0}
-                className="h-6 w-6 text-slate-400 hover:text-white"
+                className="h-6 w-6 text-muted-foreground hover:text-foreground"
               >
                 <ArrowUp className="h-3 w-3" />
               </Button>
@@ -143,7 +143,7 @@ export function MessageSearchPanel({
                 size="icon"
                 onClick={handleNavigateNext}
                 disabled={selectedIndex === results.length - 1}
-                className="h-6 w-6 text-slate-400 hover:text-white"
+                className="h-6 w-6 text-muted-foreground hover:text-foreground"
               >
                 <ArrowDown className="h-3 w-3" />
               </Button>
@@ -155,15 +155,15 @@ export function MessageSearchPanel({
       <ScrollArea className="flex-1">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : debouncedQuery.length < 2 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
             <Search className="h-8 w-8 mb-2 opacity-50" />
             <p className="text-sm">Type to search messages</p>
           </div>
         ) : results?.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
             <MessageSquare className="h-8 w-8 mb-2 opacity-50" />
             <p className="text-sm">No messages found</p>
           </div>
@@ -205,8 +205,8 @@ function SearchResultItem({
       className={cn(
         'w-full px-3 py-2 text-left transition-colors',
         isSelected
-          ? 'bg-blue-600/20 border-l-2 border-blue-500'
-          : 'hover:bg-slate-800/50 border-l-2 border-transparent'
+          ? 'bg-primary/20 border-l-2 border-primary'
+          : 'hover:bg-muted border-l-2 border-transparent'
       )}
     >
       <div className="flex items-start gap-2">
@@ -219,14 +219,14 @@ function SearchResultItem({
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium text-slate-300 truncate">
+            <span className="text-xs font-medium text-foreground truncate">
               {message.sender?.display_name || 'Unknown'}
             </span>
-            <span className="text-xs text-slate-500 shrink-0">
+            <span className="text-xs text-muted-foreground shrink-0">
               {formatRelativeTime(message.created_at)}
             </span>
           </div>
-          <p className="text-sm text-slate-400 line-clamp-2 mt-0.5">
+          <p className="text-sm text-muted-foreground line-clamp-2 mt-0.5">
             {highlight ? (
               <span
                 dangerouslySetInnerHTML={{

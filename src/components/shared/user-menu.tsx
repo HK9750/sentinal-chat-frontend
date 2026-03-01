@@ -26,33 +26,33 @@ export function UserMenu() {
           <UserAvatar user={user} size="sm" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56 bg-slate-900 border-slate-800" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal text-slate-200">
+      <DropdownMenuContent className="w-56 bg-popover border-border" align="end" forceMount>
+        <DropdownMenuLabel className="font-normal text-foreground">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{user?.display_name}</p>
-            <p className="text-xs leading-none text-slate-500">
+            <p className="text-xs leading-none text-muted-foreground">
               {user?.email}
             </p>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator className="bg-slate-800" />
-        <DropdownMenuItem asChild className="text-slate-300 focus:text-white focus:bg-slate-800 cursor-pointer">
+        <DropdownMenuSeparator className="bg-border" />
+        <DropdownMenuItem asChild className="text-foreground focus:text-foreground focus:bg-accent cursor-pointer">
           <Link href="/profile">
             <User className="mr-2 h-4 w-4" />
             Profile
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild className="text-slate-300 focus:text-white focus:bg-slate-800 cursor-pointer">
+        <DropdownMenuItem asChild className="text-foreground focus:text-foreground focus:bg-accent cursor-pointer">
           <Link href="/settings">
             <Settings className="mr-2 h-4 w-4" />
             Settings
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuSeparator className="bg-slate-800" />
+        <DropdownMenuSeparator className="bg-border" />
         <DropdownMenuItem
           onClick={() => logout.mutate()}
           disabled={logout.isPending}
-          className="cursor-pointer text-red-400 focus:text-red-400 focus:bg-slate-800"
+          className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
         >
           <LogOut className="mr-2 h-4 w-4" />
           {logout.isPending ? 'Logging out...' : 'Log out'}

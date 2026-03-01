@@ -42,13 +42,13 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
     }, [typingUsers]);
 
     return (
-        <div className="h-16 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center px-4 justify-between shrink-0">
+        <div className="h-16 bg-background/80 backdrop-blur-md border-b flex items-center px-4 justify-between shrink-0">
             <div className="flex items-center gap-3">
                 {onBack && (
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="lg:hidden text-slate-400 hover:text-white"
+                        className="lg:hidden text-muted-foreground hover:text-foreground"
                         onClick={onBack}
                     >
                         <ArrowLeft className="h-5 w-5" />
@@ -63,10 +63,10 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
                 />
 
                 <div className="min-w-0">
-                    <h2 className="text-base font-semibold text-slate-200 truncate">
+                    <h2 className="text-base font-semibold text-foreground truncate">
                         {conversation?.subject || 'Chat'}
                     </h2>
-                    <p className="text-xs text-slate-500 truncate">
+                    <p className="text-xs text-muted-foreground truncate">
                         {typingText ||
                             `${participants?.length || 0} participant${participants?.length === 1 ? '' : 's'}`}
                     </p>
@@ -74,18 +74,18 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
             </div>
 
             <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white" onClick={onOpenSearch}>
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={onOpenSearch}>
                     <Search className="h-5 w-5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white" onClick={() => onStartCall('AUDIO')}>
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={() => onStartCall('AUDIO')}>
                     <Phone className="h-5 w-5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white" onClick={() => onStartCall('VIDEO')}>
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={() => onStartCall('VIDEO')}>
                     <Video className="h-5 w-5" />
                 </Button>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white">
+                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
                             <MoreVertical className="h-5 w-5" />
                         </Button>
                     </DropdownMenuTrigger>
@@ -97,7 +97,7 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
                         </DropdownMenuItem>
                         <DropdownMenuItem>Mute Notifications</DropdownMenuItem>
                         <Separator />
-                        <DropdownMenuItem className="text-red-500">Leave Group</DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">Leave Group</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>

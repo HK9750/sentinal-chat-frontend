@@ -37,12 +37,12 @@ function LoginForm() {
     (loginMutation.data && !loginMutation.data.success ? loginMutation.data.error : null);
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary mb-4">
             <svg
-              className="w-8 h-8 text-white"
+              className="w-8 h-8 text-primary-foreground"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -55,12 +55,12 @@ function LoginForm() {
               />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">Sentinel Chat</h1>
-          <p className="text-slate-400">Secure messaging for everyone</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Sentinel Chat</h1>
+          <p className="text-muted-foreground">Secure messaging for everyone</p>
         </div>
 
-        <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-8">
-          <h2 className="text-xl font-semibold text-white mb-6 text-center">
+        <div className="bg-card border text-card-foreground shadow-sm rounded-2xl p-8">
+          <h2 className="text-xl font-semibold mb-6 text-center">
             Welcome back
           </h2>
 
@@ -74,7 +74,7 @@ function LoginForm() {
             <div>
               <label
                 htmlFor="identity"
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Email or Username
               </label>
@@ -84,7 +84,7 @@ function LoginForm() {
                 type="text"
                 required
                 autoComplete="email"
-                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-background border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
                 placeholder="Enter your email or username"
               />
             </div>
@@ -92,7 +92,7 @@ function LoginForm() {
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Password
               </label>
@@ -102,7 +102,7 @@ function LoginForm() {
                 type="password"
                 required
                 autoComplete="current-password"
-                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-background border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
                 placeholder="Enter your password"
               />
             </div>
@@ -110,11 +110,11 @@ function LoginForm() {
             <button
               type="submit"
               disabled={loginMutation.isPending}
-              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 font-medium rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loginMutation.isPending ? (
                 <>
-                  <Spinner size="sm" className="border-white/30 border-t-white" />
+                  <Spinner size="sm" className="border-primary-foreground/30 border-t-primary-foreground" />
                   Signing in...
                 </>
               ) : (
@@ -124,11 +124,11 @@ function LoginForm() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-slate-400 text-sm">
+            <p className="text-muted-foreground text-sm">
               Don&apos;t have an account?{' '}
               <Link
                 href="/register"
-                className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                className="text-primary hover:underline font-medium transition-colors"
               >
                 Create one
               </Link>
@@ -145,7 +145,7 @@ export default function LoginPage() {
     <GuestGuard>
       <Suspense
         fallback={
-          <div className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+          <div className="min-h-screen bg-background flex items-center justify-center">
             <Spinner size="lg" />
           </div>
         }

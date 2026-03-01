@@ -111,19 +111,19 @@ export function FileUploadButton({ conversationId, onUploadComplete, className, 
         size="icon"
         onClick={() => fileInputRef.current?.click()}
         disabled={disabled || createUpload.isPending}
-        className={cn('text-slate-400 hover:text-slate-100 hover:bg-slate-700', className)}
+        className={cn('text-muted-foreground hover:text-foreground hover:bg-muted', className)}
       >
         <Paperclip className="h-5 w-5" />
       </Button>
 
       {activeUploads.length > 0 && (
-        <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-blue-600 text-[10px] text-white flex items-center justify-center font-medium">
+        <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center font-medium">
           {activeUploads.length}
         </div>
       )}
 
       {uploadError && (
-        <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-red-900/90 text-red-200 text-xs rounded-lg whitespace-nowrap">
+        <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-destructive/90 text-destructive-foreground text-xs rounded-lg whitespace-nowrap">
           {uploadError}
         </div>
       )}

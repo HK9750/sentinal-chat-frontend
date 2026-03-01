@@ -31,7 +31,7 @@ export function EncryptionSetup({
 }: EncryptionSetupProps) {
   const [step, setStep] = useState<SetupStep>('idle');
   const [error, setError] = useState<string | null>(null);
-  
+
   const generateKeysMutation = useGenerateKeys();
   const { isSetup, isLoading: statusLoading, deviceId } = useEncryptionStatus();
 
@@ -66,29 +66,29 @@ export function EncryptionSetup({
     <Dialog open={open} onOpenChange={step === 'complete' || step === 'idle' ? onOpenChange : undefined}>
       <DialogContent
         showCloseButton={step === 'complete' || step === 'error' || step === 'idle'}
-        className="bg-slate-900/95 border-slate-700 backdrop-blur-xl sm:max-w-lg"
+        className="bg-background/95 border-border backdrop-blur-xl sm:max-w-lg"
       >
         <DialogHeader className="items-center space-y-4">
           <div
             className={cn(
               'flex h-16 w-16 items-center justify-center rounded-full',
-              step === 'complete' && 'bg-emerald-500/20',
-              step === 'error' && 'bg-red-500/20',
-              (step === 'idle' || isProcessing) && 'bg-blue-500/20'
+              step === 'complete' && 'bg-green-500/20',
+              step === 'error' && 'bg-destructive/20',
+              (step === 'idle' || isProcessing) && 'bg-primary/20'
             )}
           >
             {step === 'complete' ? (
-              <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+              <CheckCircle2 className="h-8 w-8 text-green-500" />
             ) : step === 'error' ? (
-              <AlertCircle className="h-8 w-8 text-red-500" />
+              <AlertCircle className="h-8 w-8 text-destructive" />
             ) : isProcessing ? (
-              <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+              <Loader2 className="h-8 w-8 text-primary animate-spin" />
             ) : (
-              <Shield className="h-8 w-8 text-blue-500" />
+              <Shield className="h-8 w-8 text-primary" />
             )}
           </div>
           <div className="text-center">
-            <DialogTitle className="text-xl text-slate-100">
+            <DialogTitle className="text-xl text-foreground">
               {step === 'complete'
                 ? 'Encryption Ready'
                 : step === 'error'
@@ -97,7 +97,7 @@ export function EncryptionSetup({
                     ? 'Generating Keys...'
                     : 'Set Up End-to-End Encryption'}
             </DialogTitle>
-            <DialogDescription className="text-slate-400 mt-2">
+            <DialogDescription className="text-muted-foreground mt-2">
               {step === 'complete'
                 ? 'Your messages are now protected with end-to-end encryption using the Signal Protocol.'
                 : step === 'error'
@@ -113,26 +113,26 @@ export function EncryptionSetup({
           <div className="py-6">
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                 </div>
-                <span className="text-sm text-slate-300">
+                <span className="text-sm text-foreground">
                   Generating identity key (Ed25519)
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-700 text-slate-400 text-sm font-medium">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground text-sm font-medium">
                   2
                 </div>
-                <span className="text-sm text-slate-400">
+                <span className="text-sm text-muted-foreground">
                   Generating signed prekey (X25519)
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-700 text-slate-400 text-sm font-medium">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground text-sm font-medium">
                   3
                 </div>
-                <span className="text-sm text-slate-400">
+                <span className="text-sm text-muted-foreground">
                   Generating {INITIAL_PREKEY_COUNT} one-time prekeys
                 </span>
               </div>
@@ -142,41 +142,41 @@ export function EncryptionSetup({
 
         {step === 'idle' && !isProcessing && (
           <div className="py-4 space-y-4">
-            <Card className="bg-slate-800/50 border-slate-700 p-4">
+            <Card className="bg-card border-border p-4">
               <div className="flex gap-3">
-                <Key className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+                <Key className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-slate-200">Identity Key (Ed25519)</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-sm font-medium text-foreground">Identity Key (Ed25519)</p>
+                  <p className="text-xs text-muted-foreground">
                     A long-term signing key that identifies you on this device
                   </p>
                 </div>
               </div>
             </Card>
-            <Card className="bg-slate-800/50 border-slate-700 p-4">
+            <Card className="bg-card border-border p-4">
               <div className="flex gap-3">
-                <Lock className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+                <Lock className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-slate-200">Signed Prekey (X25519)</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-sm font-medium text-foreground">Signed Prekey (X25519)</p>
+                  <p className="text-xs text-muted-foreground">
                     A medium-term key signed by your identity key for secure key exchange
                   </p>
                 </div>
               </div>
             </Card>
-            <Card className="bg-slate-800/50 border-slate-700 p-4">
+            <Card className="bg-card border-border p-4">
               <div className="flex gap-3">
-                <Shield className="h-5 w-5 text-purple-400 shrink-0 mt-0.5" />
+                <Shield className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-slate-200">One-Time Prekeys</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-sm font-medium text-foreground">One-Time Prekeys</p>
+                  <p className="text-xs text-muted-foreground">
                     {INITIAL_PREKEY_COUNT} single-use keys for establishing new secure sessions (X3DH)
                   </p>
                 </div>
               </div>
             </Card>
-            
-            <div className="text-xs text-slate-500 text-center mt-4">
+
+            <div className="text-xs text-muted-foreground text-center mt-4">
               Uses Signal Protocol with X25519 Diffie-Hellman and XChaCha20-Poly1305 encryption
             </div>
           </div>
@@ -184,26 +184,26 @@ export function EncryptionSetup({
 
         {step === 'complete' && (
           <div className="py-4 space-y-4">
-            <Card className="bg-emerald-500/10 border-emerald-500/30 p-4">
+            <Card className="bg-green-500/10 border-green-500/30 p-4">
               <div className="flex gap-3">
-                <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+                <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-slate-200">Keys Generated & Stored</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-sm font-medium text-foreground">Keys Generated & Stored</p>
+                  <p className="text-xs text-muted-foreground">
                     Your private keys are stored securely in your browser. Public keys have been
                     uploaded to enable encrypted messaging.
                   </p>
                 </div>
               </div>
             </Card>
-            
+
             {deviceId && (
-              <Card className="bg-slate-800/50 border-slate-700 p-4">
+              <Card className="bg-card border-border p-4">
                 <div className="flex gap-3">
-                  <Key className="h-5 w-5 text-slate-400 shrink-0 mt-0.5" />
+                  <Key className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="space-y-1">
-                    <p className="text-sm font-medium text-slate-200">Device ID</p>
-                    <p className="text-xs text-slate-500 font-mono break-all">{deviceId}</p>
+                    <p className="text-sm font-medium text-foreground">Device ID</p>
+                    <p className="text-xs text-muted-foreground font-mono break-all">{deviceId}</p>
                   </div>
                 </div>
               </Card>
@@ -213,12 +213,12 @@ export function EncryptionSetup({
 
         {step === 'error' && (
           <div className="py-4">
-            <Card className="bg-red-500/10 border-red-500/30 p-4">
+            <Card className="bg-destructive/10 border-destructive/30 p-4">
               <div className="flex gap-3">
-                <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
+                <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-slate-200">Setup Failed</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-sm font-medium text-foreground">Setup Failed</p>
+                  <p className="text-xs text-muted-foreground">
                     {error || 'An unexpected error occurred. Please try again.'}
                   </p>
                 </div>
@@ -233,13 +233,13 @@ export function EncryptionSetup({
               <Button
                 variant="ghost"
                 onClick={() => onOpenChange(false)}
-                className="text-slate-400 hover:text-slate-200"
+                className="text-muted-foreground hover:text-foreground"
               >
                 Later
               </Button>
               <Button
                 onClick={handleSetup}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 <Shield className="h-4 w-4 mr-2" />
                 Generate Keys
@@ -251,17 +251,17 @@ export function EncryptionSetup({
               <Button
                 variant="ghost"
                 onClick={() => onOpenChange(false)}
-                className="text-slate-400 hover:text-slate-200"
+                className="text-muted-foreground hover:text-foreground"
               >
                 Cancel
               </Button>
-              <Button onClick={handleSetup} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={handleSetup} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 Try Again
               </Button>
             </>
           )}
           {step === 'complete' && (
-            <Button onClick={handleClose} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={handleClose} className="bg-green-500 hover:bg-green-600 text-white">
               Done
             </Button>
           )}

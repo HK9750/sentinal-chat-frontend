@@ -56,12 +56,12 @@ export function MessageBubble({
               className={cn(
                 'px-4 py-2.5 rounded-2xl relative group',
                 isOwn
-                  ? 'bg-blue-600 text-white rounded-br-md'
-                  : 'bg-slate-800 text-slate-200 rounded-bl-md'
+                  ? 'bg-primary text-primary-foreground rounded-br-md'
+                  : 'bg-muted text-foreground rounded-bl-md'
               )}
             >
               {!isOwn && message.sender && showAvatar && (
-                <p className="text-xs font-medium text-blue-400 mb-1">
+                <p className="text-xs font-medium text-primary mb-1">
                   {message.sender.display_name}
                 </p>
               )}
@@ -79,7 +79,7 @@ export function MessageBubble({
                 <span
                   className={cn(
                     'text-[10px]',
-                    isOwn ? 'text-blue-200/70' : 'text-slate-500'
+                    isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
                   )}
                 >
                   {formatTime(message.created_at)}
@@ -90,8 +90,8 @@ export function MessageBubble({
                     className={cn(
                       'h-3 w-3',
                       status === 'read'
-                        ? 'text-blue-300'
-                        : 'text-blue-200/70',
+                        ? 'text-primary-foreground'
+                        : 'text-primary-foreground/70',
                       status === 'sending' && 'animate-pulse'
                     )}
                   />
@@ -102,7 +102,7 @@ export function MessageBubble({
                 <span
                   className={cn(
                     'text-[10px] ml-1',
-                    isOwn ? 'text-blue-200/50' : 'text-slate-600'
+                    isOwn ? 'text-primary-foreground/50' : 'text-muted-foreground'
                   )}
                 >
                   edited
@@ -115,7 +115,7 @@ export function MessageBubble({
               {new Date(message.created_at).toLocaleString()}
             </p>
             {message.is_edited && message.edited_at && (
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-muted-foreground/80">
                 Edited: {new Date(message.edited_at).toLocaleString()}
               </p>
             )}

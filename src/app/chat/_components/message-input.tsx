@@ -200,7 +200,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
     const isPending = sendMessageMutation.isPending || encryptMessageMutation.isPending;
 
     return (
-        <div className="bg-slate-900/80 backdrop-blur-md border-t border-slate-800">
+        <div className="bg-background/80 backdrop-blur-md border-t">
             <UploadProgressList conversationId={conversationId} />
             <form onSubmit={handleSubmit} className="p-4 flex items-center gap-2 max-w-4xl mx-auto">
                 <FileUploadButton conversationId={conversationId} className="shrink-0" />
@@ -211,13 +211,13 @@ export function MessageInput({ conversationId }: MessageInputProps) {
                         type="text"
                         onKeyDown={handleKeyDown}
                         placeholder="Type a message..."
-                        className="pr-10 bg-slate-800/50 border-slate-700 text-slate-200 placeholder:text-slate-500 focus-visible:ring-blue-500/50 rounded-full"
+                        className="pr-10 bg-background border text-foreground placeholder:text-muted-foreground focus-visible:ring-ring rounded-full"
                     />
                     <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-slate-400 hover:text-white"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
                     >
                         <Smile className="h-5 w-5" />
                     </Button>
@@ -226,7 +226,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <div className={`shrink-0 p-2 rounded-full ${isEncryptionEnabled ? 'text-green-500' : 'text-slate-500'}`}>
+                            <div className={`shrink-0 p-2 rounded-full ${isEncryptionEnabled ? 'text-green-500' : 'text-muted-foreground'}`}>
                                 {isEncryptionEnabled ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
                             </div>
                         </TooltipTrigger>
@@ -236,7 +236,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
                     </Tooltip>
                 </TooltipProvider>
 
-                <Button type="submit" disabled={isPending} className="bg-blue-600 hover:bg-blue-500 text-white rounded-full px-4 shrink-0">
+                <Button type="submit" disabled={isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-4 shrink-0">
                     <Send className="h-4 w-4 mr-2" />
                     Send
                 </Button>
