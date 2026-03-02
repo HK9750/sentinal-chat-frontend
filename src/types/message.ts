@@ -28,7 +28,7 @@ export interface Message {
   edited_at?: string;
   deleted_at?: string;
   ciphertext?: string;
-  header?: string;
+  header?: string | Record<string, unknown>;
   recipient_device_id?: string;
   sender_device_id?: string;
   sender?: {
@@ -45,7 +45,7 @@ export interface MessageCiphertext {
   recipient_device_id: string;
   sender_device_id?: string;
   ciphertext: string;
-  header?: string;
+  header?: string | Record<string, unknown>;
   created_at: string;
 }
 

@@ -346,9 +346,12 @@ export function useDecryptCiphertext() {
       const maybeJson = rawCiphertext.trim();
       const hasEncryptedPayload = maybeJson.startsWith('{') && maybeJson.includes('ratchetKey');
       if (!hasEncryptedPayload) {
-        // Not an encrypted payload — return as plain text instead of throwing
+        // Not an encrypted payload — this is a plaintext fallback message.
+        // Return as-is.
         return rawCiphertext;
       }
+
+      // --- The payload IS encrypted — parse the header for X3DH keys ---
 
       let parsedHeader: Record<string, unknown> = {};
       if (typeof header === 'string' && header.trim()) {
@@ -364,16 +367,16 @@ export function useDecryptCiphertext() {
       const ephemeralKey = parsedHeader.ephemeral_key;
       const usedOneTimePreKeyId = parsedHeader.one_time_pre_key_id;
 
-      if (!ephemeralKey || typeof ephemeralKey !== 'string') {
-        // Missing ephemeral key — return raw content rather than crashing
-        return rawCiphertext;
-      }
-
+      // If no ephemeral key, we might still have an existing session
+      // (e.g. subsequent messages after the first one, or self-device
+      // messages). Attempt decryption without X3DH parameters. If no
+      // session exists, useDecryptMessageMutation will throw, which is
+      // correct — the message-list will retry later.
       return mutateRef.current({
         senderUserId,
         senderDeviceId,
         encryptedContent: rawCiphertext,
-        ephemeralPublicKey: ephemeralKey,
+        ephemeralPublicKey: typeof ephemeralKey === 'string' ? ephemeralKey : undefined,
         usedOneTimePreKeyId: typeof usedOneTimePreKeyId === 'number' ? usedOneTimePreKeyId : undefined,
       });
     },

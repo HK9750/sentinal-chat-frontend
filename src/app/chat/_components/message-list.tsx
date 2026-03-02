@@ -87,12 +87,11 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
                 inflightRef.current.add(msg.id);
 
                 try {
-                    const headerValue = msg.header as string | Record<string, unknown> | null | undefined;
                     const plaintext = await decryptCiphertext({
                         senderUserId: msg.sender_id,
                         senderDeviceId: msg.sender_device_id,
                         ciphertext: msg.ciphertext,
-                        header: headerValue,
+                        header: msg.header,
                     });
                     if (!isActive) {
                         inflightRef.current.delete(msg.id);

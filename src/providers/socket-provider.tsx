@@ -127,8 +127,23 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     };
 
     ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data) as WebSocketEvent & Record<string, unknown>;
+      // Defensively handle batched messages: the backend may (in rare
+      // cases) send multiple JSON objects separated by newlines in a
+      // single WebSocket frame. Split on newlines and process each
+      // independently so a parse failure in one doesn't drop all.
+      const rawParts = (event.data as string).split('\n');
+
+      for (const rawPart of rawParts) {
+        const trimmed = rawPart.trim();
+        if (!trimmed) continue;
+
+        let data: WebSocketEvent & Record<string, unknown>;
+        try {
+          data = JSON.parse(trimmed) as WebSocketEvent & Record<string, unknown>;
+        } catch (error) {
+          console.warn('Error parsing WebSocket message part:', error, trimmed);
+          continue;
+        }
 
         switch (data.type) {
           // ---- Messaging ----
@@ -239,8 +254,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
           default:
             break;
         }
-      } catch (error) {
-        console.warn('Error parsing WebSocket message:', error);
       }
     };
 

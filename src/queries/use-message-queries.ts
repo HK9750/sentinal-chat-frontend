@@ -6,8 +6,6 @@ import { SendMessageRequest, Message } from '@/types';
 const MESSAGES_PER_PAGE = 50;
 
 export function useMessages(conversationId: string) {
-  const queryClient = useQueryClient();
-
   return useQuery({
     queryKey: ['conversations', conversationId, 'messages'],
     queryFn: async () => {
@@ -15,26 +13,7 @@ export function useMessages(conversationId: string) {
       if (!response.success) {
         throw new Error(response.error);
       }
-      const incoming = response.data?.messages || [];
-      const existing = queryClient.getQueryData<Message[]>([
-        'conversations',
-        conversationId,
-        'messages',
-      ]);
-      if (!existing?.length) {
-        return incoming;
-      }
-
-      const byId = new Map(existing.map((message) => [message.id, message]));
-      for (const message of incoming) {
-        const current = byId.get(message.id);
-        if (current?.content) {
-          byId.set(message.id, { ...message, content: current.content });
-        } else {
-          byId.set(message.id, message);
-        }
-      }
-      return Array.from(byId.values());
+      return response.data?.messages || [];
     },
     enabled: !!conversationId,
     staleTime: 10_000,
