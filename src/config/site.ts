@@ -32,8 +32,8 @@ export const siteConfig = {
   },
   
   features: {
-    videoCalls: false,
-    voiceCalls: false,
+    videoCalls: true,
+    voiceCalls: true,
     groupBroadcasts: false,
   },
 } as const;

@@ -1,6 +1,7 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
 import { env } from '@/config/env';
 import { ApiResponse, AuthTokens } from '@/types';
+import { useAuthStore } from '@/stores/auth-store';
 
 class ApiClient {
   private client: AxiosInstance;
@@ -57,23 +58,21 @@ class ApiClient {
     );
   }
 
+  // Single source of truth: read tokens from the Zustand auth store.
+  // On the server (SSR) or before hydration, the store state is the
+  // in-memory default (null).  On the client, Zustand's persist
+  // middleware rehydrates from localStorage['auth-storage']
+  // automatically — no separate localStorage key needed.
   private getTokens(): AuthTokens | null {
-    if (typeof window === 'undefined') return null;
-    const tokens = localStorage.getItem('auth_tokens');
-    return tokens ? JSON.parse(tokens) : null;
+    return useAuthStore.getState().tokens;
   }
 
   private setTokens(tokens: AuthTokens) {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('auth_tokens', JSON.stringify(tokens));
-    }
+    useAuthStore.getState().updateTokens(tokens);
   }
 
   private clearTokens() {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_tokens');
-      localStorage.removeItem('user');
-    }
+    useAuthStore.getState().logout();
   }
 
   private async refreshToken(): Promise<string> {
@@ -126,6 +125,8 @@ class ApiClient {
     return response.data;
   }
 
+  // Public helpers kept for backward compat with login/register flows.
+  // Both now delegate to Zustand — no separate storage.
   setAuthTokens(tokens: AuthTokens) {
     this.setTokens(tokens);
   }

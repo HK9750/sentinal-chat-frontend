@@ -5,7 +5,7 @@ import { useMessages } from '@/queries/use-message-queries';
 import { MessageBubble } from '@/components/shared/message-bubble';
 import { Message } from '@/types';
 import { Send } from 'lucide-react';
-import { useDecryptCiphertext } from '@/hooks/use-encryption';
+import { useDecryptCiphertext, useEncryptionStatus } from '@/hooks/use-encryption';
 
 interface GroupedMessage {
     message: Message;
@@ -39,7 +39,16 @@ interface MessageListProps {
 export function MessageList({ conversationId, currentUserId, scrollRef, messageRefs }: MessageListProps) {
     const { data: messages, isLoading } = useMessages(conversationId);
     const { decryptCiphertext } = useDecryptCiphertext();
+    const { isSetup: encryptionReady } = useEncryptionStatus();
+
+    // Only successfully-decrypted messages are stored here. Failed
+    // decryptions are intentionally NOT cached so they will be retried
+    // whenever the effect re-runs (e.g. when encryption becomes ready).
     const [decryptedContent, setDecryptedContent] = useState<Map<string, string>>(new Map());
+
+    // Track message IDs currently being decrypted to avoid duplicate
+    // concurrent attempts for the same message.
+    const inflightRef = useRef<Set<string>>(new Set());
 
     const displayMessages = useMemo(() => {
         if (!messages) return undefined;
@@ -53,15 +62,17 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
         });
     }, [messages, decryptedContent]);
 
+    // --- Decryption effect: gated on encryptionReady ---
     useEffect(() => {
-        if (!messages) return;
+        if (!messages || !encryptionReady) return;
 
         const pending = messages.filter(
             (msg) =>
                 !!msg.ciphertext &&
                 !!msg.sender_id &&
                 !!msg.sender_device_id &&
-                !decryptedContent.has(msg.id)
+                !decryptedContent.has(msg.id) &&
+                !inflightRef.current.has(msg.id)
         ) as Array<Message & { ciphertext: string; sender_device_id: string }>;
 
         if (pending.length === 0) return;
@@ -71,42 +82,35 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
         const decryptAll = async () => {
             for (const msg of pending) {
                 if (!isActive) return;
-                try {
-                    let headerValue = msg.header as string | Record<string, unknown> | null | undefined;
-                    if (msg.metadata && typeof msg.metadata === 'string') {
-                        try {
-                            const parsed = JSON.parse(msg.metadata) as Record<string, unknown>;
-                            const rawHeader = parsed?.signal_header;
-                            if (typeof rawHeader === 'string') {
-                                headerValue = rawHeader;
-                            } else if (rawHeader && typeof rawHeader === 'object') {
-                                headerValue = rawHeader as Record<string, unknown>;
-                            }
-                        } catch {
-                        }
-                    }
 
+                // Mark as in-flight so concurrent renders don't re-attempt
+                inflightRef.current.add(msg.id);
+
+                try {
+                    const headerValue = msg.header as string | Record<string, unknown> | null | undefined;
                     const plaintext = await decryptCiphertext({
                         senderUserId: msg.sender_id,
                         senderDeviceId: msg.sender_device_id,
                         ciphertext: msg.ciphertext,
                         header: headerValue,
                     });
-                    if (!isActive) return;
+                    if (!isActive) {
+                        inflightRef.current.delete(msg.id);
+                        return;
+                    }
+                    // Cache successful decryption
                     setDecryptedContent((prev) => {
                         if (prev.has(msg.id)) return prev;
                         const next = new Map(prev);
                         next.set(msg.id, plaintext);
                         return next;
                     });
-                } catch {
-                    const fallback = atob(msg.ciphertext);
-                    setDecryptedContent((prev) => {
-                        if (prev.has(msg.id)) return prev;
-                        const next = new Map(prev);
-                        next.set(msg.id, fallback);
-                        return next;
-                    });
+                } catch (err) {
+                    console.error(`[MessageList] Failed to decrypt message ${msg.id}:`, err);
+                    // Do NOT cache failures — leave the message uncached so
+                    // it will be retried on the next effect run.
+                } finally {
+                    inflightRef.current.delete(msg.id);
                 }
             }
         };
@@ -116,7 +120,7 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
         return () => {
             isActive = false;
         };
-    }, [messages, decryptedContent, decryptCiphertext]);
+    }, [messages, encryptionReady, decryptedContent, decryptCiphertext]);
 
     const groupedMessages = useGroupedMessages(displayMessages, currentUserId);
 

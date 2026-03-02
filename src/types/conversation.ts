@@ -11,6 +11,7 @@ export interface Conversation {
   creator_id: string;
   invite_link?: string;
   participant_count: number;
+  participants?: Participant[];
   last_message_at?: string;
   created_at: string;
   updated_at: string;
@@ -27,25 +28,14 @@ export interface Conversation {
 }
 
 export interface Participant {
-  conversation_id: string;
   user_id: string;
   username?: string;
+  display_name?: string;
+  avatar_url?: string;
+  is_online?: boolean;
   role: ParticipantRole;
   joined_at: string;
   device_ids?: string[];
-  added_by?: string;
-  muted_until?: string;
-  pinned_at?: string;
-  archived: boolean;
-  last_read_sequence: number;
-  permissions?: Record<string, boolean>;
-  user?: {
-    id: string;
-    display_name: string;
-    avatar_url?: string;
-    status?: string;
-    is_online?: boolean;
-  };
 }
 
 export interface ConversationSequence {

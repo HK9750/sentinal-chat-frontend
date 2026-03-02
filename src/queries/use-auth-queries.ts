@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authService } from '@/services/auth-service';
-import { apiClient } from '@/services/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { LoginRequest, RegisterRequest } from '@/types';
 import { getDeviceInfo, setServerDeviceId } from '@/lib/device';
@@ -23,12 +22,12 @@ export function useLogin() {
     },
     onSuccess: async (response) => {
       if (response.success && response.data) {
-        apiClient.setAuthTokens(response.data);
-
         if (response.data.device_id) {
           setServerDeviceId(response.data.device_id);
         }
 
+        // login() writes tokens into Zustand (single source of truth).
+        // ApiClient reads from Zustand — no separate setAuthTokens needed.
         login(
           response.data.user,
           response.data
@@ -64,8 +63,6 @@ export function useRegister() {
     },
     onSuccess: (response) => {
       if (response.success && response.data) {
-        apiClient.setAuthTokens(response.data);
-
         if (response.data.device_id) {
           setServerDeviceId(response.data.device_id);
         }
@@ -91,13 +88,11 @@ export function useLogout() {
       return response;
     },
     onSuccess: () => {
-      apiClient.clearAuth();
       logout();
       queryClient.clear();
       window.location.href = '/login';
     },
     onError: () => {
-      apiClient.clearAuth();
       logout();
       queryClient.clear();
       window.location.href = '/login';
@@ -115,7 +110,6 @@ export function useLogoutAll() {
       return response;
     },
     onSuccess: () => {
-      apiClient.clearAuth();
       logout();
       queryClient.clear();
       window.location.href = '/login';

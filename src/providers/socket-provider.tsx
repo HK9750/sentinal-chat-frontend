@@ -6,35 +6,28 @@ import { env } from '@/config/env';
 import { useAuthStore } from '@/stores/auth-store';
 import { useChatStore } from '@/stores/chat-store';
 import { useCallStore } from '@/stores/call-store';
-import { WebSocketEvent, WebSocketTypingEvent } from '@/types';
+import type { WebSocketEvent, WebSocketTypingEvent } from '@/types';
 import type { Call, CallType } from '@/types/call';
 
-interface CallOfferPayload {
+// ---- Reconnect constants ----
+const BASE_RECONNECT_MS = 1_000;
+const MAX_RECONNECT_MS = 30_000;
+const HEARTBEAT_INTERVAL_MS = 25_000; // < server pongWait (60 s)
+
+// ---- Backend event payload shapes (match events/types.go JSON tags) ----
+interface BackendCallSignaling {
+  type: string;
   call_id: string;
-  conversation_id: string;
-  caller_id: string;
-  caller_name: string;
-  call_type: CallType;
-  sdp: string;
+  from_id: string;
+  to_id: string;
+  signal_type: string; // "offer" | "answer" | "ice"
+  data: string; // SDP string, or JSON-encoded ICE candidate
+  // offer events also carry conversation context from the call creation
+  conversation_id?: string;
 }
 
-interface CallAnswerPayload {
-  call_id: string;
-  participant_id: string;
-  sdp: string;
-}
 
-interface CallIcePayload {
-  call_id: string;
-  participant_id: string;
-  candidate: RTCIceCandidateInit;
-}
-
-interface CallEndedPayload {
-  call_id: string;
-  reason: string;
-}
-
+// ---- Context type exposed to consumers ----
 interface SocketContextType {
   sendTypingStart: (conversationId: string) => void;
   sendTypingStop: (conversationId: string) => void;
@@ -61,8 +54,9 @@ export function useSocket() {
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const reconnectingRef = useRef(false);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const attemptRef = useRef(0);
   const [isConnected, setIsConnected] = useState(false);
 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -74,11 +68,47 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const setIncomingCall = useCallStore((state) => state.setIncomingCall);
   const endCall = useCallStore((state) => state.endCall);
 
+  // ---- helpers ----
+  const send = useCallback((data: Record<string, unknown>) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(data));
+    }
+  }, []);
+
+  const clearHeartbeat = useCallback(() => {
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+    }
+  }, []);
+
+  const startHeartbeat = useCallback(() => {
+    clearHeartbeat();
+    heartbeatRef.current = setInterval(() => {
+      send({ type: 'ping' });
+    }, HEARTBEAT_INTERVAL_MS);
+  }, [send, clearHeartbeat]);
+
+  const scheduleReconnect = useCallback(() => {
+    if (reconnectTimeoutRef.current) return; // already scheduled
+    const delay = Math.min(BASE_RECONNECT_MS * 2 ** attemptRef.current, MAX_RECONNECT_MS);
+    attemptRef.current += 1;
+    reconnectTimeoutRef.current = setTimeout(() => {
+      reconnectTimeoutRef.current = null;
+      connect(); // eslint-disable-line @typescript-eslint/no-use-before-define
+    }, delay);
+  }, []); // connect is stable via ref pattern below
+
+  // ---- main connect function ----
+  const connectRef = useRef<() => void>(undefined);
+
   const connect = useCallback(() => {
     const accessToken = tokens?.access_token;
     if (!accessToken) return;
-
-    if (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) {
+    if (
+      wsRef.current?.readyState === WebSocket.OPEN ||
+      wsRef.current?.readyState === WebSocket.CONNECTING
+    ) {
       return;
     }
 
@@ -92,23 +122,20 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
     ws.onopen = () => {
       setIsConnected(true);
-      reconnectingRef.current = false;
+      attemptRef.current = 0;
+      startHeartbeat();
     };
 
     ws.onmessage = (event) => {
       try {
-        const data: WebSocketEvent = JSON.parse(event.data);
-        const payload = (data as { payload?: unknown }).payload ?? data;
+        const data = JSON.parse(event.data) as WebSocketEvent & Record<string, unknown>;
 
         switch (data.type) {
+          // ---- Messaging ----
           case 'message:new': {
-            const messagePayload = payload as {
-              message_id?: string;
-              conversation_id?: string;
-              sender_id?: string;
-            };
+            const convId = data.conversation_id as string | undefined;
             queryClient.invalidateQueries({
-              queryKey: ['conversations', messagePayload.conversation_id, 'messages'],
+              queryKey: ['conversations', convId, 'messages'],
             });
             queryClient.invalidateQueries({
               queryKey: ['conversations', 'list'],
@@ -117,92 +144,100 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
           }
 
           case 'message:read': {
-            const messagePayload = payload as {
-              message_id?: string;
-              conversation_id?: string;
-              reader_id?: string;
-            };
+            const convId = data.conversation_id as string | undefined;
             queryClient.invalidateQueries({
-              queryKey: ['conversations', messagePayload.conversation_id, 'messages'],
+              queryKey: ['conversations', convId, 'messages'],
             });
             break;
           }
 
           case 'message:delivered': {
-            const messagePayload = payload as {
-              message_id?: string;
-              conversation_id?: string;
-            };
+            const convId = data.conversation_id as string | undefined;
             queryClient.invalidateQueries({
-              queryKey: ['conversations', messagePayload.conversation_id, 'messages'],
+              queryKey: ['conversations', convId, 'messages'],
             });
             break;
           }
 
+          // ---- Typing ----
           case 'typing:started': {
-            const typingPayload = payload as WebSocketTypingEvent['payload'];
-            addTypingUser(typingPayload.conversation_id, typingPayload.user_id);
+            const tp = data as unknown as WebSocketTypingEvent['payload'];
+            addTypingUser(tp.conversation_id, tp.user_id);
             break;
           }
 
           case 'typing:stopped': {
-            const typingPayload = payload as WebSocketTypingEvent['payload'];
-            removeTypingUser(typingPayload.conversation_id, typingPayload.user_id);
+            const tp = data as unknown as WebSocketTypingEvent['payload'];
+            removeTypingUser(tp.conversation_id, tp.user_id);
             break;
           }
 
+          // ---- Presence ----
           case 'presence:online':
           case 'presence:offline': {
+            // Re-fetch conversation list so participant online indicators update
+            queryClient.invalidateQueries({ queryKey: ['conversations', 'list'] });
             break;
           }
 
+          // ---- Call signaling ----
           case 'call:offer': {
-            const payload = data.payload as CallOfferPayload;
+            const sig = data as unknown as BackendCallSignaling;
+            const callType: CallType =
+              sig.data && sig.data.includes('m=video') ? 'VIDEO' : 'AUDIO';
             const incomingCall: Call = {
-              id: payload.call_id,
-              conversation_id: payload.conversation_id,
-              type: payload.call_type,
+              id: sig.call_id,
+              conversation_id: sig.conversation_id || '',
+              type: callType,
               status: 'RINGING',
-              initiator_id: payload.caller_id,
+              initiator_id: sig.from_id,
               created_at: new Date().toISOString(),
             };
-            setIncomingCall(incomingCall, payload.caller_id, payload.caller_name);
-
-            sessionStorage.setItem(`call:${payload.call_id}:offer`, payload.sdp);
+            // Store the SDP directly in the call store (no sessionStorage)
+            setIncomingCall(incomingCall, sig.from_id, '', sig.data);
             break;
           }
 
           case 'call:answer': {
-            const payload = data.payload as CallAnswerPayload;
-            const pc = useCallStore.getState().peerConnections.get(payload.participant_id);
-            if (pc) {
-              pc.setRemoteDescription(new RTCSessionDescription({
-                type: 'answer',
-                sdp: payload.sdp,
-              }));
+            const sig = data as unknown as BackendCallSignaling;
+            // Find peer connection keyed by the answerer's user ID
+            const pc = useCallStore.getState().peerConnections.get(sig.from_id);
+            if (pc && sig.data) {
+              pc.setRemoteDescription(
+                new RTCSessionDescription({ type: 'answer', sdp: sig.data })
+              );
             }
             break;
           }
 
           case 'call:ice': {
-            const payload = data.payload as CallIcePayload;
-            const pc2 = useCallStore.getState().peerConnections.get(payload.participant_id);
-            if (pc2 && payload.candidate) {
-              pc2.addIceCandidate(new RTCIceCandidate(payload.candidate));
+            const sig = data as unknown as BackendCallSignaling;
+            const pc = useCallStore.getState().peerConnections.get(sig.from_id);
+            if (pc && sig.data) {
+              try {
+                // Backend stores candidate as plain string; try parsing as JSON first
+                const parsed = JSON.parse(sig.data) as RTCIceCandidateInit;
+                pc.addIceCandidate(new RTCIceCandidate(parsed));
+              } catch {
+                // If it's a plain candidate string, wrap it
+                pc.addIceCandidate(new RTCIceCandidate({ candidate: sig.data }));
+              }
             }
             break;
           }
 
           case 'call:ended': {
-            const payload = data.payload as CallEndedPayload;
             endCall();
-            sessionStorage.removeItem(`call:${payload.call_id}:offer`);
             queryClient.invalidateQueries({ queryKey: ['calls'] });
             break;
           }
 
+          case 'pong':
+            // heartbeat response, nothing to do
+            break;
+
           default:
-            console.log('Unknown WebSocket event:', data.type);
+            break;
         }
       } catch (error) {
         console.warn('Error parsing WebSocket message:', error);
@@ -210,31 +245,37 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     };
 
     ws.onerror = () => {
+      // onerror is always followed by onclose
     };
 
     ws.onclose = () => {
       setIsConnected(false);
+      clearHeartbeat();
+      wsRef.current = null;
+
+      // Only reconnect if the user is still authenticated
+      if (useAuthStore.getState().isAuthenticated && useAuthStore.getState().tokens?.access_token) {
+        scheduleReconnect();
+      }
     };
 
     wsRef.current = ws;
-  }, [tokens?.access_token, queryClient, addTypingUser, removeTypingUser, setIncomingCall, endCall]);
+  }, [
+    tokens?.access_token,
+    queryClient,
+    addTypingUser,
+    removeTypingUser,
+    setIncomingCall,
+    endCall,
+    startHeartbeat,
+    clearHeartbeat,
+    scheduleReconnect,
+  ]);
 
-  useEffect(() => {
-    if (!isConnected && isAuthenticated && tokens?.access_token && !reconnectingRef.current) {
-      reconnectingRef.current = true;
-      reconnectTimeoutRef.current = setTimeout(() => {
-        connect();
-      }, 3000);
-    }
+  // Keep connectRef up to date so scheduleReconnect can call it
+  connectRef.current = connect;
 
-    return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-    };
-  }, [isConnected, isAuthenticated, tokens?.access_token, connect]);
-
+  // ---- lifecycle ----
   useEffect(() => {
     if (isAuthenticated && tokens?.access_token) {
       connect();
@@ -245,95 +286,58 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
+      clearHeartbeat();
       if (wsRef.current) {
         wsRef.current.close();
+        wsRef.current = null;
       }
     };
-  }, [isAuthenticated, tokens?.access_token, connect]);
+  }, [isAuthenticated, tokens?.access_token, connect, clearHeartbeat]);
 
-  const sendTypingStart = useCallback((conversationId: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: 'typing:start',
-          conversation_id: conversationId,
-        })
-      );
-    }
-  }, []);
+  // ---- outbound helpers ----
+  const sendTypingStart = useCallback(
+    (conversationId: string) => send({ type: 'typing:start', conversation_id: conversationId }),
+    [send]
+  );
 
-  const sendTypingStop = useCallback((conversationId: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: 'typing:stop',
-          conversation_id: conversationId,
-        })
-      );
-    }
-  }, []);
+  const sendTypingStop = useCallback(
+    (conversationId: string) => send({ type: 'typing:stop', conversation_id: conversationId }),
+    [send]
+  );
 
-  const sendReadReceipt = useCallback((messageId: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: 'read',
-          message_id: messageId,
-        })
-      );
-    }
-  }, []);
+  const sendReadReceipt = useCallback(
+    (messageId: string) => send({ type: 'read', message_id: messageId }),
+    [send]
+  );
 
-  const sendCallOffer = useCallback((callId: string, participantId: string, sdp: RTCSessionDescriptionInit) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: 'call:offer',
-          call_id: callId,
-          participant_id: participantId,
-          sdp: sdp.sdp,
-        })
-      );
-    }
-  }, []);
+  const sendCallOffer = useCallback(
+    (callId: string, participantId: string, sdp: RTCSessionDescriptionInit) =>
+      send({ type: 'call:offer', call_id: callId, participant_id: participantId, sdp: sdp.sdp }),
+    [send]
+  );
 
-  const sendCallAnswer = useCallback((callId: string, participantId: string, sdp: RTCSessionDescriptionInit) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: 'call:answer',
-          call_id: callId,
-          participant_id: participantId,
-          sdp: sdp.sdp,
-        })
-      );
-    }
-  }, []);
+  const sendCallAnswer = useCallback(
+    (callId: string, participantId: string, sdp: RTCSessionDescriptionInit) =>
+      send({ type: 'call:answer', call_id: callId, participant_id: participantId, sdp: sdp.sdp }),
+    [send]
+  );
 
-  const sendIceCandidate = useCallback((callId: string, participantId: string, candidate: RTCIceCandidate) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: 'call:ice',
-          call_id: callId,
-          participant_id: participantId,
-          candidate: candidate.toJSON(),
-        })
-      );
-    }
-  }, []);
+  const sendIceCandidate = useCallback(
+    (callId: string, participantId: string, candidate: RTCIceCandidate) =>
+      send({
+        type: 'call:ice',
+        call_id: callId,
+        participant_id: participantId,
+        candidate: candidate.toJSON(),
+      }),
+    [send]
+  );
 
-  const sendCallEnd = useCallback((callId: string, reason?: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: 'call:end',
-          call_id: callId,
-          reason: reason || 'COMPLETED',
-        })
-      );
-    }
-  }, []);
+  const sendCallEnd = useCallback(
+    (callId: string, reason?: string) =>
+      send({ type: 'call:end', call_id: callId, reason: reason || 'COMPLETED' }),
+    [send]
+  );
 
   return (
     <SocketContext.Provider

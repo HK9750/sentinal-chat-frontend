@@ -11,11 +11,6 @@ export interface LocalMediaState {
   videoInputDeviceId?: string;
 }
 
-export interface RemoteStream {
-  odparticipantId: string;
-  stream: MediaStream | null;
-}
-
 interface CallState {
   uiState: CallUIState;
   activeCall: Call | null;
@@ -31,11 +26,13 @@ interface CallState {
   incomingCallerId: string | null;
   incomingCallerName: string | null;
   incomingCallType: CallType | null;
+  /** SDP offer from the remote caller, stored until the callee accepts */
+  incomingOfferSdp: string | null;
   
   callStartTime: number | null;
   
   initiateCall: (conversationId: string, callType: CallType) => void;
-  setIncomingCall: (call: Call, callerId: string, callerName: string) => void;
+  setIncomingCall: (call: Call, callerId: string, callerName: string, offerSdp: string) => void;
   acceptCall: () => void;
   declineCall: () => void;
   setActiveCall: (call: Call) => void;
@@ -72,6 +69,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   incomingCallerId: null,
   incomingCallerName: null,
   incomingCallType: null,
+  incomingOfferSdp: null,
   callStartTime: null,
 
   initiateCall: (conversationId, callType) => {
@@ -85,13 +83,14 @@ export const useCallStore = create<CallState>((set, get) => ({
     });
   },
 
-  setIncomingCall: (call, callerId, callerName) => {
+  setIncomingCall: (call, callerId, callerName, offerSdp) => {
     set({
       uiState: 'incoming',
       activeCall: call,
       incomingCallerId: callerId,
       incomingCallerName: callerName,
       incomingCallType: call.type,
+      incomingOfferSdp: offerSdp,
     });
   },
 
@@ -264,6 +263,7 @@ export const useCallStore = create<CallState>((set, get) => ({
       incomingCallerId: null,
       incomingCallerName: null,
       incomingCallType: null,
+      incomingOfferSdp: null,
       callStartTime: null,
     });
   },

@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import { useConversation, useConversationParticipants } from '@/queries/use-conversation-queries';
-import { useSocket } from '@/providers/socket-provider';
+import { useConversation } from '@/queries/use-conversation-queries';
+import { useAuthStore } from '@/stores/auth-store';
 import { useChatStore } from '@/stores/chat-store';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,7 @@ interface ChatHeaderProps {
 
 export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }: ChatHeaderProps) {
     const { data: conversation } = useConversation(conversationId);
-    const { data: participants } = useConversationParticipants(conversationId);
+    const currentUserId = useAuthStore((state) => state.user?.id);
     const typingUsers = useChatStore(
         useCallback(
             (state) => state.typingUsers.get(conversationId) ?? EMPTY_ARRAY,
@@ -35,11 +35,39 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
         )
     );
 
+    const otherParticipant = useMemo(() => {
+        if (conversation?.type !== 'DM' || !conversation.participants) return null;
+        return conversation.participants.find((p) => p.user_id !== currentUserId) ?? conversation.participants[0] ?? null;
+    }, [conversation?.type, conversation?.participants, currentUserId]);
+
+    const displayName = conversation?.type === 'DM'
+        ? (otherParticipant?.display_name || otherParticipant?.username || 'Chat')
+        : (conversation?.subject || 'Chat');
+
+    const avatarUrl = conversation?.type === 'DM'
+        ? otherParticipant?.avatar_url
+        : conversation?.avatar_url;
+
+    const avatarFallback = conversation?.type === 'DM'
+        ? (displayName[0]?.toUpperCase() || 'D')
+        : 'G';
+
+    const isOnline = otherParticipant?.is_online ?? false;
+
     const typingText = useMemo(() => {
         if (typingUsers.length === 0) return null;
         if (typingUsers.length === 1) return 'typing...';
         return `${typingUsers.length} people typing...`;
     }, [typingUsers]);
+
+    const subtitle = useMemo(() => {
+        if (typingText) return typingText;
+        if (conversation?.type === 'DM') {
+            return isOnline ? 'Online' : 'Offline';
+        }
+        const count = conversation?.participant_count || conversation?.participants?.length || 0;
+        return `${count} participant${count === 1 ? '' : 's'}`;
+    }, [typingText, conversation?.type, conversation?.participant_count, conversation?.participants?.length, isOnline]);
 
     return (
         <div className="h-16 bg-background/80 backdrop-blur-md border-b flex items-center px-4 justify-between shrink-0">
@@ -56,19 +84,20 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
                 )}
 
                 <UserAvatar
-                    src={conversation?.avatar_url}
-                    alt={conversation?.subject}
-                    fallback={conversation?.type === 'DM' ? 'DM' : 'G'}
+                    src={avatarUrl}
+                    alt={displayName}
+                    fallback={avatarFallback}
                     size="md"
+                    showStatus={conversation?.type === 'DM'}
+                    isOnline={isOnline}
                 />
 
                 <div className="min-w-0">
                     <h2 className="text-base font-semibold text-foreground truncate">
-                        {conversation?.subject || 'Chat'}
+                        {displayName}
                     </h2>
-                    <p className="text-xs text-muted-foreground truncate">
-                        {typingText ||
-                            `${participants?.length || 0} participant${participants?.length === 1 ? '' : 's'}`}
+                    <p className={`text-xs truncate ${typingText ? 'text-primary' : isOnline && conversation?.type === 'DM' ? 'text-green-500' : 'text-muted-foreground'}`}>
+                        {subtitle}
                     </p>
                 </div>
             </div>
@@ -96,8 +125,12 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
                             Search Messages
                         </DropdownMenuItem>
                         <DropdownMenuItem>Mute Notifications</DropdownMenuItem>
-                        <Separator />
-                        <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">Leave Group</DropdownMenuItem>
+                        {conversation?.type === 'GROUP' && (
+                            <>
+                                <Separator />
+                                <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">Leave Group</DropdownMenuItem>
+                            </>
+                        )}
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>

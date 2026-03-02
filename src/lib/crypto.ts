@@ -42,6 +42,7 @@ export interface SessionState {
   sendingChainLength: number;
   receivingChainLength: number;
   previousChains: Map<string, { chainKey: Uint8Array; length: number }>;
+  skippedMessageKeys: Map<string, Uint8Array>;
   associatedData: Uint8Array;
 }
 
@@ -51,6 +52,81 @@ export interface EncryptedMessage {
   messageNumber: number;
   previousChainLength: number;
   nonce: Uint8Array;
+}
+
+const MAX_SKIP = 2000;
+
+function buildSkippedKeyId(ratchetKey: Uint8Array, messageNumber: number): string {
+  return `${sodium.to_base64(ratchetKey, sodium.base64_variants.ORIGINAL)}:${messageNumber}`;
+}
+
+function trimSkippedKeys(keys: Map<string, Uint8Array>) {
+  if (keys.size <= MAX_SKIP) return;
+  let toRemove = keys.size - MAX_SKIP;
+  for (const key of keys.keys()) {
+    keys.delete(key);
+    toRemove -= 1;
+    if (toRemove <= 0) break;
+  }
+}
+
+function skipMessageKeys(session: SessionState, until: number): SessionState {
+  if (!session.receivingChainKey || !session.theirRatchetKey) {
+    return session;
+  }
+
+  if (until - session.receivingChainLength > MAX_SKIP) {
+    throw new Error('Skipped message limit exceeded');
+  }
+
+  let chainKey = session.receivingChainKey;
+  for (let i = session.receivingChainLength; i < until; i++) {
+    const { messageKey, nextChainKey } = kdfChain(chainKey);
+    session.skippedMessageKeys.set(buildSkippedKeyId(session.theirRatchetKey, i), messageKey);
+    chainKey = nextChainKey;
+  }
+
+  session.receivingChainKey = chainKey;
+  session.receivingChainLength = until;
+  trimSkippedKeys(session.skippedMessageKeys);
+  return session;
+}
+
+function ratchetStep(session: SessionState, theirRatchetKey: Uint8Array): SessionState {
+  const dhOutput = sodium.crypto_scalarmult(
+    session.ourRatchetKey.privateKey,
+    theirRatchetKey
+  );
+
+  const { rootKey: newRootKey, chainKey: receivingChainKey } = kdfRatchet(
+    session.rootKey,
+    dhOutput
+  );
+
+  const newRatchetKey = sodium.crypto_box_keypair();
+  const dhOutput2 = sodium.crypto_scalarmult(
+    newRatchetKey.privateKey,
+    theirRatchetKey
+  );
+
+  const { rootKey: finalRootKey, chainKey: sendingChainKey } = kdfRatchet(
+    newRootKey,
+    dhOutput2
+  );
+
+  return {
+    ...session,
+    rootKey: finalRootKey,
+    sendingChainKey,
+    receivingChainKey,
+    ourRatchetKey: {
+      publicKey: newRatchetKey.publicKey,
+      privateKey: newRatchetKey.privateKey,
+    },
+    theirRatchetKey,
+    sendingChainLength: 0,
+    receivingChainLength: 0,
+  };
 }
 
 export async function generateIdentityKeyPair(): Promise<IdentityKeyPair> {
@@ -270,6 +346,7 @@ export async function initializeSessionAsInitiator(
     sendingChainLength: 0,
     receivingChainLength: 0,
     previousChains: new Map(),
+    skippedMessageKeys: new Map(),
     associatedData,
   };
 }
@@ -290,6 +367,7 @@ export async function initializeSessionAsResponder(
     sendingChainLength: 0,
     receivingChainLength: 0,
     previousChains: new Map(),
+    skippedMessageKeys: new Map(),
     associatedData,
   };
 }
@@ -336,65 +414,45 @@ export async function decryptMessage(
 ): Promise<{ plaintext: string; updatedSession: SessionState }> {
   await initCrypto();
 
+  const skippedKeyId = buildSkippedKeyId(encrypted.ratchetKey, encrypted.messageNumber);
+  const skippedKey = session.skippedMessageKeys.get(skippedKeyId);
+
+  if (skippedKey) {
+    const plaintextBytes = sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(
+      null,
+      encrypted.ciphertext,
+      session.associatedData,
+      encrypted.nonce,
+      skippedKey
+    );
+
+    const plaintext = sodium.to_string(plaintextBytes);
+    const updatedSession: SessionState = {
+      ...session,
+      skippedMessageKeys: new Map(session.skippedMessageKeys),
+    };
+
+    updatedSession.skippedMessageKeys.delete(skippedKeyId);
+    return { plaintext, updatedSession };
+  }
+
   let currentSession = session;
 
   const theirKeyChanged = !session.theirRatchetKey ||
     !sodium.memcmp(encrypted.ratchetKey, session.theirRatchetKey);
 
   if (theirKeyChanged) {
-    if (session.receivingChainKey && session.theirRatchetKey) {
-      const keyStr = sodium.to_base64(session.theirRatchetKey);
-      session.previousChains.set(keyStr, {
-        chainKey: session.receivingChainKey,
-        length: session.receivingChainLength,
-      });
-    }
-
-    const dhOutput = sodium.crypto_scalarmult(
-      session.ourRatchetKey.privateKey,
-      encrypted.ratchetKey
-    );
-
-    const { rootKey: newRootKey, chainKey: receivingChainKey } = kdfRatchet(
-      session.rootKey,
-      dhOutput
-    );
-
-    const newRatchetKey = sodium.crypto_box_keypair();
-
-    const dhOutput2 = sodium.crypto_scalarmult(
-      newRatchetKey.privateKey,
-      encrypted.ratchetKey
-    );
-
-    const { rootKey: finalRootKey, chainKey: sendingChainKey } = kdfRatchet(
-      newRootKey,
-      dhOutput2
-    );
-
-    currentSession = {
-      ...session,
-      rootKey: finalRootKey,
-      sendingChainKey,
-      receivingChainKey,
-      ourRatchetKey: {
-        publicKey: newRatchetKey.publicKey,
-        privateKey: newRatchetKey.privateKey,
-      },
-      theirRatchetKey: encrypted.ratchetKey,
-      sendingChainLength: 0,
-      receivingChainLength: 0,
-      previousChains: session.previousChains,
-    };
+    currentSession = skipMessageKeys(currentSession, encrypted.previousChainLength);
+    currentSession = ratchetStep(currentSession, encrypted.ratchetKey);
   }
 
-  let chainKey = currentSession.receivingChainKey!;
-  for (let i = currentSession.receivingChainLength; i < encrypted.messageNumber; i++) {
-    const { nextChainKey } = kdfChain(chainKey);
-    chainKey = nextChainKey;
+  currentSession = skipMessageKeys(currentSession, encrypted.messageNumber);
+
+  if (!currentSession.receivingChainKey) {
+    throw new Error('Missing receiving chain key');
   }
 
-  const { messageKey, nextChainKey } = kdfChain(chainKey);
+  const { messageKey, nextChainKey } = kdfChain(currentSession.receivingChainKey);
 
   const plaintextBytes = sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(
     null,
@@ -409,7 +467,7 @@ export async function decryptMessage(
   const updatedSession: SessionState = {
     ...currentSession,
     receivingChainKey: nextChainKey,
-    receivingChainLength: encrypted.messageNumber + 1,
+    receivingChainLength: currentSession.receivingChainLength + 1,
   };
 
   return { plaintext, updatedSession };
@@ -472,6 +530,10 @@ export function serializeSession(session: SessionState): string {
       chainKey: sodium.to_base64(value.chainKey),
       length: value.length,
     })),
+    skippedMessageKeys: Array.from(session.skippedMessageKeys.entries()).map(([key, value]) => ({
+      key,
+      messageKey: sodium.to_base64(value),
+    })),
     associatedData: sodium.to_base64(session.associatedData),
   };
 
@@ -487,6 +549,11 @@ export function deserializeSession(json: string): SessionState {
       chainKey: sodium.from_base64(chainKey),
       length,
     });
+  }
+
+  const skippedMessageKeys = new Map<string, Uint8Array>();
+  for (const { key, messageKey } of data.skippedMessageKeys ?? []) {
+    skippedMessageKeys.set(key, sodium.from_base64(messageKey));
   }
 
   return {
@@ -505,6 +572,7 @@ export function deserializeSession(json: string): SessionState {
     sendingChainLength: data.sendingChainLength,
     receivingChainLength: data.receivingChainLength,
     previousChains,
+    skippedMessageKeys,
     associatedData: sodium.from_base64(data.associatedData),
   };
 }

@@ -2,12 +2,9 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { QueryProvider } from '@/providers/query-provider';
-import { SocketProvider } from '@/providers/socket-provider';
 import { ThemeProvider } from '@/providers/theme-provider';
-import { EncryptionProvider } from '@/providers/encryption-provider';
+import { AuthenticatedProviders } from '@/providers/authenticated-providers';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { IncomingCallDialog } from '@/components/shared/incoming-call-dialog';
-import { ActiveCallOverlay } from '@/components/shared/active-call-overlay';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -37,15 +34,11 @@ export default function RootLayout({
       >
         <QueryProvider>
           <ThemeProvider>
-            <SocketProvider>
-              <EncryptionProvider>
-                <TooltipProvider delayDuration={200}>
-                  {children}
-                  <IncomingCallDialog />
-                  <ActiveCallOverlay />
-                </TooltipProvider>
-              </EncryptionProvider>
-            </SocketProvider>
+            <AuthenticatedProviders>
+              <TooltipProvider delayDuration={200}>
+                {children}
+              </TooltipProvider>
+            </AuthenticatedProviders>
           </ThemeProvider>
         </QueryProvider>
       </body>

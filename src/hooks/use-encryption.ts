@@ -1,5 +1,5 @@
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   initCrypto,
@@ -13,13 +13,11 @@ import {
   initializeSessionAsResponder,
   encryptMessage,
   decryptMessage,
-  EncryptedMessage,
   serializeEncryptedMessage,
   deserializeEncryptedMessage,
   keyToBase64,
   base64ToKey,
   PreKeyBundle,
-  IdentityKeyPair,
   KeyPair,
 } from '@/lib/crypto';
 import {
@@ -31,16 +29,13 @@ import {
   getOneTimePreKey,
   markOneTimePreKeyConsumed,
   getNextOneTimePreKeyId,
-  getUnconsumedOneTimePreKeyCount,
   storeSession,
   getSession,
-  hasSession,
   clearAllCryptoData,
 } from '@/lib/crypto-storage';
 import { encryptionService } from '@/services/encryption-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { getServerDeviceId } from '@/lib/device';
-import type { KeyBundle } from '@/types';
 
 const MIN_PREKEY_COUNT = 10;
 const PREKEY_BATCH_SIZE = 20;
@@ -324,6 +319,9 @@ export function useDecryptMessageMutation() {
 
 export function useDecryptCiphertext() {
   const decryptMutation = useDecryptMessageMutation();
+  // Stable ref to avoid re-creating the callback when the mutation object changes
+  const mutateRef = useRef(decryptMutation.mutateAsync);
+  mutateRef.current = decryptMutation.mutateAsync;
 
   const decryptCiphertext = useCallback(
     async ({
@@ -337,11 +335,18 @@ export function useDecryptCiphertext() {
       ciphertext: string;
       header?: string | Record<string, unknown> | null;
     }): Promise<string> => {
-      const rawCiphertext = atob(ciphertext);
+      let rawCiphertext: string;
+      try {
+        rawCiphertext = atob(ciphertext);
+      } catch {
+        // If base64 decoding fails, the ciphertext is likely already raw text
+        rawCiphertext = ciphertext;
+      }
 
       const maybeJson = rawCiphertext.trim();
       const hasEncryptedPayload = maybeJson.startsWith('{') && maybeJson.includes('ratchetKey');
       if (!hasEncryptedPayload) {
+        // Not an encrypted payload — return as plain text instead of throwing
         return rawCiphertext;
       }
 
@@ -360,10 +365,11 @@ export function useDecryptCiphertext() {
       const usedOneTimePreKeyId = parsedHeader.one_time_pre_key_id;
 
       if (!ephemeralKey || typeof ephemeralKey !== 'string') {
-        throw new Error('Missing ephemeral key for encrypted payload');
+        // Missing ephemeral key — return raw content rather than crashing
+        return rawCiphertext;
       }
 
-      return decryptMutation.mutateAsync({
+      return mutateRef.current({
         senderUserId,
         senderDeviceId,
         encryptedContent: rawCiphertext,
@@ -371,7 +377,7 @@ export function useDecryptCiphertext() {
         usedOneTimePreKeyId: typeof usedOneTimePreKeyId === 'number' ? usedOneTimePreKeyId : undefined,
       });
     },
-    [decryptMutation]
+    [] // stable — no deps, uses ref internally
   );
 
   return {
@@ -466,80 +472,5 @@ export function useEncryptionStatus() {
     deviceId: query.data?.deviceId ?? null,
     isLoading: query.isLoading,
     error: query.error,
-  };
-}
-
-export function useHasSession(recipientUserId: string, recipientDeviceId: string) {
-  return useQuery({
-    queryKey: ['crypto', 'session', recipientUserId, recipientDeviceId],
-    queryFn: () => hasSession(recipientUserId, recipientDeviceId),
-    enabled: !!recipientUserId && !!recipientDeviceId,
-  });
-}
-
-export function useResetEncryption() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async () => {
-      await clearAllCryptoData();
-      return { success: true };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['encryption'] });
-      queryClient.invalidateQueries({ queryKey: ['crypto'] });
-    },
-  });
-}
-
-export function useSecureMessage() {
-  const encryptMutation = useEncryptMessageMutation();
-  const decryptMutation = useDecryptMessageMutation();
-  const { isSetup, isLoading: statusLoading } = useEncryptionStatus();
-
-  const encrypt = useCallback(
-    async (recipientUserId: string, recipientDeviceId: string, message: string) => {
-      if (!isSetup) {
-        throw new Error('Encryption not set up');
-      }
-      return encryptMutation.mutateAsync({
-        recipientUserId,
-        recipientDeviceId,
-        plaintext: message,
-      });
-    },
-    [encryptMutation, isSetup]
-  );
-
-  const decrypt = useCallback(
-    async (
-      senderUserId: string,
-      senderDeviceId: string,
-      encryptedContent: string,
-      ephemeralPublicKey?: string,
-      usedOneTimePreKeyId?: number
-    ) => {
-      if (!isSetup) {
-        throw new Error('Encryption not set up');
-      }
-      return decryptMutation.mutateAsync({
-        senderUserId,
-        senderDeviceId,
-        encryptedContent,
-        ephemeralPublicKey,
-        usedOneTimePreKeyId,
-      });
-    },
-    [decryptMutation, isSetup]
-  );
-
-  return {
-    encrypt,
-    decrypt,
-    isReady: isSetup && !statusLoading,
-    isEncrypting: encryptMutation.isPending,
-    isDecrypting: decryptMutation.isPending,
-    encryptError: encryptMutation.error,
-    decryptError: decryptMutation.error,
   };
 }

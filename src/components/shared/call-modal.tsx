@@ -13,8 +13,10 @@ import { Button } from '@/components/ui/button';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { useCallStore } from '@/stores/call-store';
 import { useSocket } from '@/providers/socket-provider';
-import { useCreateCall } from '@/queries/use-call-queries';
+import { useCreateCall, useAddCallParticipant } from '@/queries/use-call-queries';
+import { useConversationParticipants } from '@/queries/use-conversation-queries';
 import { useAuthStore } from '@/stores/auth-store';
+import { useWebRTC } from '@/hooks/use-webrtc';
 import type { CallType } from '@/types/call';
 import { cn } from '@/lib/utils';
 
@@ -44,68 +46,91 @@ export function CallModal({
   const resetCallState = useCallStore((state) => state.resetCallState);
   const uiState = useCallStore((state) => state.uiState);
 
-  const { sendCallOffer, sendCallEnd } = useSocket();
+  const { sendCallEnd } = useSocket();
   const createCallMutation = useCreateCall();
+  const addParticipant = useAddCallParticipant();
+  const { data: participants } = useConversationParticipants(conversationId);
+  const { startCall, cleanup: cleanupWebRTC } = useWebRTC();
+
+  // Find the other participant in this DM conversation
+  const remoteParticipant = participants?.find((p) => p.user_id !== user?.id);
+  const remoteUserId = remoteParticipant?.user_id;
 
   const handleInitiateCall = useCallback(async () => {
-    if (!user) return;
+    if (!user || !remoteUserId) return;
 
     try {
       setCallStatus('initiating');
       initiateCall(conversationId, callType);
 
+      // 1. Acquire local media
       const constraints: MediaStreamConstraints = {
         audio: true,
         video: callType === 'VIDEO',
       };
-
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       setLocalStream(stream);
 
+      // 2. Create the call on the server
       const call = await createCallMutation.mutateAsync({
         conversation_id: conversationId,
         type: callType,
         initiator_id: user.id,
       });
 
-      if (call) {
-        setActiveCall(call);
-        setCallStatus('ringing');
-
+      if (!call) {
+        setCallStatus('failed');
+        return;
       }
+
+      setActiveCall(call);
+
+      // 3. Add the remote user as a participant
+      addParticipant.mutate({ callId: call.id, userId: remoteUserId });
+
+      // 4. Create the WebRTC peer connection, generate offer, send via WS
+      await startCall(call.id, remoteUserId, stream);
+
+      setCallStatus('ringing');
     } catch (error) {
       console.error('Failed to initiate call:', error);
       setCallStatus('failed');
     }
   }, [
     user,
+    remoteUserId,
     conversationId,
     callType,
     initiateCall,
     setLocalStream,
     setActiveCall,
     createCallMutation,
+    addParticipant,
+    startCall,
   ]);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && remoteUserId) {
       handleInitiateCall();
     }
-  }, [isOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, remoteUserId]);
 
   const handleCancel = useCallback(() => {
     const activeCall = useCallStore.getState().activeCall;
     if (activeCall) {
       sendCallEnd(activeCall.id, 'COMPLETED');
     }
+    cleanupWebRTC();
     resetCallState();
     onClose();
-  }, [sendCallEnd, resetCallState, onClose]);
+  }, [sendCallEnd, cleanupWebRTC, resetCallState, onClose]);
 
   const handleRetry = useCallback(() => {
+    cleanupWebRTC();
     setCallStatus('initiating');
     handleInitiateCall();
-  }, [handleInitiateCall]);
+  }, [cleanupWebRTC, handleInitiateCall]);
 
   useEffect(() => {
     if (uiState === 'active') {
@@ -129,7 +154,7 @@ export function CallModal({
             )}
             <UserAvatar
               user={{
-                id: 'recipient',
+                id: remoteUserId || 'recipient',
                 display_name: recipientName,
                 avatar_url: recipientAvatarUrl,
               }}

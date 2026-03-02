@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useCallback, useState } from 'react';
+import { useRef, useCallback, useState, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useConversation } from '@/queries/use-conversation-queries';
 import { useAuthStore } from '@/stores/auth-store';
@@ -27,6 +27,19 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
   const [searchOpen, setSearchOpen] = useState(false);
 
   const { data: conversation } = useConversation(conversationId);
+
+  const otherParticipant = useMemo(() => {
+    if (conversation?.type !== 'DM' || !conversation.participants) return null;
+    return conversation.participants.find((p) => p.user_id !== currentUser?.id) ?? conversation.participants[0] ?? null;
+  }, [conversation?.type, conversation?.participants, currentUser?.id]);
+
+  const recipientName = conversation?.type === 'DM'
+    ? (otherParticipant?.display_name || otherParticipant?.username || 'Contact')
+    : (conversation?.subject || 'Group');
+
+  const recipientAvatarUrl = conversation?.type === 'DM'
+    ? otherParticipant?.avatar_url
+    : conversation?.avatar_url;
 
   const handleBack = useCallback(() => {
     const params = new URLSearchParams(searchParams);
@@ -76,8 +89,8 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
         onClose={() => setCallModalOpen(false)}
         conversationId={conversationId}
         callType={callType}
-        recipientName={conversation?.subject || 'Contact'}
-        recipientAvatarUrl={conversation?.avatar_url}
+        recipientName={recipientName}
+        recipientAvatarUrl={recipientAvatarUrl}
       />
     </div>
   );

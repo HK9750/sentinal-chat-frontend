@@ -13,7 +13,9 @@ import { Button } from '@/components/ui/button';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { useCallStore } from '@/stores/call-store';
 import { useSocket } from '@/providers/socket-provider';
-import { useAcceptCall, useDeclineCall } from '@/queries/use-call-queries';
+import { useAcceptCall, useDeclineCall, useAddCallParticipant } from '@/queries/use-call-queries';
+import { useAuthStore } from '@/stores/auth-store';
+import { useWebRTC } from '@/hooks/use-webrtc';
 import { cn } from '@/lib/utils';
 
 export function IncomingCallDialog() {
@@ -22,20 +24,25 @@ export function IncomingCallDialog() {
   const incomingCallerId = useCallStore((state) => state.incomingCallerId);
   const incomingCallerName = useCallStore((state) => state.incomingCallerName);
   const incomingCallType = useCallStore((state) => state.incomingCallType);
+  const incomingOfferSdp = useCallStore((state) => state.incomingOfferSdp);
   const acceptCallState = useCallStore((state) => state.acceptCall);
   const declineCallState = useCallStore((state) => state.declineCall);
   const setLocalStream = useCallStore((state) => state.setLocalStream);
 
+  const user = useAuthStore((state) => state.user);
   const { sendCallEnd } = useSocket();
   const acceptCallMutation = useAcceptCall();
   const declineCallMutation = useDeclineCall();
+  const addParticipant = useAddCallParticipant();
+  const { answerCall, cleanup: cleanupWebRTC } = useWebRTC();
 
   const isOpen = uiState === 'incoming' && activeCall !== null;
 
   const handleAccept = useCallback(async () => {
-    if (!activeCall) return;
+    if (!activeCall || !incomingCallerId || !incomingOfferSdp || !user) return;
 
     try {
+      // 1. Acquire local media
       const constraints: MediaStreamConstraints = {
         audio: true,
         video: incomingCallType === 'VIDEO',
@@ -43,14 +50,33 @@ export function IncomingCallDialog() {
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       setLocalStream(stream);
 
+      // 2. Mark as connected on the server
       await acceptCallMutation.mutateAsync(activeCall.id);
 
+      // 3. Add ourselves as a participant
+      addParticipant.mutate({ callId: activeCall.id, userId: user.id });
+
+      // 4. Transition to connecting state
       acceptCallState();
+
+      // 5. Create WebRTC peer connection, set remote offer, generate answer, send via WS
+      await answerCall(activeCall.id, incomingCallerId, stream, incomingOfferSdp);
     } catch (error) {
       console.error('Failed to accept call:', error);
       handleDecline();
     }
-  }, [activeCall, incomingCallType, setLocalStream, acceptCallMutation, acceptCallState]);
+  }, [
+    activeCall,
+    incomingCallerId,
+    incomingOfferSdp,
+    incomingCallType,
+    user,
+    setLocalStream,
+    acceptCallMutation,
+    addParticipant,
+    acceptCallState,
+    answerCall,
+  ]);
 
   const handleDecline = useCallback(async () => {
     if (!activeCall) return;
@@ -61,9 +87,10 @@ export function IncomingCallDialog() {
     } catch (error) {
       console.error('Failed to decline call:', error);
     } finally {
+      cleanupWebRTC();
       declineCallState();
     }
-  }, [activeCall, declineCallMutation, sendCallEnd, declineCallState]);
+  }, [activeCall, declineCallMutation, sendCallEnd, cleanupWebRTC, declineCallState]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -71,6 +98,7 @@ export function IncomingCallDialog() {
     const audio = new Audio('/sounds/ringtone.mp3');
     audio.loop = true;
     audio.play().catch(() => {
+      // autoplay may be blocked
     });
 
     return () => {

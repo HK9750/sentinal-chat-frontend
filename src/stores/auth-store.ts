@@ -12,6 +12,7 @@ interface AuthState {
 
   login: (user: User, tokens: AuthTokens) => void;
   logout: () => void;
+  updateTokens: (tokens: AuthTokens) => void;
   setUser: (user: User | null) => void;
   setHydrated: (hydrated: boolean) => void;
   updateUser: (updates: Partial<User>) => void;
@@ -42,6 +43,11 @@ export const useAuthStore = create<AuthState>()(
           tokens: null,
           isAuthenticated: false,
         });
+      },
+
+      updateTokens: (tokens) => {
+        setAuthCookie(tokens.access_token);
+        set({ tokens });
       },
 
       setUser: (user) => set({ user }),

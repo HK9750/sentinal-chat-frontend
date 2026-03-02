@@ -1,10 +1,12 @@
 'use client';
 
+import { useMemo } from 'react';
 import { cn, formatRelativeTime } from '@/lib/utils';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Conversation } from '@/types';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface ConversationItemProps {
     conversation: Conversation;
@@ -13,7 +15,25 @@ interface ConversationItemProps {
 }
 
 export function ConversationItem({ conversation, isSelected, onClick }: ConversationItemProps) {
+    const currentUserId = useAuthStore((state) => state.user?.id);
     const hasUnread = (conversation.unread_count ?? 0) > 0;
+
+    const otherParticipant = useMemo(() => {
+        if (conversation.type !== 'DM' || !conversation.participants) return null;
+        return conversation.participants.find((p) => p.user_id !== currentUserId) ?? conversation.participants[0] ?? null;
+    }, [conversation.type, conversation.participants, currentUserId]);
+
+    const displayName = conversation.type === 'DM'
+        ? (otherParticipant?.display_name || otherParticipant?.username || 'Direct Message')
+        : (conversation.subject || 'Group Chat');
+
+    const avatarUrl = conversation.type === 'DM'
+        ? otherParticipant?.avatar_url
+        : conversation.avatar_url;
+
+    const avatarFallback = conversation.type === 'DM'
+        ? (displayName[0]?.toUpperCase() || 'D')
+        : (conversation.subject?.[0]?.toUpperCase() || 'G');
 
     return (
         <button
@@ -26,16 +46,18 @@ export function ConversationItem({ conversation, isSelected, onClick }: Conversa
             )}
         >
             <UserAvatar
-                src={conversation.avatar_url}
-                alt={conversation.subject}
-                fallback={conversation.type === 'DM' ? 'DM' : conversation.subject?.[0] || 'G'}
+                src={avatarUrl}
+                alt={displayName}
+                fallback={avatarFallback}
                 size="md"
+                showStatus={conversation.type === 'DM'}
+                isOnline={otherParticipant?.is_online ?? false}
             />
 
             <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start gap-2">
                     <h3 className="text-sm font-medium text-foreground truncate">
-                        {conversation.subject || (conversation.type === 'DM' ? 'Direct Message' : 'Group Chat')}
+                        {displayName}
                     </h3>
                     {conversation.last_message_at && (
                         <span className="text-xs text-muted-foreground shrink-0">
