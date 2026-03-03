@@ -70,6 +70,13 @@ export interface GetKeyBundleParams {
   consumer_device_id: string;
 }
 
+export interface UploadKeyBackupRequest {
+  device_id: string;
+  backup_data: string;
+  nonce: string;
+  salt: string;
+}
+
 export const encryptionService = {
   setupEncryption: async (data: SetupEncryptionRequest): Promise<ApiResponse<void>> => {
     return apiClient.post('/v1/encryption/setup', data);
@@ -174,5 +181,23 @@ export const encryptionService = {
     return apiClient.get('/v1/encryption/keys/active', {
       params: { user_id: userId, device_id: deviceId },
     });
+  },
+
+  uploadKeyBackup: async (
+    data: UploadKeyBackupRequest
+  ): Promise<ApiResponse<void>> => {
+    return apiClient.post('/v1/encryption/backup', data);
+  },
+
+  getKeyBackup: async (): Promise<ApiResponse<{
+    user_id: string;
+    device_id: string;
+    backup_data: string;
+    nonce: string;
+    salt: string;
+    created_at: string;
+    updated_at: string;
+  }>> => {
+    return apiClient.get('/v1/encryption/backup');
   },
 };

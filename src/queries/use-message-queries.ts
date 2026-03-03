@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
-import { messageService, MessageSearchResult } from '@/services/message-service';
+import { messageService } from '@/services/message-service';
 import { conversationService } from '@/services/conversation-service';
 import { SendMessageRequest, Message } from '@/types';
 
@@ -13,10 +13,22 @@ export function useMessages(conversationId: string) {
       if (!response.success) {
         throw new Error(response.error);
       }
-      return response.data?.messages || [];
+      return response.data?.messages ? [...response.data.messages].reverse() : [];
     },
     enabled: !!conversationId,
     staleTime: 10_000,
+    structuralSharing: (oldData, newData) => {
+      if (!oldData || !Array.isArray(oldData) || !Array.isArray(newData)) return newData;
+      const oldMap = new Map((oldData as Message[]).map(m => [m.id, m]));
+      return (newData as Message[]).map(msg => {
+        const old = oldMap.get(msg.id);
+        // Preserve locally-cached content (from local_content) across refetches
+        if (old?.content && !msg.content) {
+          return { ...msg, content: old.content };
+        }
+        return msg;
+      });
+    },
   });
 }
 
@@ -32,15 +44,20 @@ export function useInfiniteMessages(conversationId: string) {
       if (!response.success) {
         throw new Error(response.error);
       }
-      return response.data?.messages || [];
+      const messages = response.data?.messages || [];
+      const isComplete = messages.length < MESSAGES_PER_PAGE;
+      const nextCursor = !isComplete && messages.length > 0
+        ? messages[messages.length - 1].sequence_number
+        : undefined;
+
+      return {
+        messages: [...messages].reverse(),
+        nextCursor,
+      };
     },
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (lastPage) => {
-      if (lastPage.length < MESSAGES_PER_PAGE) {
-        return undefined;
-      }
-      const earliestMessage = lastPage[0];
-      return earliestMessage?.sequence_number;
+      return lastPage.nextCursor;
     },
     enabled: !!conversationId,
     staleTime: 10_000,

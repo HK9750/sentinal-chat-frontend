@@ -124,29 +124,13 @@ export function MessageInput({ conversationId }: MessageInputProps) {
                         }
                     }
 
-                    try {
-                        const selfResult = await encryptMessageMutation.mutateAsync({
-                            recipientUserId: currentUser.id,
-                            recipientDeviceId: ownDeviceId,
-                            plaintext: content,
-                        });
-                        const header = selfResult.ephemeralPublicKey
-                            ? {
-                                ephemeral_key: selfResult.ephemeralPublicKey,
-                                one_time_pre_key_id: selfResult.usedOneTimePreKeyId,
-                            }
-                            : undefined;
-                        ciphertexts.push({
-                            recipient_device_id: ownDeviceId,
-                            ciphertext: btoa(selfResult.encryptedContent),
-                            header,
-                        });
-                    } catch {
-                        ciphertexts.push({
-                            recipient_device_id: ownDeviceId,
-                            ciphertext: btoa(content),
-                        });
-                    }
+                    // For own device, send plaintext as base64 — no encryption
+                    // needed since sender already knows the content. This avoids
+                    // Double Ratchet chain-key mismatch on self-decrypt.
+                    ciphertexts.push({
+                        recipient_device_id: ownDeviceId,
+                        ciphertext: btoa(content),
+                    });
 
                     await sendMessageMutation.mutateAsync({
                         conversation_id: conversationId,

@@ -614,3 +614,87 @@ export async function generateEphemeralKeyPair(): Promise<KeyPair> {
     privateKey: keyPair.privateKey,
   };
 }
+
+// --- Key Escrow (Encrypted Backup) Cryptography ---
+
+/**
+ * Derives a strong symmetric key from a user password using PBKDF2
+ */
+export async function deriveKeyFromPassword(password: string, salt: Uint8Array): Promise<CryptoKey> {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits', 'deriveKey']
+  );
+
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: new Uint8Array(salt),
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt']
+  ) as Promise<CryptoKey>;
+}
+
+export interface EncryptedBackupData {
+  ciphertextBase64: string;
+  nonceBase64: string;
+  saltBase64: string;
+}
+
+/**
+ * Encrypts the raw stringified Signal identity and device ID using the derived password key.
+ */
+export async function encryptKeyBackup(
+  plaintext: string,
+  password: string
+): Promise<EncryptedBackupData> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const nonce = crypto.getRandomValues(new Uint8Array(12)); // 96-bit nonce for AES-GCM
+
+  const key = await deriveKeyFromPassword(password, salt);
+  const enc = new TextEncoder();
+
+  const ciphertextBuffer = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: nonce },
+    key,
+    enc.encode(plaintext)
+  );
+
+  return {
+    ciphertextBase64: sodium.to_base64(new Uint8Array(ciphertextBuffer), sodium.base64_variants.ORIGINAL),
+    nonceBase64: sodium.to_base64(nonce, sodium.base64_variants.ORIGINAL),
+    saltBase64: sodium.to_base64(salt, sodium.base64_variants.ORIGINAL),
+  };
+}
+
+/**
+ * Decrypts the raw KeyBackup bundle from the server using the user's password.
+ */
+export async function decryptKeyBackup(
+  backup: EncryptedBackupData,
+  password: string
+): Promise<string> {
+  const salt = sodium.from_base64(backup.saltBase64, sodium.base64_variants.ORIGINAL);
+  const nonce = sodium.from_base64(backup.nonceBase64, sodium.base64_variants.ORIGINAL);
+  const ciphertext = sodium.from_base64(backup.ciphertextBase64, sodium.base64_variants.ORIGINAL);
+
+  const key = await deriveKeyFromPassword(password, salt);
+
+  const plaintextBuffer = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: new Uint8Array(nonce) },
+    key,
+    new Uint8Array(ciphertext)
+  );
+
+  const dec = new TextDecoder();
+  return dec.decode(plaintextBuffer);
+}

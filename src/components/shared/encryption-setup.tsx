@@ -31,6 +31,7 @@ export function EncryptionSetup({
 }: EncryptionSetupProps) {
   const [step, setStep] = useState<SetupStep>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [password, setPassword] = useState('');
 
   const generateKeysMutation = useGenerateKeys();
   const { isSetup, isLoading: statusLoading, deviceId } = useEncryptionStatus();
@@ -41,12 +42,18 @@ export function EncryptionSetup({
     }
   }, [isSetup, statusLoading]);
 
-  const handleSetup = useCallback(async () => {
+  const handleSetup = useCallback(async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!password) {
+      setError('Password is required to encrypt your backup.');
+      return;
+    }
+
     setStep('generating');
     setError(null);
 
     try {
-      await generateKeysMutation.mutateAsync();
+      await generateKeysMutation.mutateAsync(password);
       setStep('complete');
       onComplete?.();
     } catch (err) {
@@ -54,7 +61,7 @@ export function EncryptionSetup({
       setError(err instanceof Error ? err.message : 'Failed to generate encryption keys. Please try again.');
       setStep('error');
     }
-  }, [generateKeysMutation, onComplete]);
+  }, [generateKeysMutation, onComplete, password]);
 
   const handleClose = useCallback(() => {
     onOpenChange(false);
@@ -179,6 +186,25 @@ export function EncryptionSetup({
             <div className="text-xs text-muted-foreground text-center mt-4">
               Uses Signal Protocol with X25519 Diffie-Hellman and XChaCha20-Poly1305 encryption
             </div>
+
+            <form onSubmit={handleSetup} className="mt-6 space-y-3">
+              <label htmlFor="encryption-password" className="block text-sm font-medium text-foreground">
+                Confirm Password to Encrypt Escrow Backup
+              </label>
+              <input
+                id="encryption-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your account password"
+                required
+                className="w-full px-3 py-2 bg-background border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <p className="text-xs text-muted-foreground">
+                Your password securely encrypts your local keys before backup. The server cannot read them.
+              </p>
+              {error && <p className="text-xs text-destructive">{error}</p>}
+            </form>
           </div>
         )}
 
@@ -238,7 +264,8 @@ export function EncryptionSetup({
                 Later
               </Button>
               <Button
-                onClick={handleSetup}
+                onClick={() => handleSetup()}
+                disabled={!password}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 <Shield className="h-4 w-4 mr-2" />

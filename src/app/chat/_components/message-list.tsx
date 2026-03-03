@@ -6,6 +6,10 @@ import { MessageBubble } from '@/components/shared/message-bubble';
 import { Message } from '@/types';
 import { Send } from 'lucide-react';
 import { useDecryptCiphertext, useEncryptionStatus } from '@/hooks/use-encryption';
+import {
+    cacheDecryptedMessage,
+    getCachedDecryptedMessages,
+} from '@/lib/decrypted-message-cache';
 
 interface GroupedMessage {
     message: Message;
@@ -41,14 +45,45 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
     const { decryptCiphertext } = useDecryptCiphertext();
     const { isSetup: encryptionReady } = useEncryptionStatus();
 
-    // Only successfully-decrypted messages are stored here. Failed
-    // decryptions are intentionally NOT cached so they will be retried
-    // whenever the effect re-runs (e.g. when encryption becomes ready).
+    // In-memory cache of successfully decrypted content (message ID -> plaintext).
+    // Seeded from IndexedDB on mount, updated after each successful decryption.
     const [decryptedContent, setDecryptedContent] = useState<Map<string, string>>(new Map());
 
     // Track message IDs currently being decrypted to avoid duplicate
     // concurrent attempts for the same message.
     const inflightRef = useRef<Set<string>>(new Set());
+
+    // --- Load cached decrypted messages from IndexedDB ---
+    useEffect(() => {
+        if (!messages) return;
+
+        // Collect IDs of messages that have ciphertext but no content and aren't cached yet
+        const uncachedIds = messages
+            .filter(msg => !!msg.ciphertext && !msg.content && !decryptedContent.has(msg.id))
+            .map(msg => msg.id);
+
+        if (uncachedIds.length === 0) return;
+
+        let active = true;
+        getCachedDecryptedMessages(uncachedIds).then(cached => {
+            if (!active || cached.size === 0) return;
+            setDecryptedContent(prev => {
+                const next = new Map(prev);
+                let changed = false;
+                for (const [id, plaintext] of cached) {
+                    if (!next.has(id)) {
+                        next.set(id, plaintext);
+                        changed = true;
+                    }
+                }
+                return changed ? next : prev;
+            });
+        }).catch(err => {
+            console.error('[MessageList] Failed to load cached decrypted messages:', err);
+        });
+
+        return () => { active = false; };
+    }, [messages, decryptedContent]);
 
     const displayMessages = useMemo(() => {
         if (!messages) return undefined;
@@ -58,9 +93,19 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
             if (cached) {
                 return { ...msg, content: cached };
             }
+            // Own messages: decode base64 ciphertext as plaintext fallback
+            if (msg.sender_id === currentUserId && msg.ciphertext) {
+                try {
+                    const decoded = atob(msg.ciphertext);
+                    const trimmed = decoded.trim();
+                    if (!trimmed.startsWith('{') || !trimmed.includes('ratchetKey')) {
+                        return { ...msg, content: decoded };
+                    }
+                } catch { /* ignore decode errors */ }
+            }
             return msg;
         });
-    }, [messages, decryptedContent]);
+    }, [messages, decryptedContent, currentUserId]);
 
     // --- Decryption effect: gated on encryptionReady ---
     useEffect(() => {
@@ -71,6 +116,7 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
                 !!msg.ciphertext &&
                 !!msg.sender_id &&
                 !!msg.sender_device_id &&
+                msg.sender_id !== currentUserId &&
                 !decryptedContent.has(msg.id) &&
                 !inflightRef.current.has(msg.id)
         ) as Array<Message & { ciphertext: string; sender_device_id: string }>;
@@ -97,7 +143,13 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
                         inflightRef.current.delete(msg.id);
                         return;
                     }
-                    // Cache successful decryption
+
+                    // Persist to IndexedDB so future page loads don't re-decrypt
+                    cacheDecryptedMessage(msg.id, plaintext).catch(err => {
+                        console.error(`[MessageList] Failed to persist decrypted message ${msg.id}:`, err);
+                    });
+
+                    // Update in-memory cache
                     setDecryptedContent((prev) => {
                         if (prev.has(msg.id)) return prev;
                         const next = new Map(prev);
@@ -119,7 +171,7 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
         return () => {
             isActive = false;
         };
-    }, [messages, encryptionReady, decryptedContent, decryptCiphertext]);
+    }, [messages, encryptionReady, decryptedContent, decryptCiphertext, currentUserId]);
 
     const groupedMessages = useGroupedMessages(displayMessages, currentUserId);
 

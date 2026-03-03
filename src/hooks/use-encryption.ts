@@ -17,8 +17,11 @@ import {
   deserializeEncryptedMessage,
   keyToBase64,
   base64ToKey,
-  PreKeyBundle,
   KeyPair,
+  IdentityKeyPair,
+  encryptKeyBackup,
+  decryptKeyBackup,
+  PreKeyBundle,
 } from '@/lib/crypto';
 import {
   storeIdentityKey,
@@ -53,9 +56,13 @@ export function useGenerateKeys() {
   const { user } = useAuthStore();
 
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (password: string) => {
       if (!user) {
         throw new Error('User not authenticated');
+      }
+
+      if (!password) {
+        throw new Error('Password is required to encrypt the key backup');
       }
 
       await initCrypto();
@@ -90,6 +97,29 @@ export function useGenerateKeys() {
 
       if (!setupResult.success) {
         throw new Error(`Encryption setup failed: ${setupResult.error || 'unknown error'}`);
+      }
+
+      // 4. Create an encrypted backup for the Escrow system
+      const backupPlaintext = JSON.stringify({
+        identityKey: keyToBase64(identityKeyPair.signing.publicKey),
+        identityPrivateKey: keyToBase64(identityKeyPair.signing.privateKey),
+        exchangePublicKey: keyToBase64(identityKeyPair.exchange.publicKey),
+        exchangePrivateKey: keyToBase64(identityKeyPair.exchange.privateKey),
+        deviceId: deviceId,
+      });
+
+      const encryptedBackup = await encryptKeyBackup(backupPlaintext, password);
+
+      const backupResult = await encryptionService.uploadKeyBackup({
+        device_id: deviceId,
+        backup_data: encryptedBackup.ciphertextBase64,
+        nonce: encryptedBackup.nonceBase64,
+        salt: encryptedBackup.saltBase64,
+      });
+
+      if (!backupResult.success) {
+        console.error('Key backup failed, but encryption setup succeeded', backupResult.error);
+        // We do not throw here to allow them to still use the app.
       }
 
       return { deviceId, success: true };
@@ -476,4 +506,88 @@ export function useEncryptionStatus() {
     isLoading: query.isLoading,
     error: query.error,
   };
+}
+
+export function useRecoverKeys() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (password: string) => {
+      await initCrypto();
+
+      const backupResponse = await encryptionService.getKeyBackup();
+      if (!backupResponse.success || !backupResponse.data) {
+        throw new Error('No key backup found on server.');
+      }
+
+      // 1. Decrypt Backup
+      let plaintext = '';
+      try {
+        plaintext = await decryptKeyBackup({
+          ciphertextBase64: backupResponse.data.backup_data,
+          nonceBase64: backupResponse.data.nonce,
+          saltBase64: backupResponse.data.salt
+        }, password);
+      } catch (e) {
+        throw new Error('Incorrect password or corrupted backup.');
+      }
+
+      const parsed = JSON.parse(plaintext);
+
+      // 2. Restore Identity Keys
+      const identityKeyPair: IdentityKeyPair = {
+        signing: {
+          publicKey: base64ToKey(parsed.identityKey),
+          privateKey: base64ToKey(parsed.identityPrivateKey)
+        },
+        exchange: {
+          publicKey: base64ToKey(parsed.exchangePublicKey),
+          privateKey: base64ToKey(parsed.exchangePrivateKey)
+        }
+      };
+
+      const deviceId = parsed.deviceId;
+      await storeIdentityKey(deviceId, identityKeyPair);
+
+      // 3. Generate New Session Keys (SignedPreKey, OneTimePreKeys)
+      // Since this is a cache clear or new browser on same device, we need new active session keys
+      const signedPreKey = await generateSignedPreKey(identityKeyPair, 1);
+      await storeSignedPreKey(deviceId, signedPreKey);
+
+      const oneTimePreKeys = await generateOneTimePreKeys(1, PREKEY_BATCH_SIZE);
+      await storeOneTimePreKeys(deviceId, oneTimePreKeys);
+
+      // 4. Register new session keys with the server
+      const { user } = useAuthStore.getState();
+      if (!user) {
+        throw new Error('User not logged in');
+      }
+
+      const setupResult = await encryptionService.setupEncryption({
+        user_id: user.id,
+        device_id: deviceId,
+        identity_key: parsed.identityKey,
+        signed_prekey: {
+          key_id: signedPreKey.keyId,
+          public_key: keyToBase64(signedPreKey.publicKey),
+          signature: keyToBase64(signedPreKey.signature),
+        },
+        one_time_keys: oneTimePreKeys.map((k) => ({
+          user_id: user.id,
+          device_id: deviceId,
+          key_id: k.keyId,
+          public_key: keyToBase64(k.keyPair.publicKey),
+        })),
+      });
+
+      if (!setupResult.success) {
+        throw new Error(`Failed to restore keys to server: ${setupResult.error}`);
+      }
+
+      return { success: true, deviceId };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['encryption'] });
+    },
+  });
 }

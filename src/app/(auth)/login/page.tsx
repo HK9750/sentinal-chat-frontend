@@ -1,9 +1,10 @@
 'use client';
 
-import { Suspense, useCallback } from 'react';
+import { Suspense, useCallback, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { GuestGuard } from '@/components/auth-guard';
 import { useLogin } from '@/queries/use-auth-queries';
+import { useRecoverKeys } from '@/hooks/use-encryption';
 import { Spinner } from '@/components/shared/spinner';
 import Link from 'next/link';
 
@@ -11,10 +12,15 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/chat';
   const loginMutation = useLogin();
+  const recoverKeysMutation = useRecoverKeys();
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
+      setRecoveryError(null);
+
       const formData = new FormData(e.currentTarget);
 
       const identity = formData.get('identity') as string;
@@ -25,16 +31,32 @@ function LoginForm() {
       try {
         const response = await loginMutation.mutateAsync({ identity, password });
         if (response.success) {
-          window.location.href = redirectTo;
+          // Attempt key recovery using the login password
+          try {
+            setIsRecovering(true);
+            await recoverKeysMutation.mutateAsync(password);
+            // Wait for recovery to finish, then redirect. 
+            // If the user hasn't set up encryption yet (or it failed), we just catch, ignore, and they do setup in Chat UI.
+            window.location.href = redirectTo;
+          } catch (recoveryErr) {
+            console.warn('Key recovery failed on login:', recoveryErr);
+            // It's possible there's no backup OR the password changed. Proceed to UI anyway,
+            // the encryption-setup modal will prompt them to generate new keys.
+            window.location.href = redirectTo;
+          } finally {
+            setIsRecovering(false);
+          }
         }
       } catch {
       }
     },
-    [loginMutation, redirectTo]
+    [loginMutation, recoverKeysMutation, redirectTo]
   );
 
   const errorMessage = loginMutation.error?.message ||
-    (loginMutation.data && !loginMutation.data.success ? loginMutation.data.error : null);
+    (loginMutation.data && !loginMutation.data.success ? loginMutation.data.error : null) || recoveryError;
+
+  const isLoading = loginMutation.isPending || isRecovering;
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -109,13 +131,13 @@ function LoginForm() {
 
             <button
               type="submit"
-              disabled={loginMutation.isPending}
+              disabled={isLoading}
               className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 font-medium rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {loginMutation.isPending ? (
+              {isLoading ? (
                 <>
                   <Spinner size="sm" className="border-primary-foreground/30 border-t-primary-foreground" />
-                  Signing in...
+                  {isRecovering ? 'Restoring Encryption Keys...' : 'Signing in...'}
                 </>
               ) : (
                 'Sign in'
