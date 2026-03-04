@@ -7,6 +7,19 @@ import { useLogin } from '@/queries/use-auth-queries';
 import { useRecoverKeys } from '@/hooks/use-encryption';
 import { Spinner } from '@/components/shared/spinner';
 import Link from 'next/link';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { PasswordInput } from '@/components/ui/password-input';
+import { ShieldCheck, LogIn } from 'lucide-react';
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -22,7 +35,6 @@ function LoginForm() {
       setRecoveryError(null);
 
       const formData = new FormData(e.currentTarget);
-
       const identity = formData.get('identity') as string;
       const password = formData.get('password') as string;
 
@@ -31,132 +43,147 @@ function LoginForm() {
       try {
         const response = await loginMutation.mutateAsync({ identity, password });
         if (response.success) {
-          // Attempt key recovery using the login password
           try {
             setIsRecovering(true);
             await recoverKeysMutation.mutateAsync(password);
-            // Wait for recovery to finish, then redirect. 
-            // If the user hasn't set up encryption yet (or it failed), we just catch, ignore, and they do setup in Chat UI.
             window.location.href = redirectTo;
           } catch (recoveryErr) {
             console.warn('Key recovery failed on login:', recoveryErr);
-            // It's possible there's no backup OR the password changed. Proceed to UI anyway,
-            // the encryption-setup modal will prompt them to generate new keys.
             window.location.href = redirectTo;
           } finally {
             setIsRecovering(false);
           }
         }
       } catch {
+        // Error is captured by loginMutation.error
       }
     },
     [loginMutation, recoverKeysMutation, redirectTo]
   );
 
-  const errorMessage = loginMutation.error?.message ||
-    (loginMutation.data && !loginMutation.data.success ? loginMutation.data.error : null) || recoveryError;
+  const errorMessage =
+    loginMutation.error?.message ||
+    (loginMutation.data && !loginMutation.data.success
+      ? loginMutation.data.error
+      : null) ||
+    recoveryError;
 
   const isLoading = loginMutation.isPending || isRecovering;
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary mb-4">
-            <svg
-              className="w-8 h-8 text-primary-foreground"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-              />
-            </svg>
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 sm:p-8">
+      {/* Subtle gradient background orbs */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-primary/5 blur-3xl" />
+      </div>
+
+      <div className="relative w-full max-w-md space-y-8">
+        {/* Branding */}
+        <div className="flex flex-col items-center space-y-3 text-center">
+          <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25">
+            <ShieldCheck className="w-7 h-7" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Sentinel Chat</h1>
-          <p className="text-muted-foreground">Secure messaging for everyone</p>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              Sentinel Chat
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              End-to-end encrypted messaging
+            </p>
+          </div>
         </div>
 
-        <div className="bg-card border text-card-foreground shadow-sm rounded-2xl p-8">
-          <h2 className="text-xl font-semibold mb-6 text-center">
-            Welcome back
-          </h2>
+        {/* Login Card */}
+        <Card className="border-border/40 shadow-xl">
+          <CardHeader className="pb-4 text-center">
+            <CardTitle className="text-xl font-semibold">Welcome back</CardTitle>
+            <CardDescription>
+              Enter your credentials to sign in
+            </CardDescription>
+          </CardHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {errorMessage && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                {errorMessage}
-              </div>
-            )}
-
-            <div>
-              <label
-                htmlFor="identity"
-                className="block text-sm font-medium text-foreground mb-2"
-              >
-                Email or Username
-              </label>
-              <input
-                id="identity"
-                name="identity"
-                type="text"
-                required
-                autoComplete="email"
-                className="w-full px-4 py-3 bg-background border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
-                placeholder="Enter your email or username"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-foreground mb-2"
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                autoComplete="current-password"
-                className="w-full px-4 py-3 bg-background border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
-                placeholder="Enter your password"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 font-medium rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isLoading ? (
-                <>
-                  <Spinner size="sm" className="border-primary-foreground/30 border-t-primary-foreground" />
-                  {isRecovering ? 'Restoring Encryption Keys...' : 'Signing in...'}
-                </>
-              ) : (
-                'Sign in'
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {errorMessage && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium animate-in fade-in slide-in-from-top-1 duration-200">
+                  <svg
+                    className="size-4 shrink-0"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                  >
+                    <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1ZM7.25 5a.75.75 0 0 1 1.5 0v3a.75.75 0 0 1-1.5 0V5ZM8 11.5A.75.75 0 1 1 8 10a.75.75 0 0 1 0 1.5Z" />
+                  </svg>
+                  {errorMessage}
+                </div>
               )}
-            </button>
-          </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-muted-foreground text-sm">
+              <div className="space-y-2">
+                <Label htmlFor="identity">Email or Username</Label>
+                <Input
+                  id="identity"
+                  name="identity"
+                  type="text"
+                  required
+                  autoComplete="email"
+                  placeholder="name@example.com"
+                  className="h-11"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <PasswordInput
+                  id="password"
+                  name="password"
+                  required
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
+                  className="h-11"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                size="lg"
+                className="w-full mt-2 shadow-md shadow-primary/20 transition-all active:scale-[0.98]"
+              >
+                {isLoading ? (
+                  <>
+                    <Spinner
+                      size="sm"
+                      className="border-primary-foreground/30 border-t-primary-foreground"
+                    />
+                    {isRecovering ? 'Restoring keys...' : 'Signing in...'}
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="size-4" />
+                    Sign in
+                  </>
+                )}
+              </Button>
+            </form>
+          </CardContent>
+
+          <CardFooter className="justify-center pb-6">
+            <p className="text-sm text-muted-foreground">
               Don&apos;t have an account?{' '}
               <Link
                 href="/register"
-                className="text-primary hover:underline font-medium transition-colors"
+                className="text-primary font-semibold hover:underline transition-colors"
               >
                 Create one
               </Link>
             </p>
-          </div>
-        </div>
+          </CardFooter>
+        </Card>
+
+        {/* Footer badge */}
+        <p className="text-center text-xs text-muted-foreground/60">
+          Protected by end-to-end encryption
+        </p>
       </div>
     </div>
   );
