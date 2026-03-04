@@ -11,34 +11,15 @@ const REPLENISH_INTERVAL_MS = 5 * 60 * 1000;
 export function EncryptionProvider({ children }: { children: React.ReactNode }) {
     const { user, isAuthenticated } = useAuthStore();
     const { isSetup, isLoading: statusLoading } = useEncryptionStatus();
-    const generateKeys = useGenerateKeys();
     const replenishPreKeys = useReplenishPreKeys();
 
-    const retryCount = useRef(0);
-    const setupAttempted = useRef(false);
     const replenishTimer = useRef<NodeJS.Timeout | null>(null);
     const isReplenishing = useRef(false);
 
-    const attemptSetup = useCallback(async () => {
-        if (retryCount.current >= MAX_RETRIES) return;
-
-        try {
-            await generateKeys.mutateAsync();
-            retryCount.current = 0;
-        } catch {
-            retryCount.current += 1;
-            const delay = BASE_DELAY_MS * Math.pow(2, retryCount.current - 1);
-            setTimeout(attemptSetup, delay);
-        }
-    }, [generateKeys]);
-
-    useEffect(() => {
-        if (!isAuthenticated || !user || statusLoading) return;
-        if (isSetup || setupAttempted.current) return;
-
-        setupAttempted.current = true;
-        attemptSetup();
-    }, [isAuthenticated, user, isSetup, statusLoading, attemptSetup]);
+    // Encryption setup (generating keys) requires a password, so it's handled 
+    // natively during login or registration flow, not here in the provider.
+    // However, if the user gets here and is NOT setup, we might prompt them
+    // via a UI modal (out of scope for provider).
 
     useEffect(() => {
         if (!isAuthenticated || !user || !isSetup) return;
@@ -68,8 +49,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
 
     useEffect(() => {
         if (!isAuthenticated) {
-            setupAttempted.current = false;
-            retryCount.current = 0;
+            // Reset any provider-level auth state if needed
         }
     }, [isAuthenticated]);
 

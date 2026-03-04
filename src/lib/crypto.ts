@@ -510,31 +510,32 @@ function kdfChain(
 }
 
 export function serializeSession(session: SessionState): string {
+  const B64 = sodium.base64_variants.ORIGINAL;
   const serialized = {
-    rootKey: sodium.to_base64(session.rootKey),
-    sendingChainKey: sodium.to_base64(session.sendingChainKey),
+    rootKey: sodium.to_base64(session.rootKey, B64),
+    sendingChainKey: sodium.to_base64(session.sendingChainKey, B64),
     receivingChainKey: session.receivingChainKey
-      ? sodium.to_base64(session.receivingChainKey)
+      ? sodium.to_base64(session.receivingChainKey, B64)
       : null,
     ourRatchetKey: {
-      publicKey: sodium.to_base64(session.ourRatchetKey.publicKey),
-      privateKey: sodium.to_base64(session.ourRatchetKey.privateKey),
+      publicKey: sodium.to_base64(session.ourRatchetKey.publicKey, B64),
+      privateKey: sodium.to_base64(session.ourRatchetKey.privateKey, B64),
     },
     theirRatchetKey: session.theirRatchetKey
-      ? sodium.to_base64(session.theirRatchetKey)
+      ? sodium.to_base64(session.theirRatchetKey, B64)
       : null,
     sendingChainLength: session.sendingChainLength,
     receivingChainLength: session.receivingChainLength,
     previousChains: Array.from(session.previousChains.entries()).map(([key, value]) => ({
       key,
-      chainKey: sodium.to_base64(value.chainKey),
+      chainKey: sodium.to_base64(value.chainKey, B64),
       length: value.length,
     })),
     skippedMessageKeys: Array.from(session.skippedMessageKeys.entries()).map(([key, value]) => ({
       key,
-      messageKey: sodium.to_base64(value),
+      messageKey: sodium.to_base64(value, B64),
     })),
-    associatedData: sodium.to_base64(session.associatedData),
+    associatedData: sodium.to_base64(session.associatedData, B64),
   };
 
   return JSON.stringify(serialized);
@@ -542,59 +543,62 @@ export function serializeSession(session: SessionState): string {
 
 export function deserializeSession(json: string): SessionState {
   const data = JSON.parse(json);
+  const B64 = sodium.base64_variants.ORIGINAL;
 
   const previousChains = new Map<string, { chainKey: Uint8Array; length: number }>();
-  for (const { key, chainKey, length } of data.previousChains) {
+  for (const { key, chainKey, length } of data.previousChains ?? []) {
     previousChains.set(key, {
-      chainKey: sodium.from_base64(chainKey),
+      chainKey: sodium.from_base64(chainKey, B64),
       length,
     });
   }
 
   const skippedMessageKeys = new Map<string, Uint8Array>();
   for (const { key, messageKey } of data.skippedMessageKeys ?? []) {
-    skippedMessageKeys.set(key, sodium.from_base64(messageKey));
+    skippedMessageKeys.set(key, sodium.from_base64(messageKey, B64));
   }
 
   return {
-    rootKey: sodium.from_base64(data.rootKey),
-    sendingChainKey: sodium.from_base64(data.sendingChainKey),
+    rootKey: sodium.from_base64(data.rootKey, B64),
+    sendingChainKey: sodium.from_base64(data.sendingChainKey, B64),
     receivingChainKey: data.receivingChainKey
-      ? sodium.from_base64(data.receivingChainKey)
+      ? sodium.from_base64(data.receivingChainKey, B64)
       : null,
     ourRatchetKey: {
-      publicKey: sodium.from_base64(data.ourRatchetKey.publicKey),
-      privateKey: sodium.from_base64(data.ourRatchetKey.privateKey),
+      publicKey: sodium.from_base64(data.ourRatchetKey.publicKey, B64),
+      privateKey: sodium.from_base64(data.ourRatchetKey.privateKey, B64),
     },
     theirRatchetKey: data.theirRatchetKey
-      ? sodium.from_base64(data.theirRatchetKey)
+      ? sodium.from_base64(data.theirRatchetKey, B64)
       : null,
     sendingChainLength: data.sendingChainLength,
     receivingChainLength: data.receivingChainLength,
     previousChains,
     skippedMessageKeys,
-    associatedData: sodium.from_base64(data.associatedData),
+    associatedData: sodium.from_base64(data.associatedData, B64),
   };
 }
 
 export function serializeEncryptedMessage(message: EncryptedMessage): string {
+  const B64 = sodium.base64_variants.ORIGINAL;
   return JSON.stringify({
-    ciphertext: sodium.to_base64(message.ciphertext),
-    ratchetKey: sodium.to_base64(message.ratchetKey),
+    ciphertext: sodium.to_base64(message.ciphertext, B64),
+    ratchetKey: sodium.to_base64(message.ratchetKey, B64),
     messageNumber: message.messageNumber,
     previousChainLength: message.previousChainLength,
-    nonce: sodium.to_base64(message.nonce),
+    nonce: sodium.to_base64(message.nonce, B64),
   });
 }
 
 export function deserializeEncryptedMessage(json: string): EncryptedMessage {
   const data = JSON.parse(json);
+  const B64 = sodium.base64_variants.ORIGINAL;
   return {
-    ciphertext: sodium.from_base64(data.ciphertext),
-    ratchetKey: sodium.from_base64(data.ratchetKey),
+    ciphertext: sodium.from_base64(data.ciphertext, B64),
+    ratchetKey: sodium.from_base64(data.ratchetKey, B64),
     messageNumber: data.messageNumber,
     previousChainLength: data.previousChainLength,
-    nonce: sodium.from_base64(data.nonce),
+    nonce: sodium.from_base64(data.nonce, B64),
   };
 }
 

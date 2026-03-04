@@ -10,6 +10,7 @@ import {
     cacheDecryptedMessage,
     getCachedDecryptedMessages,
 } from '@/lib/decrypted-message-cache';
+import { base64ToUtf8 } from '@/lib/base64';
 
 interface GroupedMessage {
     message: Message;
@@ -96,7 +97,7 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
             // Own messages: decode base64 ciphertext as plaintext fallback
             if (msg.sender_id === currentUserId && msg.ciphertext) {
                 try {
-                    const decoded = atob(msg.ciphertext);
+                    const decoded = base64ToUtf8(msg.ciphertext);
                     const trimmed = decoded.trim();
                     if (!trimmed.startsWith('{') || !trimmed.includes('ratchetKey')) {
                         return { ...msg, content: decoded };

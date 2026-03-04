@@ -39,6 +39,7 @@ import {
 import { encryptionService } from '@/services/encryption-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { getServerDeviceId } from '@/lib/device';
+import { base64ToUtf8 } from '@/lib/base64';
 
 const MIN_PREKEY_COUNT = 10;
 const PREKEY_BATCH_SIZE = 20;
@@ -99,7 +100,6 @@ export function useGenerateKeys() {
         throw new Error(`Encryption setup failed: ${setupResult.error || 'unknown error'}`);
       }
 
-      // 4. Create an encrypted backup for the Escrow system
       const backupPlaintext = JSON.stringify({
         identityKey: keyToBase64(identityKeyPair.signing.publicKey),
         identityPrivateKey: keyToBase64(identityKeyPair.signing.privateKey),
@@ -349,7 +349,6 @@ export function useDecryptMessageMutation() {
 
 export function useDecryptCiphertext() {
   const decryptMutation = useDecryptMessageMutation();
-  // Stable ref to avoid re-creating the callback when the mutation object changes
   const mutateRef = useRef(decryptMutation.mutateAsync);
   mutateRef.current = decryptMutation.mutateAsync;
 
@@ -367,21 +366,16 @@ export function useDecryptCiphertext() {
     }): Promise<string> => {
       let rawCiphertext: string;
       try {
-        rawCiphertext = atob(ciphertext);
+        rawCiphertext = base64ToUtf8(ciphertext);
       } catch {
-        // If base64 decoding fails, the ciphertext is likely already raw text
         rawCiphertext = ciphertext;
       }
 
       const maybeJson = rawCiphertext.trim();
       const hasEncryptedPayload = maybeJson.startsWith('{') && maybeJson.includes('ratchetKey');
       if (!hasEncryptedPayload) {
-        // Not an encrypted payload — this is a plaintext fallback message.
-        // Return as-is.
         return rawCiphertext;
       }
-
-      // --- The payload IS encrypted — parse the header for X3DH keys ---
 
       let parsedHeader: Record<string, unknown> = {};
       if (typeof header === 'string' && header.trim()) {
@@ -397,11 +391,6 @@ export function useDecryptCiphertext() {
       const ephemeralKey = parsedHeader.ephemeral_key;
       const usedOneTimePreKeyId = parsedHeader.one_time_pre_key_id;
 
-      // If no ephemeral key, we might still have an existing session
-      // (e.g. subsequent messages after the first one, or self-device
-      // messages). Attempt decryption without X3DH parameters. If no
-      // session exists, useDecryptMessageMutation will throw, which is
-      // correct — the message-list will retry later.
       return mutateRef.current({
         senderUserId,
         senderDeviceId,
@@ -410,7 +399,7 @@ export function useDecryptCiphertext() {
         usedOneTimePreKeyId: typeof usedOneTimePreKeyId === 'number' ? usedOneTimePreKeyId : undefined,
       });
     },
-    [] // stable — no deps, uses ref internally
+    []
   );
 
   return {
@@ -520,7 +509,6 @@ export function useRecoverKeys() {
         throw new Error('No key backup found on server.');
       }
 
-      // 1. Decrypt Backup
       let plaintext = '';
       try {
         plaintext = await decryptKeyBackup({
@@ -534,7 +522,6 @@ export function useRecoverKeys() {
 
       const parsed = JSON.parse(plaintext);
 
-      // 2. Restore Identity Keys
       const identityKeyPair: IdentityKeyPair = {
         signing: {
           publicKey: base64ToKey(parsed.identityKey),
@@ -546,18 +533,15 @@ export function useRecoverKeys() {
         }
       };
 
-      const deviceId = parsed.deviceId;
+      const deviceId = getStableDeviceId();
       await storeIdentityKey(deviceId, identityKeyPair);
 
-      // 3. Generate New Session Keys (SignedPreKey, OneTimePreKeys)
-      // Since this is a cache clear or new browser on same device, we need new active session keys
       const signedPreKey = await generateSignedPreKey(identityKeyPair, 1);
       await storeSignedPreKey(deviceId, signedPreKey);
 
       const oneTimePreKeys = await generateOneTimePreKeys(1, PREKEY_BATCH_SIZE);
       await storeOneTimePreKeys(deviceId, oneTimePreKeys);
 
-      // 4. Register new session keys with the server
       const { user } = useAuthStore.getState();
       if (!user) {
         throw new Error('User not logged in');

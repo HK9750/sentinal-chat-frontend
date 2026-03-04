@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { useGenerateKeys, useEncryptionStatus, useReplenishPreKeys } from '@/hooks/use-encryption';
+import { useGenerateKeys, useEncryptionStatus } from '@/hooks/use-encryption';
 import { cn } from '@/lib/utils';
 
 const INITIAL_PREKEY_COUNT = 20;

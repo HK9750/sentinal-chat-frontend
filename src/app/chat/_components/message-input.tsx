@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Send, Smile, Lock, LockOpen } from 'lucide-react';
+import { utf8ToBase64 } from '@/lib/base64';
 
 interface MessageInputProps {
     conversationId: string;
@@ -113,23 +114,20 @@ export function MessageInput({ conversationId }: MessageInputProps) {
                                 : undefined;
                             ciphertexts.push({
                                 recipient_device_id: entry.deviceId,
-                                ciphertext: btoa(result.encryptedContent),
+                                ciphertext: utf8ToBase64(result.encryptedContent),
                                 header,
                             });
                         } catch {
                             ciphertexts.push({
                                 recipient_device_id: entry.deviceId,
-                                ciphertext: btoa(content),
+                                ciphertext: utf8ToBase64(content),
                             });
                         }
                     }
 
-                    // For own device, send plaintext as base64 — no encryption
-                    // needed since sender already knows the content. This avoids
-                    // Double Ratchet chain-key mismatch on self-decrypt.
                     ciphertexts.push({
                         recipient_device_id: ownDeviceId,
-                        ciphertext: btoa(content),
+                        ciphertext: utf8ToBase64(content),
                     });
 
                     await sendMessageMutation.mutateAsync({
@@ -148,7 +146,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
                         conversation_id: conversationId,
                         ciphertexts: Array.from(deviceIds).map((id) => ({
                             recipient_device_id: id,
-                            ciphertext: btoa(content),
+                            ciphertext: utf8ToBase64(content),
                         })),
                         message_type: 'TEXT',
                         local_content: content,

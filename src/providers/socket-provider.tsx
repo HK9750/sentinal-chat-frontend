@@ -9,25 +9,20 @@ import { useCallStore } from '@/stores/call-store';
 import type { WebSocketEvent, WebSocketTypingEvent } from '@/types';
 import type { Call, CallType } from '@/types/call';
 
-// ---- Reconnect constants ----
 const BASE_RECONNECT_MS = 1_000;
 const MAX_RECONNECT_MS = 30_000;
-const HEARTBEAT_INTERVAL_MS = 25_000; // < server pongWait (60 s)
+const HEARTBEAT_INTERVAL_MS = 25_000;
 
-// ---- Backend event payload shapes (match events/types.go JSON tags) ----
 interface BackendCallSignaling {
   type: string;
   call_id: string;
   from_id: string;
   to_id: string;
-  signal_type: string; // "offer" | "answer" | "ice"
-  data: string; // SDP string, or JSON-encoded ICE candidate
-  // offer events also carry conversation context from the call creation
+  signal_type: string;
+  data: string;
   conversation_id?: string;
 }
 
-
-// ---- Context type exposed to consumers ----
 interface SocketContextType {
   sendTypingStart: (conversationId: string) => void;
   sendTypingStop: (conversationId: string) => void;
@@ -68,7 +63,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const setIncomingCall = useCallStore((state) => state.setIncomingCall);
   const endCall = useCallStore((state) => state.endCall);
 
-  // ---- helpers ----
   const send = useCallback((data: Record<string, unknown>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(data));
@@ -90,16 +84,15 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   }, [send, clearHeartbeat]);
 
   const scheduleReconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) return; // already scheduled
+    if (reconnectTimeoutRef.current) return;
     const delay = Math.min(BASE_RECONNECT_MS * 2 ** attemptRef.current, MAX_RECONNECT_MS);
     attemptRef.current += 1;
     reconnectTimeoutRef.current = setTimeout(() => {
       reconnectTimeoutRef.current = null;
-      connect(); // eslint-disable-line @typescript-eslint/no-use-before-define
+      connectRef.current?.();
     }, delay);
-  }, []); // connect is stable via ref pattern below
+  }, []);
 
-  // ---- main connect function ----
   const connectRef = useRef<() => void>(undefined);
 
   const connect = useCallback(() => {
@@ -127,10 +120,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     };
 
     ws.onmessage = (event) => {
-      // Defensively handle batched messages: the backend may (in rare
-      // cases) send multiple JSON objects separated by newlines in a
-      // single WebSocket frame. Split on newlines and process each
-      // independently so a parse failure in one doesn't drop all.
       const rawParts = (event.data as string).split('\n');
 
       for (const rawPart of rawParts) {
@@ -146,7 +135,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         }
 
         switch (data.type) {
-          // ---- Messaging ----
           case 'message:new': {
             const convId = data.conversation_id as string | undefined;
             queryClient.invalidateQueries({
@@ -174,7 +162,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
             break;
           }
 
-          // ---- Typing ----
           case 'typing:started': {
             const tp = data as unknown as WebSocketTypingEvent['payload'];
             addTypingUser(tp.conversation_id, tp.user_id);
@@ -187,15 +174,12 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
             break;
           }
 
-          // ---- Presence ----
           case 'presence:online':
           case 'presence:offline': {
-            // Re-fetch conversation list so participant online indicators update
             queryClient.invalidateQueries({ queryKey: ['conversations', 'list'] });
             break;
           }
 
-          // ---- Call signaling ----
           case 'call:offer': {
             const sig = data as unknown as BackendCallSignaling;
             const callType: CallType =
@@ -208,14 +192,12 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
               initiator_id: sig.from_id,
               created_at: new Date().toISOString(),
             };
-            // Store the SDP directly in the call store (no sessionStorage)
             setIncomingCall(incomingCall, sig.from_id, '', sig.data);
             break;
           }
 
           case 'call:answer': {
             const sig = data as unknown as BackendCallSignaling;
-            // Find peer connection keyed by the answerer's user ID
             const pc = useCallStore.getState().peerConnections.get(sig.from_id);
             if (pc && sig.data) {
               pc.setRemoteDescription(
@@ -230,11 +212,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
             const pc = useCallStore.getState().peerConnections.get(sig.from_id);
             if (pc && sig.data) {
               try {
-                // Backend stores candidate as plain string; try parsing as JSON first
                 const parsed = JSON.parse(sig.data) as RTCIceCandidateInit;
                 pc.addIceCandidate(new RTCIceCandidate(parsed));
               } catch {
-                // If it's a plain candidate string, wrap it
                 pc.addIceCandidate(new RTCIceCandidate({ candidate: sig.data }));
               }
             }
@@ -248,7 +228,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
           }
 
           case 'pong':
-            // heartbeat response, nothing to do
             break;
 
           default:
@@ -257,16 +236,13 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    ws.onerror = () => {
-      // onerror is always followed by onclose
-    };
+    ws.onerror = () => {};
 
     ws.onclose = () => {
       setIsConnected(false);
       clearHeartbeat();
       wsRef.current = null;
 
-      // Only reconnect if the user is still authenticated
       if (useAuthStore.getState().isAuthenticated && useAuthStore.getState().tokens?.access_token) {
         scheduleReconnect();
       }
@@ -285,10 +261,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     scheduleReconnect,
   ]);
 
-  // Keep connectRef up to date so scheduleReconnect can call it
+  // Keep connectRef up to date
   connectRef.current = connect;
 
-  // ---- lifecycle ----
   useEffect(() => {
     if (isAuthenticated && tokens?.access_token) {
       connect();
@@ -307,7 +282,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     };
   }, [isAuthenticated, tokens?.access_token, connect, clearHeartbeat]);
 
-  // ---- outbound helpers ----
   const sendTypingStart = useCallback(
     (conversationId: string) => send({ type: 'typing:start', conversation_id: conversationId }),
     [send]
