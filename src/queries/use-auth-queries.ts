@@ -3,10 +3,13 @@ import { authService } from '@/services/auth-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { LoginRequest, RegisterRequest } from '@/types';
 import { getDeviceInfo, setServerDeviceId } from '@/lib/device';
+import { useGenerateKeys, useRecoverKeys } from '@/hooks/use-encryption';
 
 export function useLogin() {
   const queryClient = useQueryClient();
   const login = useAuthStore((state) => state.login);
+  const generateKeys = useGenerateKeys();
+  const recoverKeys = useRecoverKeys();
 
   return useMutation({
     mutationFn: async (data: { identity: string; password: string }) => {
@@ -20,18 +23,41 @@ export function useLogin() {
       });
       return response;
     },
-    onSuccess: async (response) => {
+    onSuccess: async (response, variables) => {
       if (response.success && response.data) {
         if (response.data.device_id) {
           setServerDeviceId(response.data.device_id);
         }
 
         // login() writes tokens into Zustand (single source of truth).
-        // ApiClient reads from Zustand — no separate setAuthTokens needed.
         login(
           response.data.user,
           response.data
         );
+
+        // Setup encryption seamlessly
+        try {
+          console.log('[Auth] Attempting key recovery...');
+          await recoverKeys.mutateAsync({
+            password: variables.password,
+            userId: response.data.user.id,
+            predefinedDeviceId: response.data.device_id,
+          });
+        } catch (err: any) {
+          console.warn('[Auth] Key recovery failed:', err.message);
+          // If no backup exists or it fails, fallback to generating new keys
+          try {
+            console.log('[Auth] Generating new keys instead...');
+            await generateKeys.mutateAsync({
+              password: variables.password,
+              userId: response.data.user.id,
+              deviceId: response.data.device_id || getDeviceInfo().id,
+            });
+          } catch (genErr) {
+            console.error('[Auth] Failed to generate keys', genErr);
+          }
+        }
+
         await queryClient.invalidateQueries({ queryKey: ['user', 'profile'] });
       }
     },
@@ -41,6 +67,7 @@ export function useLogin() {
 export function useRegister() {
   const queryClient = useQueryClient();
   const login = useAuthStore((state) => state.login);
+  const generateKeys = useGenerateKeys();
 
   return useMutation({
     mutationFn: async (data: {
@@ -61,7 +88,7 @@ export function useRegister() {
       });
       return response;
     },
-    onSuccess: (response) => {
+    onSuccess: async (response, variables) => {
       if (response.success && response.data) {
         if (response.data.device_id) {
           setServerDeviceId(response.data.device_id);
@@ -71,6 +98,18 @@ export function useRegister() {
           response.data.user,
           response.data
         );
+
+        // Subtly generate keys in the background
+        try {
+          console.log('[Auth] Generating encryption keys after registration...');
+          await generateKeys.mutateAsync({
+            password: variables.password,
+            userId: response.data.user.id,
+            deviceId: response.data.device_id || getDeviceInfo().id,
+          });
+        } catch (err) {
+          console.error('[Auth] Failed to generate keys during registration', err);
+        }
       }
     },
   });

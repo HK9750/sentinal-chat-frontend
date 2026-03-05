@@ -224,6 +224,11 @@ export async function x3dhInitiator(
   );
 
   if (!isValid) {
+    console.error('[X3DH] Signature validation failed!', {
+      identityKeyHost: keyToBase64(theirBundle.identityKey),
+      signedPreKeyContent: keyToBase64(theirBundle.signedPreKey),
+      providedSignature: keyToBase64(theirBundle.signedPreKeySignature)
+    });
     throw new Error('Invalid signed pre-key signature');
   }
 

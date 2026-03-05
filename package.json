@@ -17,6 +17,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.19",
+    "emoji-picker-react": "^4.18.0",
     "libsodium-wrappers-sumo": "^0.8.2",
     "lucide-react": "^0.569.0",
     "next": "16.1.6",

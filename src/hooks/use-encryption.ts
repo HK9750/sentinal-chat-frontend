@@ -54,12 +54,11 @@ function getStableDeviceId(): string {
 
 export function useGenerateKeys() {
   const queryClient = useQueryClient();
-  const { user } = useAuthStore();
 
   return useMutation({
-    mutationFn: async (password: string) => {
-      if (!user) {
-        throw new Error('User not authenticated');
+    mutationFn: async ({ password, userId, deviceId }: { password: string; userId: string; deviceId: string }) => {
+      if (!userId) {
+        throw new Error('User ID is required');
       }
 
       if (!password) {
@@ -67,8 +66,6 @@ export function useGenerateKeys() {
       }
 
       await initCrypto();
-
-      const deviceId = getStableDeviceId();
 
       const identityKeyPair = await generateIdentityKeyPair();
       await storeIdentityKey(deviceId, identityKeyPair);
@@ -80,7 +77,7 @@ export function useGenerateKeys() {
       await storeOneTimePreKeys(deviceId, oneTimePreKeys);
 
       const setupResult = await encryptionService.setupEncryption({
-        user_id: user.id,
+        user_id: userId,
         device_id: deviceId,
         identity_key: keyToBase64(identityKeyPair.signing.publicKey),
         signed_prekey: {
@@ -89,7 +86,7 @@ export function useGenerateKeys() {
           signature: keyToBase64(signedPreKey.signature),
         },
         one_time_keys: oneTimePreKeys.map((k) => ({
-          user_id: user.id,
+          user_id: userId,
           device_id: deviceId,
           key_id: k.keyId,
           public_key: keyToBase64(k.keyPair.publicKey),
@@ -142,15 +139,18 @@ export function useEstablishSession() {
       recipientDeviceId: string;
     }) => {
       if (!user) {
+        console.error('[Encryption] User not authenticated in useEstablishSession');
         throw new Error('User not authenticated');
       }
 
+      console.log(`[Encryption] Establishing session with recipientUserId=${recipientUserId}, recipientDeviceId=${recipientDeviceId}`);
       await initCrypto();
 
       const deviceId = getStableDeviceId();
 
       const existingSession = await getSession(recipientUserId, recipientDeviceId);
       if (existingSession) {
+        console.log(`[Encryption] Session already exists for recipientDeviceId=${recipientDeviceId}`);
         return { session: existingSession, isNew: false };
       }
 
@@ -169,6 +169,7 @@ export function useEstablishSession() {
         throw new Error('Failed to fetch key bundle');
       }
 
+      console.log(`[Encryption] Fetched Key Bundle for recipientDeviceId=${recipientDeviceId}`, bundleResponse.data);
       const keyBundle = bundleResponse.data;
 
       const preKeyBundle: PreKeyBundle = {
@@ -182,6 +183,7 @@ export function useEstablishSession() {
         oneTimePreKeyId: keyBundle.one_time_pre_key?.key_id,
       };
 
+      console.log(`[Encryption] Generating ephemeral key pair and running X3DH initiator`);
       const ephemeralKeyPair = await generateEphemeralKeyPair();
 
       const { sharedSecret, associatedData } = await x3dhInitiator(
@@ -198,6 +200,7 @@ export function useEstablishSession() {
 
       await storeSession(recipientUserId, recipientDeviceId, session);
 
+      console.log(`[Encryption] Successfully established new session for recipientDeviceId=${recipientDeviceId}`);
       return {
         session,
         isNew: true,
@@ -227,6 +230,7 @@ export function useEncryptMessageMutation() {
       recipientDeviceId: string;
       plaintext: string;
     }): Promise<EncryptMessageResult> => {
+      console.log(`[Encryption] Encrypting message for recipientUserId=${recipientUserId}, recipientDeviceId=${recipientDeviceId}`);
       await initCrypto();
 
       let session = await getSession(recipientUserId, recipientDeviceId);
@@ -234,6 +238,7 @@ export function useEncryptMessageMutation() {
       let usedOneTimePreKeyId: number | undefined;
 
       if (!session) {
+        console.log(`[Encryption] No existing session for encryption, establishing new session`);
         const result = await establishSession.mutateAsync({
           recipientUserId,
           recipientDeviceId,
@@ -243,11 +248,13 @@ export function useEncryptMessageMutation() {
         usedOneTimePreKeyId = result.usedOneTimePreKeyId;
       }
 
+      console.log(`[Encryption] Running encryptMessage with session`);
       const { encrypted, updatedSession } = await encryptMessage(session, plaintext);
 
       await storeSession(recipientUserId, recipientDeviceId, updatedSession);
 
       const encryptedContent = serializeEncryptedMessage(encrypted);
+      console.log(`[Encryption] Successfully encrypted message for recipientDeviceId=${recipientDeviceId}`);
 
       return {
         encryptedContent,
@@ -278,8 +285,12 @@ export function useDecryptMessageMutation() {
       usedOneTimePreKeyId?: number;
     }): Promise<string> => {
       if (!user) {
+        console.error('[Encryption] User not authenticated in useDecryptMessageMutation');
         throw new Error('User not authenticated');
       }
+
+      console.log(`[Encryption] DecryptMessageMutation started for senderUserId=${senderUserId}, senderDeviceId=${senderDeviceId}`);
+      console.log(`[Encryption] Decrypt params: ephemeralPublicKey=${ephemeralPublicKey}, usedOneTimePreKeyId=${usedOneTimePreKeyId}`);
 
       await initCrypto();
 
@@ -287,6 +298,7 @@ export function useDecryptMessageMutation() {
       let session = await getSession(senderUserId, senderDeviceId);
 
       if (!session && ephemeralPublicKey) {
+        console.log(`[Encryption] No existing session found for decryption, running X3DH responder`);
         const ourIdentity = await getIdentityKey(deviceId);
         if (!ourIdentity) {
           throw new Error('No identity key found');
@@ -310,9 +322,11 @@ export function useDecryptMessageMutation() {
           senderDeviceId
         );
         if (!identityResponse.success || !identityResponse.data) {
+          console.error(`[Encryption] Failed to fetch sender identity key from server`);
           throw new Error('Failed to fetch sender identity key');
         }
 
+        console.log(`[Encryption] Fetched sender identity key, computing X3DH keys`);
         const senderIdentityKey = base64ToKey(identityResponse.data.public_key);
         const senderEphemeralKey = base64ToKey(ephemeralPublicKey);
 
@@ -331,16 +345,20 @@ export function useDecryptMessageMutation() {
         );
 
         await storeSession(senderUserId, senderDeviceId, session);
+        console.log(`[Encryption] Session established as responder and stored`);
       }
 
       if (!session) {
+        console.error(`[Encryption] No session found and cannot establish one for senderDeviceId=${senderDeviceId}`);
         throw new Error('No session found and cannot establish one');
       }
 
+      console.log(`[Encryption] Running decryptMessage with deserializeEncryptedMessage`);
       const encrypted = deserializeEncryptedMessage(encryptedContent);
       const { plaintext, updatedSession } = await decryptMessage(session, encrypted);
 
       await storeSession(senderUserId, senderDeviceId, updatedSession);
+      console.log(`[Encryption] Successfully decrypted message from senderDeviceId=${senderDeviceId}`);
 
       return plaintext;
     },
@@ -371,9 +389,12 @@ export function useDecryptCiphertext() {
         rawCiphertext = ciphertext;
       }
 
+      console.log(`[Encryption] decryptCiphertext invoked for senderDeviceId=${senderDeviceId}`);
+
       const maybeJson = rawCiphertext.trim();
       const hasEncryptedPayload = maybeJson.startsWith('{') && maybeJson.includes('ratchetKey');
       if (!hasEncryptedPayload) {
+        console.log(`[Encryption] Received message without ratchetKey payload (fallback plaintext) from senderDeviceId=${senderDeviceId}`);
         return rawCiphertext;
       }
 
@@ -381,16 +402,22 @@ export function useDecryptCiphertext() {
       if (typeof header === 'string' && header.trim()) {
         try {
           parsedHeader = JSON.parse(header) as Record<string, unknown>;
+          console.log(`[Encryption] Parsed header from string: ${JSON.stringify(parsedHeader)}`);
         } catch {
+          console.warn(`[Encryption] Failed to parse header string: ${header}`);
           parsedHeader = {};
         }
       } else if (header && typeof header === 'object') {
         parsedHeader = header as Record<string, unknown>;
+        console.log(`[Encryption] Using header object directly: ${JSON.stringify(parsedHeader)}`);
+      } else {
+        console.log(`[Encryption] No header provided or invalid header type.`);
       }
 
       const ephemeralKey = parsedHeader.ephemeral_key;
       const usedOneTimePreKeyId = parsedHeader.one_time_pre_key_id;
 
+      console.log(`[Encryption] Calling mutateRef to decrypt message payload from senderDeviceId=${senderDeviceId}`);
       return mutateRef.current({
         senderUserId,
         senderDeviceId,
@@ -501,7 +528,7 @@ export function useRecoverKeys() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (password: string) => {
+    mutationFn: async ({ password, userId, predefinedDeviceId }: { password: string; userId: string; predefinedDeviceId?: string }) => {
       await initCrypto();
 
       const backupResponse = await encryptionService.getKeyBackup();
@@ -533,7 +560,7 @@ export function useRecoverKeys() {
         }
       };
 
-      const deviceId = getStableDeviceId();
+      const deviceId = predefinedDeviceId || getStableDeviceId();
       await storeIdentityKey(deviceId, identityKeyPair);
 
       const signedPreKey = await generateSignedPreKey(identityKeyPair, 1);
@@ -542,13 +569,8 @@ export function useRecoverKeys() {
       const oneTimePreKeys = await generateOneTimePreKeys(1, PREKEY_BATCH_SIZE);
       await storeOneTimePreKeys(deviceId, oneTimePreKeys);
 
-      const { user } = useAuthStore.getState();
-      if (!user) {
-        throw new Error('User not logged in');
-      }
-
       const setupResult = await encryptionService.setupEncryption({
-        user_id: user.id,
+        user_id: userId,
         device_id: deviceId,
         identity_key: parsed.identityKey,
         signed_prekey: {
@@ -557,7 +579,7 @@ export function useRecoverKeys() {
           signature: keyToBase64(signedPreKey.signature),
         },
         one_time_keys: oneTimePreKeys.map((k) => ({
-          user_id: user.id,
+          user_id: userId,
           device_id: deviceId,
           key_id: k.keyId,
           public_key: keyToBase64(k.keyPair.publicKey),

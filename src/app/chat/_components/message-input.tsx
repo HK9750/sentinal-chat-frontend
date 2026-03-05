@@ -13,8 +13,10 @@ import { UploadProgressList } from '@/components/shared/upload-progress-list';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Send, Smile, Lock, LockOpen } from 'lucide-react';
 import { utf8ToBase64 } from '@/lib/base64';
+import EmojiPicker, { Theme } from 'emoji-picker-react';
 
 interface MessageInputProps {
     conversationId: string;
@@ -52,8 +54,12 @@ export function MessageInput({ conversationId }: MessageInputProps) {
 
                 const ownDeviceId = getServerDeviceId();
                 if (!ownDeviceId) {
+                    console.error('[MessageInput] Device ID not available');
                     throw new Error('Device ID not available');
                 }
+
+                console.log(`[MessageInput] Preparing message content length: ${content.length}`);
+                console.log(`[MessageInput] Own Device ID: ${ownDeviceId}`);
 
                 const recipients = participants.filter(
                     (p: Participant) => p.user_id !== currentUser.id
@@ -74,6 +80,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
                         }
                     }
                 }
+                console.log(`[MessageInput] Recipient devices count: ${recipientDeviceEntries.size}`);
 
                 const selfDeviceIds = (selfParticipant?.device_ids || []).filter(
                     (deviceId) => deviceId !== ownDeviceId
@@ -87,12 +94,14 @@ export function MessageInput({ conversationId }: MessageInputProps) {
                         });
                     }
                 }
+                console.log(`[MessageInput] Self other devices count: ${selfDeviceIds.length}`);
 
                 if ((recipients.length > 0 || selfDeviceIds.length > 0) && recipientDeviceEntries.size === 0) {
                     throw new Error('No recipient devices available');
                 }
 
                 if (isEncryptionEnabled && recipientDeviceEntries.size > 0) {
+                    console.log(`[MessageInput] Encryption enabled, starting encryption map for ${recipientDeviceEntries.size} devices`);
                     const ciphertexts = [] as Array<{
                         recipient_device_id: string;
                         ciphertext: string;
@@ -101,6 +110,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
 
                     for (const entry of recipientDeviceEntries.values()) {
                         try {
+                            console.log(`[MessageInput] Attempting to encrypt for deviceId=${entry.deviceId}`);
                             const result = await encryptMessageMutation.mutateAsync({
                                 recipientUserId: entry.userId,
                                 recipientDeviceId: entry.deviceId,
@@ -112,12 +122,14 @@ export function MessageInput({ conversationId }: MessageInputProps) {
                                     one_time_pre_key_id: result.usedOneTimePreKeyId,
                                 }
                                 : undefined;
+                            console.log(`[MessageInput] Successfully encrypted for deviceId=${entry.deviceId}`);
                             ciphertexts.push({
                                 recipient_device_id: entry.deviceId,
                                 ciphertext: utf8ToBase64(result.encryptedContent),
                                 header,
                             });
-                        } catch {
+                        } catch (err) {
+                            console.error(`[MessageInput] Encryption failed for deviceId=${entry.deviceId}`, err);
                             ciphertexts.push({
                                 recipient_device_id: entry.deviceId,
                                 ciphertext: utf8ToBase64(content),
@@ -125,18 +137,22 @@ export function MessageInput({ conversationId }: MessageInputProps) {
                         }
                     }
 
+                    console.log(`[MessageInput] Pushing fallback plaintext ciphertext for ownDeviceId=${ownDeviceId}`);
                     ciphertexts.push({
                         recipient_device_id: ownDeviceId,
                         ciphertext: utf8ToBase64(content),
                     });
 
+                    console.log(`[MessageInput] Sending message via API payload, total ciphertexts=${ciphertexts.length}`);
                     await sendMessageMutation.mutateAsync({
                         conversation_id: conversationId,
                         ciphertexts,
                         message_type: 'TEXT',
                         local_content: content,
                     });
+                    console.log(`[MessageInput] Message sent successfully (Encrypted flow)`);
                 } else {
+                    console.log(`[MessageInput] Encryption disabled or no recipients, sending plaintext flow`);
                     const deviceIds = new Set<string>([ownDeviceId]);
                     for (const entry of recipientDeviceEntries.values()) {
                         deviceIds.add(entry.deviceId);
@@ -151,8 +167,10 @@ export function MessageInput({ conversationId }: MessageInputProps) {
                         message_type: 'TEXT',
                         local_content: content,
                     });
+                    console.log(`[MessageInput] Message sent successfully (Plaintext flow)`);
                 }
-            } catch {
+            } catch (err) {
+                console.error(`[MessageInput] Error in handleSubmit:`, err);
                 if (inputRef.current) inputRef.current.value = content;
             }
         },
@@ -195,14 +213,47 @@ export function MessageInput({ conversationId }: MessageInputProps) {
                         placeholder="Type a message..."
                         className="pr-10 bg-background border text-foreground placeholder:text-muted-foreground focus-visible:ring-ring rounded-full"
                     />
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
-                    >
-                        <Smile className="h-5 w-5" />
-                    </Button>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
+                            >
+                                <Smile className="h-5 w-5" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                            side="top"
+                            align="end"
+                            sideOffset={16}
+                            className="w-auto p-0 border-none bg-transparent shadow-none"
+                        >
+                            <EmojiPicker
+                                onEmojiClick={(emojiData) => {
+                                    if (inputRef.current) {
+                                        const cursorStart = inputRef.current.selectionStart || 0;
+                                        const cursorEnd = inputRef.current.selectionEnd || 0;
+                                        const prevValue = inputRef.current.value;
+                                        const newValue = prevValue.substring(0, cursorStart) + emojiData.emoji + prevValue.substring(cursorEnd);
+                                        inputRef.current.value = newValue;
+                                        // Ensure input focuses back to let the user continue typing
+                                        inputRef.current.focus();
+                                        setTimeout(() => {
+                                            if (inputRef.current) {
+                                                const newCursorPos = cursorStart + emojiData.emoji.length;
+                                                inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
+                                            }
+                                        }, 0);
+                                    }
+                                }}
+                                theme={Theme.AUTO}
+                                lazyLoadEmojis={true}
+                                previewConfig={{ showPreview: false }}
+                            />
+                        </PopoverContent>
+                    </Popover>
                 </div>
 
                 <TooltipProvider>

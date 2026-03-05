@@ -4,7 +4,6 @@ import { Suspense, useCallback, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { GuestGuard } from '@/components/auth-guard';
 import { useLogin } from '@/queries/use-auth-queries';
-import { useRecoverKeys } from '@/hooks/use-encryption';
 import { Spinner } from '@/components/shared/spinner';
 import Link from 'next/link';
 import {
@@ -25,7 +24,6 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/chat';
   const loginMutation = useLogin();
-  const recoverKeysMutation = useRecoverKeys();
   const [isRecovering, setIsRecovering] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
 
@@ -43,22 +41,13 @@ function LoginForm() {
       try {
         const response = await loginMutation.mutateAsync({ identity, password });
         if (response.success) {
-          try {
-            setIsRecovering(true);
-            await recoverKeysMutation.mutateAsync(password);
-            window.location.href = redirectTo;
-          } catch (recoveryErr) {
-            console.warn('Key recovery failed on login:', recoveryErr);
-            window.location.href = redirectTo;
-          } finally {
-            setIsRecovering(false);
-          }
+          window.location.href = redirectTo;
         }
       } catch {
         // Error is captured by loginMutation.error
       }
     },
-    [loginMutation, recoverKeysMutation, redirectTo]
+    [loginMutation, redirectTo]
   );
 
   const errorMessage =

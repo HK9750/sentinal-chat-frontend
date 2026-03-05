@@ -12,6 +12,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useGenerateKeys, useEncryptionStatus } from '@/hooks/use-encryption';
+import { useAuthStore } from '@/stores/auth-store';
+import { getDeviceInfo } from '@/lib/device';
 import { cn } from '@/lib/utils';
 
 const INITIAL_PREKEY_COUNT = 20;
@@ -49,11 +51,21 @@ export function EncryptionSetup({
       return;
     }
 
+    const { user } = useAuthStore.getState();
+    if (!user) {
+      setError('You must be logged in to generate keys.');
+      return;
+    }
+
     setStep('generating');
     setError(null);
 
     try {
-      await generateKeysMutation.mutateAsync(password);
+      await generateKeysMutation.mutateAsync({
+        password,
+        userId: user.id,
+        deviceId: getDeviceInfo().id
+      });
       setStep('complete');
       onComplete?.();
     } catch (err) {

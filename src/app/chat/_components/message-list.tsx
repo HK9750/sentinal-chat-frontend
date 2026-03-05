@@ -63,9 +63,11 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
             .filter(msg => !!msg.ciphertext && !msg.content && !decryptedContent.has(msg.id))
             .map(msg => msg.id);
 
+        console.log(`[MessageList] Found ${uncachedIds.length} uncached messages requiring decryption/load`);
         if (uncachedIds.length === 0) return;
 
         let active = true;
+        console.log(`[MessageList] Fetching uncached messages from IndexedDB`);
         getCachedDecryptedMessages(uncachedIds).then(cached => {
             if (!active || cached.size === 0) return;
             setDecryptedContent(prev => {
@@ -76,6 +78,9 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
                         next.set(id, plaintext);
                         changed = true;
                     }
+                }
+                if (changed) {
+                    console.log(`[MessageList] Loaded ${cached.size} messages from IndexedDB cache`);
                 }
                 return changed ? next : prev;
             });
@@ -100,9 +105,12 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
                     const decoded = base64ToUtf8(msg.ciphertext);
                     const trimmed = decoded.trim();
                     if (!trimmed.startsWith('{') || !trimmed.includes('ratchetKey')) {
+                        console.log(`[MessageList] Fallback decoded own message ${msg.id}`);
                         return { ...msg, content: decoded };
                     }
-                } catch { /* ignore decode errors */ }
+                } catch {
+                    console.error(`[MessageList] Failed to fallout decode own message ${msg.id}`);
+                }
             }
             return msg;
         });
@@ -124,14 +132,15 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
 
         if (pending.length === 0) return;
 
+        console.log(`[MessageList] Starting decryption batch for ${pending.length} pending messages`);
         let isActive = true;
 
         const decryptAll = async () => {
             for (const msg of pending) {
                 if (!isActive) return;
 
-                // Mark as in-flight so concurrent renders don't re-attempt
                 inflightRef.current.add(msg.id);
+                console.log(`[MessageList] Attempting to decrypt message ${msg.id}`);
 
                 try {
                     const plaintext = await decryptCiphertext({
@@ -145,12 +154,11 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
                         return;
                     }
 
-                    // Persist to IndexedDB so future page loads don't re-decrypt
+                    console.log(`[MessageList] Displaying decrypted message ${msg.id}`);
                     cacheDecryptedMessage(msg.id, plaintext).catch(err => {
                         console.error(`[MessageList] Failed to persist decrypted message ${msg.id}:`, err);
                     });
 
-                    // Update in-memory cache
                     setDecryptedContent((prev) => {
                         if (prev.has(msg.id)) return prev;
                         const next = new Map(prev);
@@ -159,8 +167,6 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
                     });
                 } catch (err) {
                     console.error(`[MessageList] Failed to decrypt message ${msg.id}:`, err);
-                    // Do NOT cache failures — leave the message uncached so
-                    // it will be retried on the next effect run.
                 } finally {
                     inflightRef.current.delete(msg.id);
                 }
