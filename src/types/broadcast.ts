@@ -1,16 +1,11 @@
 export interface Broadcast {
   id: string;
-  name: string;
-  description?: string;
-  owner_id: string;
-  recipient_count: number;
-  created_at: string;
+  title: string;
+  description: string;
+  audience: string;
+  status: 'unavailable' | 'draft';
 }
 
-export interface BroadcastRecipient {
-  broadcast_id: string;
-  user_id: string;
-  added_at: string;
-  username?: string;
-  avatar_url?: string;
+export interface BroadcastDetail extends Broadcast {
+  notes: string[];
 }

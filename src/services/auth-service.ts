@@ -1,48 +1,54 @@
-import { apiClient } from './api-client';
-import {
-  ApiResponse,
-  AuthTokens,
+import { apiClient, unwrapData } from '@/services/api-client';
+import { API_ROUTES } from '@/lib/constants';
+import type {
+  AuthPayload,
   LoginRequest,
+  OAuthAuthorizePayload,
+  OAuthAuthorizeRequest,
+  OAuthExchangeRequest,
+  OAuthProvider,
   RegisterRequest,
-  RefreshRequest,
-  User,
-  UserSession,
+  SessionsPayload,
 } from '@/types';
 
-export interface AuthResponse extends AuthTokens {
-  user: User;
+export async function register(input: RegisterRequest): Promise<AuthPayload> {
+  return unwrapData<AuthPayload>(apiClient.post(API_ROUTES.auth.register, input));
 }
 
-export const authService = {
-  register: async (data: RegisterRequest): Promise<ApiResponse<AuthResponse>> => {
-    return apiClient.post('/v1/auth/register', data);
-  },
+export async function login(input: LoginRequest): Promise<AuthPayload> {
+  return unwrapData<AuthPayload>(apiClient.post(API_ROUTES.auth.login, input));
+}
 
-  login: async (data: LoginRequest): Promise<ApiResponse<AuthResponse>> => {
-    return apiClient.post('/v1/auth/login', data);
-  },
+export async function getOAuthAuthorizeUrl(
+  provider: OAuthProvider,
+  input: OAuthAuthorizeRequest
+): Promise<OAuthAuthorizePayload> {
+  return unwrapData<OAuthAuthorizePayload>(
+    apiClient.get(API_ROUTES.auth.oauthUrl(provider), {
+      params: input,
+    })
+  );
+}
 
-  refresh: async (data: RefreshRequest): Promise<ApiResponse<AuthTokens>> => {
-    return apiClient.post('/v1/auth/refresh', data);
-  },
+export async function exchangeOAuthCode(
+  provider: OAuthProvider,
+  input: OAuthExchangeRequest
+): Promise<AuthPayload> {
+  return unwrapData<AuthPayload>(apiClient.post(API_ROUTES.auth.oauthExchange(provider), input));
+}
 
-  logout: async (sessionId: string): Promise<ApiResponse<void>> => {
-    return apiClient.post('/v1/auth/logout', { session_id: sessionId });
-  },
+export async function refresh(): Promise<AuthPayload> {
+  return unwrapData<AuthPayload>(apiClient.post(API_ROUTES.auth.refresh));
+}
 
-  logoutAll: async (): Promise<ApiResponse<void>> => {
-    return apiClient.post('/v1/auth/logout-all');
-  },
+export async function logout(sessionId?: string): Promise<void> {
+  await unwrapData(apiClient.post(API_ROUTES.auth.logout, sessionId ? { session_id: sessionId } : undefined));
+}
 
-  getSessions: async (): Promise<ApiResponse<{ sessions: UserSession[] }>> => {
-    return apiClient.get('/v1/auth/sessions');
-  },
+export async function logoutAll(): Promise<void> {
+  await unwrapData(apiClient.post(API_ROUTES.auth.logoutAll));
+}
 
-  forgotPassword: async (identity: string): Promise<ApiResponse<void>> => {
-    return apiClient.post('/v1/auth/password/forgot', { identity });
-  },
-
-  resetPassword: async (identity: string, newPassword: string): Promise<ApiResponse<void>> => {
-    return apiClient.post('/v1/auth/password/reset', { identity, new_password: newPassword });
-  },
-};
+export async function listSessions(): Promise<SessionsPayload> {
+  return unwrapData<SessionsPayload>(apiClient.get(API_ROUTES.auth.sessions));
+}

@@ -1,45 +1,46 @@
 export type CallType = 'AUDIO' | 'VIDEO';
-export type CallStatus = 'INITIATED' | 'RINGING' | 'CONNECTED' | 'ACTIVE' | 'ENDED';
-export type CallEndReason = 'COMPLETED' | 'MISSED' | 'DECLINED' | 'FAILED' | 'TIMEOUT' | 'NETWORK_ERROR';
-export type ParticipantStatus = 'INVITED' | 'JOINED' | 'LEFT';
+export type CallStatus =
+  | 'idle'
+  | 'incoming'
+  | 'outgoing'
+  | 'connecting'
+  | 'connected'
+  | 'ended'
+  | 'failed';
 
-export interface Call {
-  id: string;
+export interface IncomingCall {
+  call_id: string;
+  conversation_id: string;
+  initiated_by: string;
+  type: CallType;
+  started_at?: string;
+}
+
+export interface ActiveCall {
+  call_id: string;
   conversation_id: string;
   type: CallType;
+  peer_user_id?: string;
+  initiator_id?: string;
   status: CallStatus;
-  initiator_id: string;
   started_at?: string;
-  ended_at?: string;
-  duration?: number;
-  created_at: string;
+  ended_reason?: string;
 }
 
-export interface CallParticipant {
-  call_id: string;
-  user_id: string;
-  status: ParticipantStatus;
-  audio_muted: boolean;
-  video_muted: boolean;
-  joined_at?: string;
-  left_at?: string;
-  user?: {
-    id: string;
-    display_name: string;
-    avatar_url?: string;
-  };
+export interface CallSignalPayload {
+  to_user_id: string;
+  sdp?: RTCSessionDescriptionInit;
+  candidate?: RTCIceCandidateInit;
 }
 
-export interface CallQualityMetric {
-  id: string;
-  call_id: string;
-  user_id: string;
-  timestamp: string;
-  packet_loss: number;
-  jitter: number;
-  latency: number;
-  bitrate: number;
-  frame_rate?: number;
-  resolution?: string;
-  audio_level?: number;
+export interface ServerCallSignalPayload {
+  from_user_id: string;
+  payload: Record<string, unknown>;
+}
+
+export interface WebRtcState {
+  local_stream: MediaStream | null;
+  remote_stream: MediaStream | null;
+  is_audio_muted: boolean;
+  is_video_muted: boolean;
 }

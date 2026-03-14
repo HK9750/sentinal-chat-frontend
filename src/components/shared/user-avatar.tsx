@@ -1,73 +1,59 @@
 'use client';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getInitials } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
-interface UserInfo {
-  id: string;
-  display_name: string;
-  avatar_url?: string;
-  username?: string;
-}
-
 interface UserAvatarProps {
-  user?: UserInfo | null;
-  src?: string;
+  src?: string | null;
   alt?: string;
   fallback?: string;
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  user?: {
+    display_name?: string | null;
+    username?: string | null;
+    avatar_url?: string | null;
+  } | null;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
   showStatus?: boolean;
   isOnline?: boolean;
 }
 
-const sizeClasses = {
-  xs: 'h-6 w-6 text-[10px]',
-  sm: 'h-8 w-8 text-xs',
-  md: 'h-10 w-10 text-sm',
-  lg: 'h-12 w-12 text-base',
-  xl: 'h-16 w-16 text-lg',
-};
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
+const sizeClassMap = {
+  sm: 'size-8 text-xs',
+  md: 'size-10 text-sm',
+  lg: 'size-12 text-base',
+  xl: 'size-16 text-lg',
+} as const;
 
 export function UserAvatar({
-  user,
   src,
   alt,
   fallback,
+  user,
   size = 'md',
   className,
   showStatus = false,
   isOnline = false,
 }: UserAvatarProps) {
-  const imageUrl = src || user?.avatar_url;
-  const name = alt || user?.display_name || user?.username || 'User';
-  const initials = fallback || getInitials(name);
+  const label = alt ?? user?.display_name ?? user?.username ?? 'User';
+  const imageSrc = src ?? user?.avatar_url ?? undefined;
+  const initials = fallback ?? getInitials(label);
 
   return (
-    <div className={cn('relative inline-block', className)}>
-      <Avatar className={cn(sizeClasses[size])}>
-        <AvatarImage src={imageUrl} alt={name} />
-        <AvatarFallback className="bg-muted text-foreground font-medium border border-border">
-          {initials}
-        </AvatarFallback>
+    <div className={cn('relative inline-flex shrink-0', className)}>
+      <Avatar className={cn(sizeClassMap[size], 'border border-white/20 bg-secondary/60')}>
+        <AvatarImage src={imageSrc ?? undefined} alt={label} />
+        <AvatarFallback className="bg-primary/15 font-semibold text-primary">{initials}</AvatarFallback>
       </Avatar>
-      {showStatus && (
+      {showStatus ? (
         <span
           className={cn(
-            'absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-background',
-            isOnline ? 'bg-green-500' : 'bg-muted-foreground'
+            'absolute bottom-0 right-0 size-3 rounded-full border-2 border-background',
+            isOnline ? 'bg-emerald-500' : 'bg-muted-foreground'
           )}
         />
-      )}
+      ) : null}
     </div>
   );
 }

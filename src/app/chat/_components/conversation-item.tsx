@@ -1,96 +1,83 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo } from 'react';
-import { cn, formatRelativeTime } from '@/lib/utils';
-import { UserAvatar } from '@/components/shared/user-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Conversation } from '@/types';
+import { UserAvatar } from '@/components/shared/user-avatar';
+import { cn, formatRelativeTime, getConversationAvatar, getConversationSubtitle, getConversationTitle, getOtherParticipant } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
+import type { Conversation } from '@/types';
 
 interface ConversationItemProps {
-    conversation: Conversation;
-    isSelected: boolean;
-    onClick: () => void;
+  conversation: Conversation;
+  isSelected: boolean;
 }
 
-export function ConversationItem({ conversation, isSelected, onClick }: ConversationItemProps) {
-    const currentUserId = useAuthStore((state) => state.user?.id);
-    const hasUnread = (conversation.unread_count ?? 0) > 0;
+export function ConversationItem({ conversation, isSelected }: ConversationItemProps) {
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const otherParticipant = useMemo(() => getOtherParticipant(conversation, currentUserId), [conversation, currentUserId]);
+  const title = getConversationTitle(conversation, currentUserId);
+  const subtitle = getConversationSubtitle(conversation, currentUserId);
+  const href = `/chat?conversation=${conversation.id}`;
 
-    const otherParticipant = useMemo(() => {
-        if (conversation.type !== 'DM' || !conversation.participants) return null;
-        return conversation.participants.find((p) => p.user_id !== currentUserId) ?? conversation.participants[0] ?? null;
-    }, [conversation.type, conversation.participants, currentUserId]);
+  return (
+    <Link
+      href={href}
+      scroll={false}
+      className={cn(
+        'group block rounded-[22px] border px-3 py-3 transition-all duration-200',
+        isSelected
+          ? 'border-primary/35 bg-primary/8 shadow-[0_14px_40px_-28px_rgba(26,116,120,0.55)]'
+          : 'border-transparent hover:border-border/70 hover:bg-background/55'
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <UserAvatar
+          src={getConversationAvatar(conversation, currentUserId)}
+          alt={title}
+          fallback={title[0]}
+          size="md"
+          showStatus={conversation.type === 'DM'}
+          isOnline={otherParticipant?.is_online ?? false}
+        />
 
-    const displayName = conversation.type === 'DM'
-        ? (otherParticipant?.display_name || otherParticipant?.username || 'Direct Message')
-        : (conversation.subject || 'Group Chat');
-
-    const avatarUrl = conversation.type === 'DM'
-        ? otherParticipant?.avatar_url
-        : conversation.avatar_url;
-
-    const avatarFallback = conversation.type === 'DM'
-        ? (displayName[0]?.toUpperCase() || 'D')
-        : (conversation.subject?.[0]?.toUpperCase() || 'G');
-
-    return (
-        <button
-            onClick={onClick}
-            className={cn(
-                'w-full p-4 flex items-center gap-3 transition-all duration-200 text-left',
-                isSelected
-                    ? 'bg-accent border-l-4 border-primary'
-                    : 'hover:bg-muted/50 border-l-4 border-transparent'
-            )}
-        >
-            <UserAvatar
-                src={avatarUrl}
-                alt={displayName}
-                fallback={avatarFallback}
-                size="md"
-                showStatus={conversation.type === 'DM'}
-                isOnline={otherParticipant?.is_online ?? false}
-            />
-
-            <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-start gap-2">
-                    <h3 className="text-sm font-medium text-foreground truncate">
-                        {displayName}
-                    </h3>
-                    {conversation.last_message_at && (
-                        <span className="text-xs text-muted-foreground shrink-0">
-                            {formatRelativeTime(conversation.last_message_at)}
-                        </span>
-                    )}
-                </div>
-                <p className="text-sm text-muted-foreground truncate mt-0.5">
-                    {conversation.last_message?.content || conversation.description || 'No messages yet'}
-                </p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{title}</p>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{subtitle}</p>
             </div>
 
-            {hasUnread && (
-                <Badge variant="default" className="shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground text-xs px-2 py-0.5">
-                    {conversation.unread_count! > 99 ? '99+' : conversation.unread_count}
+            <div className="flex flex-col items-end gap-2">
+              <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                {conversation.last_message_at ? formatRelativeTime(conversation.last_message_at) : 'New'}
+              </span>
+              {conversation.unread_count > 0 ? (
+                <Badge className="rounded-full px-2 py-0 text-[11px]">
+                  {conversation.unread_count > 99 ? '99+' : conversation.unread_count}
                 </Badge>
-            )}
-        </button>
-    );
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
 }
 
 export function ConversationListSkeleton() {
-    return (
-        <div className="space-y-3 p-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3">
-                    <Skeleton className="h-12 w-12 rounded-full" />
-                    <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-3 w-1/2" />
-                    </div>
-                </div>
-            ))}
+  return (
+    <div className="space-y-3 p-4">
+      {Array.from({ length: 8 }).map((_, index) => (
+        <div key={index} className="flex items-center gap-3 rounded-[22px] border border-border/40 px-3 py-3">
+          <Skeleton className="size-10 rounded-full" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
         </div>
-    );
+      ))}
+    </div>
+  );
 }

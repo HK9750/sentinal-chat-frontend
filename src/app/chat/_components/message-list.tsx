@@ -1,235 +1,97 @@
 'use client';
 
-import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
-import { useMessages } from '@/queries/use-message-queries';
-import { MessageBubble } from '@/components/shared/message-bubble';
-import { Message } from '@/types';
+import { useCallback, useEffect, useMemo } from 'react';
 import { Send } from 'lucide-react';
-import { useDecryptCiphertext, useEncryptionStatus } from '@/hooks/use-encryption';
-import {
-    cacheDecryptedMessage,
-    getCachedDecryptedMessages,
-} from '@/lib/decrypted-message-cache';
-import { base64ToUtf8 } from '@/lib/base64';
-
-interface GroupedMessage {
-    message: Message;
-    isOwn: boolean;
-    showAvatar: boolean;
-    isFirstInGroup: boolean;
-    isLastInGroup: boolean;
-}
-
-function useGroupedMessages(messages: Message[] | undefined, currentUserId: string | undefined): GroupedMessage[] {
-    return useMemo(() => {
-        if (!messages) return [];
-        return messages.map((msg, index) => {
-            const prevMsg = messages[index - 1];
-            const nextMsg = messages[index + 1];
-            const isOwn = msg.sender_id === currentUserId;
-            const isFirstInGroup = !prevMsg || prevMsg.sender_id !== msg.sender_id;
-            const isLastInGroup = !nextMsg || nextMsg.sender_id !== msg.sender_id;
-            return { message: msg, isOwn, showAvatar: isFirstInGroup && !isOwn, isFirstInGroup, isLastInGroup };
-        });
-    }, [messages, currentUserId]);
-}
+import { MessageBubble } from '@/components/shared/message-bubble';
+import { Spinner } from '@/components/shared/spinner';
+import { useDecryptedMessages } from '@/hooks/use-decrypted-messages';
+import { getOtherParticipant } from '@/lib/utils';
+import { useConversation } from '@/queries/use-conversation-queries';
 
 interface MessageListProps {
-    conversationId: string;
-    currentUserId: string | undefined;
-    scrollRef: React.RefObject<HTMLDivElement | null>;
-    messageRefs: React.RefObject<Map<string, HTMLDivElement>>;
+  conversationId: string;
+  currentUserId: string | undefined;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
+  messageRefs: React.RefObject<Map<string, HTMLDivElement>>;
 }
 
 export function MessageList({ conversationId, currentUserId, scrollRef, messageRefs }: MessageListProps) {
-    const { data: messages, isLoading } = useMessages(conversationId);
-    const { decryptCiphertext } = useDecryptCiphertext();
-    const { isSetup: encryptionReady } = useEncryptionStatus();
+  const conversationQuery = useConversation(conversationId);
+  const messagesQuery = useDecryptedMessages(conversationId);
 
-    // In-memory cache of successfully decrypted content (message ID -> plaintext).
-    // Seeded from IndexedDB on mount, updated after each successful decryption.
-    const [decryptedContent, setDecryptedContent] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    if (scrollRef.current && messagesQuery.items.length > 0) {
+      scrollRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [messagesQuery.items.length, scrollRef]);
 
-    // Track message IDs currently being decrypted to avoid duplicate
-    // concurrent attempts for the same message.
-    const inflightRef = useRef<Set<string>>(new Set());
+  const setMessageRef = useCallback(
+    (messageId: string, element: HTMLDivElement | null) => {
+      if (element) {
+        messageRefs.current.set(messageId, element);
+      } else {
+        messageRefs.current.delete(messageId);
+      }
+    },
+    [messageRefs]
+  );
 
-    // --- Load cached decrypted messages from IndexedDB ---
-    useEffect(() => {
-        if (!messages) return;
+  const authorLookup = useMemo(() => {
+    const participants = conversationQuery.data?.participants ?? [];
+    return new Map(participants.map((participant) => [participant.user_id, participant]));
+  }, [conversationQuery.data?.participants]);
 
-        // Collect IDs of messages that have ciphertext but no content and aren't cached yet
-        const uncachedIds = messages
-            .filter(msg => !!msg.ciphertext && !msg.content && !decryptedContent.has(msg.id))
-            .map(msg => msg.id);
-
-        console.log(`[MessageList] Found ${uncachedIds.length} uncached messages requiring decryption/load`);
-        if (uncachedIds.length === 0) return;
-
-        let active = true;
-        console.log(`[MessageList] Fetching uncached messages from IndexedDB`);
-        getCachedDecryptedMessages(uncachedIds).then(cached => {
-            if (!active || cached.size === 0) return;
-            setDecryptedContent(prev => {
-                const next = new Map(prev);
-                let changed = false;
-                for (const [id, plaintext] of cached) {
-                    if (!next.has(id)) {
-                        next.set(id, plaintext);
-                        changed = true;
-                    }
-                }
-                if (changed) {
-                    console.log(`[MessageList] Loaded ${cached.size} messages from IndexedDB cache`);
-                }
-                return changed ? next : prev;
-            });
-        }).catch(err => {
-            console.error('[MessageList] Failed to load cached decrypted messages:', err);
-        });
-
-        return () => { active = false; };
-    }, [messages, decryptedContent]);
-
-    const displayMessages = useMemo(() => {
-        if (!messages) return undefined;
-        return messages.map((msg) => {
-            if (msg.content) return msg;
-            const cached = decryptedContent.get(msg.id);
-            if (cached) {
-                return { ...msg, content: cached };
-            }
-            // Own messages: decode base64 ciphertext as plaintext fallback
-            if (msg.sender_id === currentUserId && msg.ciphertext) {
-                try {
-                    const decoded = base64ToUtf8(msg.ciphertext);
-                    const trimmed = decoded.trim();
-                    if (!trimmed.startsWith('{') || !trimmed.includes('ratchetKey')) {
-                        console.log(`[MessageList] Fallback decoded own message ${msg.id}`);
-                        return { ...msg, content: decoded };
-                    }
-                } catch {
-                    console.error(`[MessageList] Failed to fallout decode own message ${msg.id}`);
-                }
-            }
-            return msg;
-        });
-    }, [messages, decryptedContent, currentUserId]);
-
-    // --- Decryption effect: gated on encryptionReady ---
-    useEffect(() => {
-        if (!messages || !encryptionReady) return;
-
-        const pending = messages.filter(
-            (msg) =>
-                !!msg.ciphertext &&
-                !!msg.sender_id &&
-                !!msg.sender_device_id &&
-                msg.sender_id !== currentUserId &&
-                !decryptedContent.has(msg.id) &&
-                !inflightRef.current.has(msg.id)
-        ) as Array<Message & { ciphertext: string; sender_device_id: string }>;
-
-        if (pending.length === 0) return;
-
-        console.log(`[MessageList] Starting decryption batch for ${pending.length} pending messages`);
-        let isActive = true;
-
-        const decryptAll = async () => {
-            for (const msg of pending) {
-                if (!isActive) return;
-
-                inflightRef.current.add(msg.id);
-                console.log(`[MessageList] Attempting to decrypt message ${msg.id}`);
-
-                try {
-                    const plaintext = await decryptCiphertext({
-                        senderUserId: msg.sender_id,
-                        senderDeviceId: msg.sender_device_id,
-                        ciphertext: msg.ciphertext,
-                        header: msg.header,
-                    });
-                    if (!isActive) {
-                        inflightRef.current.delete(msg.id);
-                        return;
-                    }
-
-                    console.log(`[MessageList] Displaying decrypted message ${msg.id}`);
-                    cacheDecryptedMessage(msg.id, plaintext).catch(err => {
-                        console.error(`[MessageList] Failed to persist decrypted message ${msg.id}:`, err);
-                    });
-
-                    setDecryptedContent((prev) => {
-                        if (prev.has(msg.id)) return prev;
-                        const next = new Map(prev);
-                        next.set(msg.id, plaintext);
-                        return next;
-                    });
-                } catch (err) {
-                    console.error(`[MessageList] Failed to decrypt message ${msg.id}:`, err);
-                } finally {
-                    inflightRef.current.delete(msg.id);
-                }
-            }
-        };
-
-        decryptAll();
-
-        return () => {
-            isActive = false;
-        };
-    }, [messages, encryptionReady, decryptedContent, decryptCiphertext, currentUserId]);
-
-    const groupedMessages = useGroupedMessages(displayMessages, currentUserId);
-
-    useEffect(() => {
-        if (scrollRef.current && displayMessages?.length) {
-            scrollRef.current.scrollIntoView({ behavior: 'smooth' });
-        }
-    }, [displayMessages?.length, scrollRef]);
-
-    const setMessageRef = useCallback(
-        (id: string, el: HTMLDivElement | null) => {
-            if (el) messageRefs.current.set(id, el);
-            else messageRefs.current.delete(id);
-        },
-        [messageRefs]
+  if (messagesQuery.isLoading || conversationQuery.isLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Spinner size="lg" />
+      </div>
     );
+  }
 
-    if (isLoading) {
-        return (
-            <div className="flex-1 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-muted border-t-primary" />
-            </div>
-        );
-    }
-
-    if (!displayMessages?.length) {
-        return (
-            <div className="flex-1 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                        <Send className="w-7 h-7 text-muted-foreground" />
-                    </div>
-                    <p className="text-foreground font-medium mb-1">No messages yet</p>
-                    <p className="text-muted-foreground text-sm">Send a message to start the conversation</p>
-                </div>
-            </div>
-        );
-    }
+  if (messagesQuery.items.length === 0) {
+    const otherParticipant = conversationQuery.data ? getOtherParticipant(conversationQuery.data, currentUserId) : null;
 
     return (
-        <div className="flex-1 overflow-y-auto p-4 space-y-1">
-            {groupedMessages.map(({ message, isOwn, showAvatar }) => (
-                <div
-                    key={message.id}
-                    ref={(el) => setMessageRef(message.id, el)}
-                    className="transition-all duration-300"
-                >
-                    <MessageBubble message={message} isOwn={isOwn} showAvatar={showAvatar} status={isOwn ? 'sent' : undefined} />
-                </div>
-            ))}
-            <div ref={scrollRef} />
+      <div className="flex flex-1 items-center justify-center px-6">
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
+            <Send className="size-7" />
+          </div>
+          <p className="text-base font-semibold">No messages yet</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {otherParticipant ? `Start your encrypted chat with ${otherParticipant.display_name}.` : 'Send the first encrypted message in this conversation.'}
+          </p>
         </div>
+      </div>
     );
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
+        {messagesQuery.items.map(({ message, decrypted }, index) => {
+          const previous = messagesQuery.items[index - 1]?.message;
+          const isOwn = message.sender_id === currentUserId;
+          const showAvatar = !isOwn && previous?.sender_id !== message.sender_id;
+          const author = authorLookup.get(message.sender_id);
+
+          return (
+            <div key={message.id} ref={(element) => setMessageRef(message.id, element)}>
+              <MessageBubble
+                conversationId={conversationId}
+                message={message}
+                decrypted={decrypted}
+                isOwn={isOwn}
+                showAvatar={showAvatar}
+                authorLabel={author?.display_name ?? author?.username ?? 'Member'}
+                avatarUrl={author?.avatar_url}
+              />
+            </div>
+          );
+        })}
+        <div ref={scrollRef} />
+      </div>
+    </div>
+  );
 }

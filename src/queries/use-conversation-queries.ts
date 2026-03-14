@@ -1,274 +1,109 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { conversationService } from '@/services/conversation-service';
-import { CreateConversationRequest, Conversation, Participant } from '@/types';
+'use client';
 
-const CONVERSATIONS_PER_PAGE = 20;
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  addParticipant,
+  clearConversation,
+  createConversation,
+  getConversation,
+  listConversations,
+  listParticipants,
+  removeParticipant,
+} from '@/services/conversation-service';
+import { ensureConversationKey } from '@/lib/crypto-storage';
+import { queryKeys } from '@/queries/query-keys';
+import type { CreateConversationRequest } from '@/types';
 
-export function useConversations() {
+export function useConversationsQuery() {
   return useQuery({
-    queryKey: ['conversations', 'list'],
-    queryFn: async () => {
-      const response = await conversationService.list(1, CONVERSATIONS_PER_PAGE);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data?.conversations || [];
-    },
-    staleTime: 30_000,
+    queryKey: queryKeys.conversations,
+    queryFn: () => listConversations(),
   });
 }
 
-export function useConversation(conversationId: string) {
+export const useConversations = useConversationsQuery;
+
+export function useConversationQuery(conversationId?: string | null) {
   return useQuery({
-    queryKey: ['conversations', conversationId],
-    queryFn: async () => {
-      const response = await conversationService.getById(conversationId);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    enabled: !!conversationId,
-    staleTime: 30_000,
+    queryKey: conversationId ? queryKeys.conversation(conversationId) : ['conversations', 'empty'],
+    queryFn: () => getConversation(conversationId as string),
+    enabled: Boolean(conversationId),
   });
 }
 
-export function useCreateConversation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: CreateConversationRequest) => {
-      const response = await conversationService.create(data);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onSuccess: (newConversation) => {
-      if (newConversation) {
-        queryClient.setQueryData<Conversation[]>(
-          ['conversations', 'list'],
-          (old = []) => [newConversation, ...old]
-        );
-      }
-    },
-  });
+export function useConversation(conversationId?: string | null) {
+  return useConversationQuery(conversationId);
 }
 
-export function useConversationParticipants(conversationId: string) {
+export function useParticipantsQuery(conversationId?: string | null) {
   return useQuery({
-    queryKey: ['conversations', conversationId, 'participants'],
-    queryFn: async () => {
-      const response = await conversationService.listParticipants(conversationId);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data?.participants || [];
-    },
-    enabled: !!conversationId,
-    staleTime: 60_000,
+    queryKey: conversationId ? [...queryKeys.conversation(conversationId), 'participants'] : ['conversations', 'participants'],
+    queryFn: () => listParticipants(conversationId as string),
+    enabled: Boolean(conversationId),
   });
 }
 
-export function useAddParticipant() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      conversationId,
-      userId,
-      role,
-    }: {
-      conversationId: string;
-      userId: string;
-      role?: string;
-    }) => {
-      const response = await conversationService.addParticipant(conversationId, userId, role);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onSuccess: (_, { conversationId }) => {
-      queryClient.invalidateQueries({
-        queryKey: ['conversations', conversationId, 'participants'],
-      });
-    },
-  });
+export function useConversationParticipants(conversationId?: string | null) {
+  return useParticipantsQuery(conversationId);
 }
 
-export function useRemoveParticipant() {
+export function useCreateConversationMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      conversationId,
-      userId,
-    }: {
-      conversationId: string;
-      userId: string;
-    }) => {
-      const response = await conversationService.removeParticipant(conversationId, userId);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onSuccess: (_, { conversationId }) => {
-      queryClient.invalidateQueries({
-        queryKey: ['conversations', conversationId, 'participants'],
-      });
-    },
-  });
-}
-
-export function useMuteConversation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      conversationId,
-      until,
-    }: {
-      conversationId: string;
-      until: string;
-    }) => {
-      const response = await conversationService.mute(conversationId, until);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onSuccess: (_, { conversationId }) => {
-      queryClient.invalidateQueries({ queryKey: ['conversations', conversationId] });
-      queryClient.invalidateQueries({ queryKey: ['conversations', 'list'] });
-    },
-  });
-}
-
-export function useUnmuteConversation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (conversationId: string) => {
-      const response = await conversationService.unmute(conversationId);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onSuccess: (_, conversationId) => {
-      queryClient.invalidateQueries({ queryKey: ['conversations', conversationId] });
-      queryClient.invalidateQueries({ queryKey: ['conversations', 'list'] });
-    },
-  });
-}
-
-export function useArchiveConversation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (conversationId: string) => {
-      const response = await conversationService.archive(conversationId);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onSuccess: (_, conversationId) => {
-      queryClient.setQueryData<Conversation[]>(
-        ['conversations', 'list'],
-        (old = []) => old.filter((c) => c.id !== conversationId)
-      );
-    },
-  });
-}
-
-export function useUnarchiveConversation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (conversationId: string) => {
-      const response = await conversationService.unarchive(conversationId);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['conversations', 'list'] });
-    },
-  });
-}
-
-export function useGetOrCreateDM() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      currentUserId,
-      targetUserId,
-    }: {
-      currentUserId: string;
-      targetUserId: string;
-    }) => {
-      if (!currentUserId || currentUserId.trim() === '') {
-        throw new Error('Current user ID is required to create a DM conversation');
-      }
-      if (!targetUserId || targetUserId.trim() === '') {
-        throw new Error('Target user ID is required to create a DM conversation');
-      }
-
-      try {
-        const existingResponse = await conversationService.getDirect(
-          currentUserId,
-          targetUserId
-        );
-
-        if (existingResponse.success && existingResponse.data) {
-          return existingResponse.data;
-        }
-      } catch {
-      }
-
-      const createResponse = await conversationService.create({
-        type: 'DM',
-        participants: [targetUserId],
-      });
-
-      if (!createResponse.success) {
-        throw new Error(createResponse.error || 'Failed to create conversation');
-      }
-
-      return createResponse.data;
+    mutationFn: async (input: CreateConversationRequest) => {
+      const conversation = await createConversation(input);
+      await ensureConversationKey(conversation.id);
+      return conversation;
     },
     onSuccess: (conversation) => {
-      if (conversation) {
-        queryClient.setQueryData<Conversation[]>(
-          ['conversations', 'list'],
-          (old = []) => {
-            if (old.some((c) => c.id === conversation.id)) {
-              return old;
-            }
-            return [conversation, ...old];
-          }
-        );
-      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+      queryClient.setQueryData(queryKeys.conversation(conversation.id), conversation);
     },
   });
 }
 
-export function useSearchConversations(query: string) {
-  return useQuery({
-    queryKey: ['conversations', 'search', query],
-    queryFn: async () => {
-      const response = await conversationService.search(query);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data?.conversations || [];
+export const useCreateConversation = useCreateConversationMutation;
+
+export function useGetOrCreateDM() {
+  return useMutation({
+    mutationFn: async ({ targetUserId }: { currentUserId: string; targetUserId: string }) =>
+      createConversation({ type: 'DM', participant_ids: [targetUserId] }),
+  });
+}
+
+export function useAddParticipantMutation(conversationId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (userId: string) => addParticipant(conversationId, { user_id: userId }),
+    onSuccess: (conversation) => {
+      queryClient.setQueryData(queryKeys.conversation(conversation.id), conversation);
+      queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
     },
-    enabled: query.length >= 2,
-    staleTime: 30_000,
+  });
+}
+
+export function useRemoveParticipantMutation(conversationId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (userId: string) => removeParticipant(conversationId, userId),
+    onSuccess: (conversation) => {
+      queryClient.setQueryData(queryKeys.conversation(conversation.id), conversation);
+      queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+    },
+  });
+}
+
+export function useClearConversationMutation(conversationId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => clearConversation(conversationId),
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: queryKeys.messages(conversationId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+    },
   });
 }

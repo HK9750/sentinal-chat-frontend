@@ -1,24 +1,18 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { Shield, Key, CheckCircle2, AlertCircle, Loader2, Lock } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { CheckCircle2, Download, KeyRound, Shield, Upload } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { useGenerateKeys, useEncryptionStatus } from '@/hooks/use-encryption';
-import { useAuthStore } from '@/stores/auth-store';
-import { getDeviceInfo } from '@/lib/device';
-import { cn } from '@/lib/utils';
-
-const INITIAL_PREKEY_COUNT = 20;
-
-type SetupStep = 'idle' | 'generating' | 'complete' | 'error';
+import { Textarea } from '@/components/ui/textarea';
+import { useEncryption } from '@/hooks/use-encryption';
 
 interface EncryptionSetupProps {
   open: boolean;
@@ -26,284 +20,110 @@ interface EncryptionSetupProps {
   onComplete?: () => void;
 }
 
-export function EncryptionSetup({
-  open,
-  onOpenChange,
-  onComplete,
-}: EncryptionSetupProps) {
-  const [step, setStep] = useState<SetupStep>('idle');
-  const [error, setError] = useState<string | null>(null);
-  const [password, setPassword] = useState('');
+export function EncryptionSetup({ open, onOpenChange, onComplete }: EncryptionSetupProps) {
+  const { exportVaultBackup, importVaultBackup } = useEncryption();
+  const [payload, setPayload] = useState('');
+  const [status, setStatus] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const generateKeysMutation = useGenerateKeys();
-  const { isSetup, isLoading: statusLoading, deviceId } = useEncryptionStatus();
+  const helperText = useMemo(
+    () =>
+      'Conversation keys stay in this browser. Export a vault backup to move them to another trusted device, then import the backup there manually.',
+    []
+  );
 
-  useEffect(() => {
-    if (isSetup && !statusLoading) {
-      setStep('complete');
-    }
-  }, [isSetup, statusLoading]);
-
-  const handleSetup = useCallback(async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!password) {
-      setError('Password is required to encrypt your backup.');
-      return;
-    }
-
-    const { user } = useAuthStore.getState();
-    if (!user) {
-      setError('You must be logged in to generate keys.');
-      return;
-    }
-
-    setStep('generating');
-    setError(null);
-
+  const handleExport = useCallback(async () => {
     try {
-      await generateKeysMutation.mutateAsync({
-        password,
-        userId: user.id,
-        deviceId: getDeviceInfo().id
-      });
-      setStep('complete');
+      const backup = exportVaultBackup();
+      setPayload(backup);
+      await navigator.clipboard.writeText(backup);
+      setCopied(true);
+      setStatus('Vault backup copied. Store it somewhere private before leaving this device.');
       onComplete?.();
-    } catch (err) {
-      console.error('Key generation failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to generate encryption keys. Please try again.');
-      setStep('error');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Unable to export the local vault backup.');
+      setCopied(false);
     }
-  }, [generateKeysMutation, onComplete, password]);
+  }, [exportVaultBackup, onComplete]);
 
-  const handleClose = useCallback(() => {
-    onOpenChange(false);
-  }, [onOpenChange]);
-
-  const isProcessing = step === 'generating' || generateKeysMutation.isPending;
+  const handleImport = useCallback(() => {
+    try {
+      const importedCount = importVaultBackup(payload.trim());
+      setStatus(`Imported ${importedCount} conversation key${importedCount === 1 ? '' : 's'} into this browser.`);
+      onComplete?.();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Unable to import that vault backup.');
+    }
+  }, [importVaultBackup, onComplete, payload]);
 
   return (
-    <Dialog open={open} onOpenChange={step === 'complete' || step === 'idle' ? onOpenChange : undefined}>
-      <DialogContent
-        showCloseButton={step === 'complete' || step === 'error' || step === 'idle'}
-        className="bg-background/95 border-border backdrop-blur-xl sm:max-w-lg"
-      >
-        <DialogHeader className="items-center space-y-4">
-          <div
-            className={cn(
-              'flex h-16 w-16 items-center justify-center rounded-full',
-              step === 'complete' && 'bg-green-500/20',
-              step === 'error' && 'bg-destructive/20',
-              (step === 'idle' || isProcessing) && 'bg-primary/20'
-            )}
-          >
-            {step === 'complete' ? (
-              <CheckCircle2 className="h-8 w-8 text-green-500" />
-            ) : step === 'error' ? (
-              <AlertCircle className="h-8 w-8 text-destructive" />
-            ) : isProcessing ? (
-              <Loader2 className="h-8 w-8 text-primary animate-spin" />
-            ) : (
-              <Shield className="h-8 w-8 text-primary" />
-            )}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="border-border/70 bg-background/95 backdrop-blur-xl sm:max-w-2xl">
+        <DialogHeader>
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/12 text-primary">
+            <Shield className="size-6" />
           </div>
-          <div className="text-center">
-            <DialogTitle className="text-xl text-foreground">
-              {step === 'complete'
-                ? 'Encryption Ready'
-                : step === 'error'
-                  ? 'Setup Failed'
-                  : isProcessing
-                    ? 'Generating Keys...'
-                    : 'Set Up End-to-End Encryption'}
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground mt-2">
-              {step === 'complete'
-                ? 'Your messages are now protected with end-to-end encryption using the Signal Protocol.'
-                : step === 'error'
-                  ? error || 'An error occurred during setup.'
-                  : isProcessing
-                    ? 'Please wait while we generate your secure encryption keys...'
-                    : 'Generate secure encryption keys to protect your messages with the Signal Protocol.'}
-            </DialogDescription>
-          </div>
+          <DialogTitle className="text-xl">Encryption vault tools</DialogTitle>
+          <DialogDescription>{helperText}</DialogDescription>
         </DialogHeader>
 
-        {isProcessing && (
-          <div className="py-6">
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                </div>
-                <span className="text-sm text-foreground">
-                  Generating identity key (Ed25519)
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground text-sm font-medium">
-                  2
-                </div>
-                <span className="text-sm text-muted-foreground">
-                  Generating signed prekey (X25519)
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground text-sm font-medium">
-                  3
-                </div>
-                <span className="text-sm text-muted-foreground">
-                  Generating {INITIAL_PREKEY_COUNT} one-time prekeys
-                </span>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="border-border/70 bg-background/60 p-4">
+            <div className="flex items-start gap-3">
+              <Download className="mt-0.5 size-4 text-primary" />
+              <div>
+                <h3 className="font-semibold">Export local backup</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Copy every saved conversation access record into a single portable backup string.
+                </p>
               </div>
             </div>
-          </div>
-        )}
-
-        {step === 'idle' && !isProcessing && (
-          <div className="py-4 space-y-4">
-            <Card className="bg-card border-border p-4">
-              <div className="flex gap-3">
-                <Key className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Identity Key (Ed25519)</p>
-                  <p className="text-xs text-muted-foreground">
-                    A long-term signing key that identifies you on this device
-                  </p>
-                </div>
-              </div>
-            </Card>
-            <Card className="bg-card border-border p-4">
-              <div className="flex gap-3">
-                <Lock className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Signed Prekey (X25519)</p>
-                  <p className="text-xs text-muted-foreground">
-                    A medium-term key signed by your identity key for secure key exchange
-                  </p>
-                </div>
-              </div>
-            </Card>
-            <Card className="bg-card border-border p-4">
-              <div className="flex gap-3">
-                <Shield className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">One-Time Prekeys</p>
-                  <p className="text-xs text-muted-foreground">
-                    {INITIAL_PREKEY_COUNT} single-use keys for establishing new secure sessions (X3DH)
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <div className="text-xs text-muted-foreground text-center mt-4">
-              Uses Signal Protocol with X25519 Diffie-Hellman and XChaCha20-Poly1305 encryption
-            </div>
-
-            <form onSubmit={handleSetup} className="mt-6 space-y-3">
-              <label htmlFor="encryption-password" className="block text-sm font-medium text-foreground">
-                Confirm Password to Encrypt Escrow Backup
-              </label>
-              <input
-                id="encryption-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your account password"
-                required
-                className="w-full px-3 py-2 bg-background border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <p className="text-xs text-muted-foreground">
-                Your password securely encrypts your local keys before backup. The server cannot read them.
-              </p>
-              {error && <p className="text-xs text-destructive">{error}</p>}
-            </form>
-          </div>
-        )}
-
-        {step === 'complete' && (
-          <div className="py-4 space-y-4">
-            <Card className="bg-green-500/10 border-green-500/30 p-4">
-              <div className="flex gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Keys Generated & Stored</p>
-                  <p className="text-xs text-muted-foreground">
-                    Your private keys are stored securely in your browser. Public keys have been
-                    uploaded to enable encrypted messaging.
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            {deviceId && (
-              <Card className="bg-card border-border p-4">
-                <div className="flex gap-3">
-                  <Key className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-foreground">Device ID</p>
-                    <p className="text-xs text-muted-foreground font-mono break-all">{deviceId}</p>
-                  </div>
-                </div>
-              </Card>
-            )}
-          </div>
-        )}
-
-        {step === 'error' && (
-          <div className="py-4">
-            <Card className="bg-destructive/10 border-destructive/30 p-4">
-              <div className="flex gap-3">
-                <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Setup Failed</p>
-                  <p className="text-xs text-muted-foreground">
-                    {error || 'An unexpected error occurred. Please try again.'}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        <div className="flex justify-end gap-3 pt-4">
-          {step === 'idle' && !isProcessing && (
-            <>
-              <Button
-                variant="ghost"
-                onClick={() => onOpenChange(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                Later
-              </Button>
-              <Button
-                onClick={() => handleSetup()}
-                disabled={!password}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                <Shield className="h-4 w-4 mr-2" />
-                Generate Keys
-              </Button>
-            </>
-          )}
-          {step === 'error' && (
-            <>
-              <Button
-                variant="ghost"
-                onClick={() => onOpenChange(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSetup} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                Try Again
-              </Button>
-            </>
-          )}
-          {step === 'complete' && (
-            <Button onClick={handleClose} className="bg-green-500 hover:bg-green-600 text-white">
-              Done
+            <Button type="button" className="mt-4 w-full" onClick={handleExport}>
+              {copied ? <CheckCircle2 className="size-4" /> : <Download className="size-4" />}
+              {copied ? 'Copied backup' : 'Copy vault backup'}
             </Button>
-          )}
+          </Card>
+
+          <Card className="border-border/70 bg-background/60 p-4">
+            <div className="flex items-start gap-3">
+              <Upload className="mt-0.5 size-4 text-primary" />
+              <div>
+                <h3 className="font-semibold">Import existing backup</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Paste a backup from another trusted device to restore local decryption access here.
+                </p>
+              </div>
+            </div>
+            <Button type="button" variant="outline" className="mt-4 w-full" onClick={handleImport} disabled={!payload.trim()}>
+              <KeyRound className="size-4" />
+              Import vault backup
+            </Button>
+          </Card>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="vault-backup" className="text-sm font-medium">
+            Vault backup payload
+          </label>
+          <Textarea
+            id="vault-backup"
+            value={payload}
+            onChange={(event) => {
+              setPayload(event.target.value);
+              setCopied(false);
+              setStatus(null);
+            }}
+            placeholder="Paste an exported vault backup here or generate one from this device."
+            className="min-h-40 rounded-[22px] border-border/70 bg-background/70"
+          />
+        </div>
+
+        {status ? <p className="text-sm text-muted-foreground">{status}</p> : null}
+
+        <div className="flex justify-end gap-3">
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

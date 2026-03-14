@@ -7,6 +7,7 @@ const AUTH_ROUTES = ['/login', '/register'];
 
 function isPublicRoute(pathname: string): boolean {
   if (PUBLIC_ROUTES.includes(pathname)) return true;
+  if (pathname.startsWith('/auth/callback')) return true;
   if (pathname.startsWith('/api/auth')) return true;
   if (pathname.startsWith('/api')) return true;
   return false;
@@ -19,7 +20,9 @@ function isAuthRoute(pathname: string): boolean {
 function isProtectedRoute(pathname: string): boolean {
   return (
     pathname.startsWith('/chat') ||
+    pathname.startsWith('/profile') ||
     pathname.startsWith('/settings') ||
+    pathname.startsWith('/broadcasts') ||
     pathname.startsWith('/calls')
   );
 }

@@ -1,90 +1,105 @@
-import { apiClient } from './api-client';
-import {
-  ApiResponse,
-  User,
-  UserSettings,
-  UserContact,
-  Device,
-  PushToken,
-  UserSession,
-  UpdateProfileRequest,
-  UpdateSettingsRequest,
-} from '@/types';
+import { DEFAULT_PREFERENCES, STORAGE_KEYS } from '@/lib/constants';
+import { getCryptoVaultState } from '@/lib/crypto-storage';
+import { listSessions } from '@/services/auth-service';
+import { listConversations } from '@/services/conversation-service';
+import type { AuthSession, LocalUserPreferences, ProfileMetrics } from '@/types';
 
-export const userService = {
-  list: async (page = 1, limit = 20, search?: string): Promise<ApiResponse<{ users: User[]; total: number }>> => {
-    return apiClient.get('/v1/users', { params: { page, limit, search } });
-  },
+interface StoredUiState {
+  state?: {
+    sidebarCollapsed?: boolean;
+    preferences?: Partial<LocalUserPreferences>;
+  };
+}
 
-  getProfile: async (): Promise<ApiResponse<User>> => {
-    return apiClient.get('/v1/users/me');
-  },
+function canUseStorage(): boolean {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+}
 
-  updateProfile: async (data: UpdateProfileRequest): Promise<ApiResponse<User>> => {
-    return apiClient.put('/v1/users/me', data);
-  },
+export function readLocalPreferences(): LocalUserPreferences {
+  if (!canUseStorage()) {
+    return DEFAULT_PREFERENCES;
+  }
 
-  deleteProfile: async (): Promise<ApiResponse<void>> => {
-    return apiClient.delete('/v1/users/me');
-  },
+  const value = window.localStorage.getItem(STORAGE_KEYS.ui);
 
-  getSettings: async (): Promise<ApiResponse<UserSettings>> => {
-    return apiClient.get('/v1/users/me/settings');
-  },
+  if (!value) {
+    return DEFAULT_PREFERENCES;
+  }
 
-  updateSettings: async (data: UpdateSettingsRequest): Promise<ApiResponse<UserSettings>> => {
-    return apiClient.put('/v1/users/me/settings', data);
-  },
+  try {
+    const parsed = JSON.parse(value) as StoredUiState | Partial<LocalUserPreferences>;
+    const preferences = 'state' in parsed ? parsed.state?.preferences : parsed;
+    return { ...DEFAULT_PREFERENCES, ...(preferences ?? {}) };
+  } catch {
+    return DEFAULT_PREFERENCES;
+  }
+}
 
-  listContacts: async (): Promise<ApiResponse<{ contacts: UserContact[] }>> => {
-    return apiClient.get('/v1/users/me/contacts');
-  },
+export function writeLocalPreferences(nextPreferences: LocalUserPreferences): LocalUserPreferences {
+  if (canUseStorage()) {
+    const existing = window.localStorage.getItem(STORAGE_KEYS.ui);
 
-  addContact: async (contactUserId: string): Promise<ApiResponse<{ success: boolean }>> => {
-    return apiClient.post('/v1/users/me/contacts', { contact_user_id: contactUserId });
-  },
+    try {
+      const parsed = existing ? (JSON.parse(existing) as StoredUiState) : undefined;
+      window.localStorage.setItem(
+        STORAGE_KEYS.ui,
+        JSON.stringify({
+          ...(parsed ?? {}),
+          state: {
+            ...(parsed?.state ?? {}),
+            preferences: nextPreferences,
+          },
+        })
+      );
+    } catch {
+      window.localStorage.setItem(
+        STORAGE_KEYS.ui,
+        JSON.stringify({
+          state: {
+            preferences: nextPreferences,
+          },
+        })
+      );
+    }
+  }
 
-  removeContact: async (contactId: string): Promise<ApiResponse<void>> => {
-    return apiClient.delete(`/v1/users/me/contacts/${contactId}`);
-  },
+  return nextPreferences;
+}
 
-  blockContact: async (contactId: string): Promise<ApiResponse<void>> => {
-    return apiClient.post(`/v1/users/me/contacts/${contactId}/block`);
-  },
+export async function getProfileMetrics(): Promise<ProfileMetrics> {
+  const [sessionsPayload, conversationPayload] = await Promise.all([
+    listSessions().catch(() => ({ items: [] })),
+    listConversations().catch(() => ({ items: [], total: 0 })),
+  ]);
 
-  unblockContact: async (contactId: string): Promise<ApiResponse<void>> => {
-    return apiClient.post(`/v1/users/me/contacts/${contactId}/unblock`);
-  },
+  const cryptoVault = getCryptoVaultState();
 
-  getBlockedContacts: async (): Promise<ApiResponse<{ contacts: UserContact[] }>> => {
-    return apiClient.get('/v1/users/me/contacts/blocked');
-  },
+  return {
+    conversation_count: conversationPayload.total,
+    unread_count: conversationPayload.items.reduce((total, conversation) => total + conversation.unread_count, 0),
+    session_count: sessionsPayload.items.length,
+    secure_conversation_count: cryptoVault.stored_keys,
+  };
+}
 
-  listDevices: async (): Promise<ApiResponse<{ devices: Device[] }>> => {
-    return apiClient.get('/v1/users/me/devices');
-  },
+export async function updateProfile(input: {
+  display_name?: string;
+  email?: string;
+  username?: string;
+  phone_number?: string;
+  avatar_url?: string | null;
+}): Promise<typeof input> {
+  return input;
+}
 
-  getDevice: async (deviceId: string): Promise<ApiResponse<Device>> => {
-    return apiClient.get(`/v1/users/me/devices/${deviceId}`);
-  },
-
-  deactivateDevice: async (deviceId: string): Promise<ApiResponse<void>> => {
-    return apiClient.delete(`/v1/users/me/devices/${deviceId}`);
-  },
-
-  listPushTokens: async (): Promise<ApiResponse<{ tokens: PushToken[] }>> => {
-    return apiClient.get('/v1/users/me/push-tokens');
-  },
-
-  getSessions: async (): Promise<ApiResponse<{ sessions: UserSession[] }>> => {
-    return apiClient.get('/v1/auth/sessions');
-  },
-
-  revokeSession: async (sessionId: string): Promise<ApiResponse<void>> => {
-    return apiClient.delete(`/v1/users/me/sessions/${sessionId}`);
-  },
-
-  revokeAllSessions: async (): Promise<ApiResponse<void>> => {
-    return apiClient.delete('/v1/users/me/sessions');
-  },
-};
+export function mapSessionsToDevices(sessions: AuthSession[]) {
+  return sessions.map((session) => ({
+    session_id: session.id,
+    device_id: session.device.device_id ?? session.device.id ?? 'unknown-device',
+    name: session.device.device_name ?? 'Unknown device',
+    type: session.device.device_type ?? 'unknown',
+    created_at: session.created_at,
+    expires_at: session.expires_at,
+    is_current: session.is_current,
+  }));
+}

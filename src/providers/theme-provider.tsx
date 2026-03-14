@@ -1,87 +1,71 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { STORAGE_KEYS } from '@/lib/constants';
+import { createContext, useContext, useEffect, useMemo } from 'react';
+import { useUiStore } from '@/stores/ui-store';
 
-type Theme = 'light' | 'dark' | 'system';
+type ThemeMode = 'system' | 'light' | 'dark';
 
-interface ThemeContextType {
-  theme: Theme;
+interface ThemeContextValue {
+  theme: ThemeMode;
   resolvedTheme: 'light' | 'dark';
-  setTheme: (theme: Theme) => void;
+  setTheme: (theme: ThemeMode) => void;
 }
 
-const ThemeContext = createContext<ThemeContextType | null>(null);
-
-export function useTheme() {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within ThemeProvider');
-  }
-  return context;
-}
+const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function getSystemTheme(): 'light' | 'dark' {
-  if (typeof window === 'undefined') return 'dark';
+  if (typeof window === 'undefined') {
+    return 'dark';
+  }
+
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-function getStoredTheme(): Theme {
-  if (typeof window === 'undefined') return 'system';
-  const stored = localStorage.getItem(STORAGE_KEYS.THEME);
-  if (stored === 'light' || stored === 'dark' || stored === 'system') {
-    return stored;
-  }
-  return 'system';
-}
-
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('system');
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('dark');
-  const [mounted, setMounted] = useState(false);
+  const theme = useUiStore((state) => state.preferences.theme);
+  const setPreference = useUiStore((state) => state.setPreference);
+  const resolvedTheme = theme === 'system' ? getSystemTheme() : theme;
 
   useEffect(() => {
-    const stored = getStoredTheme();
-    setThemeState(stored);
-    setResolvedTheme(stored === 'system' ? getSystemTheme() : stored);
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-
-    const resolved = theme === 'system' ? getSystemTheme() : theme;
-    setResolvedTheme(resolved);
-
     const root = document.documentElement;
     root.classList.remove('light', 'dark');
-    root.classList.add(resolved);
-  }, [theme, mounted]);
+    root.classList.add(resolvedTheme);
+  }, [resolvedTheme]);
 
   useEffect(() => {
-    if (!mounted || theme !== 'system') return;
+    if (theme !== 'system') {
+      return;
+    }
 
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => {
-      setResolvedTheme(getSystemTheme());
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const listener = () => {
+      const root = document.documentElement;
+      root.classList.remove('light', 'dark');
+      root.classList.add(getSystemTheme());
     };
 
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, [theme, mounted]);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, [theme]);
 
-  const setTheme = useCallback((newTheme: Theme) => {
-    setThemeState(newTheme);
-    localStorage.setItem(STORAGE_KEYS.THEME, newTheme);
-  }, []);
+  const value = useMemo(
+    () => ({
+      theme,
+      resolvedTheme,
+      setTheme: (nextTheme: ThemeMode) => setPreference('theme', nextTheme),
+    }),
+    [resolvedTheme, setPreference, theme]
+  );
 
-  if (!mounted) {
-    return null;
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
+export function useTheme() {
+  const context = useContext(ThemeContext);
+
+  if (!context) {
+    throw new Error('useTheme must be used within ThemeProvider.');
   }
 
-  return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return context;
 }

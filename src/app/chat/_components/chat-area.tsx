@@ -1,15 +1,17 @@
 'use client';
 
-import { useRef, useCallback, useState, useMemo } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useConversation } from '@/queries/use-conversation-queries';
-import { useAuthStore } from '@/stores/auth-store';
-import { ChatHeader } from './chat-header';
-import { MessageList } from './message-list';
-import { MessageInput } from './message-input';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { CallModal } from '@/components/shared/call-modal';
 import { MessageSearchPanel } from '@/components/shared/message-search-panel';
-import type { CallType } from '@/types/call';
+import { getConversationTitle, getOtherParticipant } from '@/lib/utils';
+import { useConversation } from '@/queries/use-conversation-queries';
+import { useAuthStore } from '@/stores/auth-store';
+import type { CallType } from '@/types';
+import { ChatHeader } from './chat-header';
+import { ConversationKeyBanner } from './conversation-key-banner';
+import { MessageInput } from './message-input';
+import { MessageList } from './message-list';
 
 interface ChatAreaProps {
   conversationId: string;
@@ -17,64 +19,51 @@ interface ChatAreaProps {
 
 export function ChatArea({ conversationId }: ChatAreaProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const currentUser = useAuthStore((state) => state.user);
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const conversationQuery = useConversation(conversationId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-
   const [callModalOpen, setCallModalOpen] = useState(false);
   const [callType, setCallType] = useState<CallType>('AUDIO');
   const [searchOpen, setSearchOpen] = useState(false);
 
-  const { data: conversation } = useConversation(conversationId);
-
-  const otherParticipant = useMemo(() => {
-    if (conversation?.type !== 'DM' || !conversation.participants) return null;
-    return conversation.participants.find((p) => p.user_id !== currentUser?.id) ?? conversation.participants[0] ?? null;
-  }, [conversation?.type, conversation?.participants, currentUser?.id]);
-
-  const recipientName = conversation?.type === 'DM'
-    ? (otherParticipant?.display_name || otherParticipant?.username || 'Contact')
-    : (conversation?.subject || 'Group');
-
-  const recipientAvatarUrl = conversation?.type === 'DM'
-    ? otherParticipant?.avatar_url
-    : conversation?.avatar_url;
+  const conversation = conversationQuery.data;
+  const otherParticipant = useMemo(() => (conversation ? getOtherParticipant(conversation, currentUserId) : null), [conversation, currentUserId]);
+  const recipientName = conversation ? getConversationTitle(conversation, currentUserId) : 'Conversation';
 
   const handleBack = useCallback(() => {
-    const params = new URLSearchParams(searchParams);
-    params.delete('conversation');
-    router.push(`?${params.toString()}`, { scroll: false });
-  }, [router, searchParams]);
+    router.push('/chat', { scroll: false });
+  }, [router]);
 
-  const handleStartCall = useCallback((type: CallType) => {
-    setCallType(type);
+  const handleStartCall = useCallback((nextCallType: CallType) => {
+    setCallType(nextCallType);
     setCallModalOpen(true);
   }, []);
 
   const handleNavigateToMessage = useCallback((messageId: string) => {
-    const el = messageRefs.current.get(messageId);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el.classList.add('ring-2', 'ring-blue-500', 'ring-opacity-50');
-      setTimeout(() => el.classList.remove('ring-2', 'ring-blue-500', 'ring-opacity-50'), 2000);
+    const element = messageRefs.current.get(messageId);
+
+    if (!element) {
+      return;
     }
+
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    element.classList.add('ring-2', 'ring-primary/60');
+    window.setTimeout(() => {
+      element.classList.remove('ring-2', 'ring-primary/60');
+    }, 1800);
   }, []);
 
   return (
-    <div className="relative flex flex-col h-full">
+    <div className="relative flex h-full flex-col">
       <ChatHeader
         conversationId={conversationId}
         onBack={handleBack}
         onStartCall={handleStartCall}
         onOpenSearch={() => setSearchOpen(true)}
       />
-      <MessageList
-        conversationId={conversationId}
-        currentUserId={currentUser?.id}
-        scrollRef={scrollRef}
-        messageRefs={messageRefs}
-      />
+      <ConversationKeyBanner conversationId={conversationId} />
+      <MessageList conversationId={conversationId} currentUserId={currentUserId} scrollRef={scrollRef} messageRefs={messageRefs} />
       <MessageInput conversationId={conversationId} />
 
       <MessageSearchPanel
@@ -90,7 +79,7 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
         conversationId={conversationId}
         callType={callType}
         recipientName={recipientName}
-        recipientAvatarUrl={recipientAvatarUrl}
+        recipientAvatarUrl={otherParticipant?.avatar_url}
       />
     </div>
   );

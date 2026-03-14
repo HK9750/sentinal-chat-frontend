@@ -1,59 +1,210 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { clsx, type ClassValue } from 'clsx';
+import { formatDistanceToNowStrict, isToday, isYesterday } from 'date-fns';
+import { twMerge } from 'tailwind-merge';
+import type { Conversation, Message, Participant } from '@/types';
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+export function cn(...inputs: ClassValue[]): string {
+  return twMerge(clsx(inputs));
 }
 
-export function formatDate(date: string | Date): string {
-  const d = new Date(date);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+export function formatTimestamp(value?: string | Date | null): string {
+  if (!value) {
+    return '';
+  }
 
-  if (days === 0) {
-    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  } else if (days === 1) {
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+}
+
+export function formatCalendarLabel(value?: string | Date | null): string {
+  if (!value) {
+    return 'Unknown';
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (isToday(date)) {
+    return 'Today';
+  }
+
+  if (isYesterday(date)) {
     return 'Yesterday';
-  } else if (days < 7) {
-    return d.toLocaleDateString('en-US', { weekday: 'short' });
-  } else {
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+  }).format(date);
 }
 
-export function formatRelativeTime(date: string | Date): string {
-  const d = new Date(date);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (seconds < 60) {
+export function formatRelativeTime(value?: string | Date | null): string {
+  if (!value) {
     return 'just now';
-  } else if (minutes < 60) {
-    return `${minutes}m ago`;
-  } else if (hours < 24) {
-    return `${hours}h ago`;
-  } else if (days < 7) {
-    return `${days}d ago`;
-  } else {
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
+
+  const date = value instanceof Date ? value : new Date(value);
+  return formatDistanceToNowStrict(date, { addSuffix: true });
+}
+
+export function formatBytes(value: number): string {
+  if (value < 1024) {
+    return `${value} B`;
+  }
+
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let size = value / 1024;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
 export function getInitials(name: string): string {
   return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('');
 }
 
-export function formatTime(date: string | Date): string {
-  const d = new Date(date);
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+export function getOtherParticipant(conversation: Conversation, currentUserId?: string | null): Participant | null {
+  if (conversation.type !== 'DM') {
+    return null;
+  }
+
+  return conversation.participants.find((participant) => participant.user_id !== currentUserId) ?? null;
+}
+
+export function getConversationTitle(conversation: Conversation, currentUserId?: string | null): string {
+  if (conversation.subject?.trim()) {
+    return conversation.subject;
+  }
+
+  if (conversation.type === 'DM') {
+    return getOtherParticipant(conversation, currentUserId)?.display_name ?? 'Direct message';
+  }
+
+  return conversation.participants.map((participant) => participant.display_name).slice(0, 3).join(', ');
+}
+
+export function getConversationSubtitle(conversation: Conversation, currentUserId?: string | null): string {
+  if (conversation.description?.trim()) {
+    return conversation.description;
+  }
+
+  if (conversation.type === 'DM') {
+    const otherParticipant = getOtherParticipant(conversation, currentUserId);
+
+    if (!otherParticipant) {
+      return 'Encrypted direct message';
+    }
+
+    return otherParticipant.is_online ? 'Online now' : `@${otherParticipant.username || 'member'}`;
+  }
+
+  return `${conversation.participants.length} participants`;
+}
+
+export function getConversationAvatar(conversation: Conversation, currentUserId?: string | null): string | null {
+  if (conversation.avatar_url) {
+    return conversation.avatar_url;
+  }
+
+  return getOtherParticipant(conversation, currentUserId)?.avatar_url ?? null;
+}
+
+export function getMessagePreview(message?: Message | null): string {
+  if (!message) {
+    return 'No messages yet';
+  }
+
+  if (message.deleted_at) {
+    return 'Message removed';
+  }
+
+  if (message.type === 'AUDIO') {
+    return 'Encrypted voice note';
+  }
+
+  if (message.type === 'FILE') {
+    return `${message.attachments.length || 1} encrypted file${message.attachments.length === 1 ? '' : 's'}`;
+  }
+
+  if (message.type === 'POLL') {
+    return message.poll?.question ?? 'Encrypted poll';
+  }
+
+  return message.encrypted_content ? 'Encrypted message' : 'Empty message';
+}
+
+export function groupMessagesByDay(messages: Message[]): Array<{ label: string; items: Message[] }> {
+  const buckets = new Map<string, Message[]>();
+
+  for (const message of messages) {
+    const label = formatCalendarLabel(message.created_at);
+    const bucket = buckets.get(label) ?? [];
+    bucket.push(message);
+    buckets.set(label, bucket);
+  }
+
+  return Array.from(buckets.entries()).map(([label, items]) => ({ label, items }));
+}
+
+export function uniqueById<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+
+  for (const item of items) {
+    if (seen.has(item.id)) {
+      continue;
+    }
+
+    seen.add(item.id);
+    result.push(item);
+  }
+
+  return result;
+}
+
+export function toErrorMessage(error: unknown, fallback = 'Something went wrong.'): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === 'string' && error.trim()) {
+    return error;
+  }
+
+  return fallback;
+}
+
+export function sleep(duration: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, duration);
+  });
+}
+
+export function isImageMimeType(mimeType: string): boolean {
+  return mimeType.startsWith('image/');
+}
+
+export function isAudioMimeType(mimeType: string): boolean {
+  return mimeType.startsWith('audio/');
+}
+
+export function isVideoMimeType(mimeType: string): boolean {
+  return mimeType.startsWith('video/');
 }

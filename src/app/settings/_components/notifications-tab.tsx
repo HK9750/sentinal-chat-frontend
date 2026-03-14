@@ -35,9 +35,9 @@ export function NotificationsTab() {
             </p>
           </div>
           <Switch
-            checked={settings?.notifications_enabled ?? true}
+            checked={settings?.sound_enabled ?? true}
             onCheckedChange={(checked) =>
-              handleToggle('notifications_enabled', checked)
+              handleToggle('sound_enabled', checked)
             }
           />
         </div>
@@ -46,15 +46,15 @@ export function NotificationsTab() {
 
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label className="text-slate-200">Message Preview</Label>
+            <Label className="text-slate-200">Enter to Send</Label>
             <p className="text-sm text-slate-500">
-              Show message content in notifications
+              Press Enter to send instead of creating a new line
             </p>
           </div>
           <Switch
-            checked={settings?.read_receipts ?? true}
+            checked={settings?.enter_to_send ?? true}
             onCheckedChange={(checked) =>
-              handleToggle('read_receipts', checked)
+              handleToggle('enter_to_send', checked)
             }
           />
         </div>
@@ -63,15 +63,15 @@ export function NotificationsTab() {
 
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label className="text-slate-200">Sound</Label>
+            <Label className="text-slate-200">Reduce Motion</Label>
             <p className="text-sm text-slate-500">
-              Play sound for new messages
+              Tone down non-essential animations across the app
             </p>
           </div>
           <Switch
-            checked={settings?.notification_sound !== 'none'}
+            checked={settings?.reduce_motion ?? false}
             onCheckedChange={(checked) =>
-              handleToggle('notification_sound', checked ? 'default' : 'none')
+              handleToggle('reduce_motion', checked)
             }
           />
         </div>

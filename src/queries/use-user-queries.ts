@@ -1,152 +1,136 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { userService } from '@/services/user-service';
-import { UpdateProfileRequest, UpdateSettingsRequest } from '@/types';
+'use client';
+
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '@/stores/auth-store';
+import { useUiStore } from '@/stores/ui-store';
+import { queryKeys } from '@/queries/query-keys';
+import {
+  getProfileMetrics,
+  mapSessionsToDevices,
+  readLocalPreferences,
+  updateProfile,
+  writeLocalPreferences,
+} from '@/services/user-service';
+import { listSessions } from '@/services/auth-service';
+import type { AuthSession, LocalUserPreferences } from '@/types';
+
+export function useProfileMetricsQuery() {
+  return useQuery({
+    queryKey: queryKeys.profileMetrics,
+    queryFn: () => getProfileMetrics(),
+  });
+}
+
+export function useDevicesQuery() {
+  return useQuery({
+    queryKey: [...queryKeys.sessions, 'devices'],
+    queryFn: async () => mapSessionsToDevices((await listSessions()).items),
+  });
+}
+
+export function usePreferencesQuery() {
+  return useQuery({
+    queryKey: ['preferences'],
+    queryFn: () => readLocalPreferences(),
+    initialData: readLocalPreferences(),
+  });
+}
+
+export function useUpdatePreferencesMutation() {
+  const setPreference = useUiStore((state) => state.setPreference);
+
+  return useMutation({
+    mutationFn: async (preferences: LocalUserPreferences) => writeLocalPreferences(preferences),
+    onSuccess: (preferences: LocalUserPreferences) => {
+      for (const [key, value] of Object.entries(preferences)) {
+        setPreference(key as keyof LocalUserPreferences, value as LocalUserPreferences[keyof LocalUserPreferences]);
+      }
+    },
+  });
+}
 
 export function useUserProfile() {
+  const user = useAuthStore((state) => state.user);
+
   return useQuery({
     queryKey: ['user', 'profile'],
-    queryFn: async () => {
-      const response = await userService.getProfile();
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
+    queryFn: async () => ({
+      ...user,
+      status: 'Encrypted and ready',
+      bio: 'Messages, voice notes, and files stay encrypted before transport.',
+      created_at: user ? new Date().toISOString() : undefined,
+    }),
+    initialData: user
+      ? {
+          ...user,
+          status: 'Encrypted and ready',
+          bio: 'Messages, voice notes, and files stay encrypted before transport.',
+          created_at: new Date().toISOString(),
+        }
+      : undefined,
   });
 }
 
 export function useUpdateProfile() {
-  const queryClient = useQueryClient();
+  const updateUser = useAuthStore((state) => state.updateUser);
 
   return useMutation({
-    mutationFn: async (data: UpdateProfileRequest) => {
-      const response = await userService.updateProfile(data);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user', 'profile'] });
-    },
-  });
-}
-
-export function useUserSettings() {
-  return useQuery({
-    queryKey: ['user', 'settings'],
-    queryFn: async () => {
-      const response = await userService.getSettings();
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-  });
-}
-
-export function useUpdateSettings() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: UpdateSettingsRequest) => {
-      const response = await userService.updateSettings(data);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user', 'settings'] });
+    mutationFn: updateProfile,
+    onSuccess: (payload) => {
+      updateUser(payload);
     },
   });
 }
 
 export function useContacts() {
   return useQuery({
-    queryKey: ['user', 'contacts'],
-    queryFn: async () => {
-      const response = await userService.listContacts();
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data?.contacts || [];
-    },
-  });
-}
-
-export function useAddContact() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (contactUserId: string) => {
-      const response = await userService.addContact(contactUserId);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user', 'contacts'] });
-    },
-  });
-}
-
-export function useRemoveContact() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (contactId: string) => {
-      const response = await userService.removeContact(contactId);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user', 'contacts'] });
-    },
-  });
-}
-
-export function useDevices() {
-  return useQuery({
-    queryKey: ['user', 'devices'],
-    queryFn: async () => {
-      const response = await userService.listDevices();
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data?.devices || [];
-    },
+    queryKey: ['contacts'],
+    queryFn: async () => [],
+    initialData: [],
   });
 }
 
 export function useSearchUsers(query: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['users', 'search', query],
-    queryFn: async () => {
-      const response = await userService.list(1, 20, query);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data?.users || [];
-    },
-    enabled: (options?.enabled ?? true) && query.length >= 2,
-    staleTime: 30_000,
+    queryFn: async () => [],
+    enabled: options?.enabled ?? false,
+    initialData: [],
   });
 }
 
-export function useUsers(page = 1, limit = 20) {
+export function useUserSettings() {
   return useQuery({
-    queryKey: ['users', 'list', page, limit],
-    queryFn: async () => {
-      const response = await userService.list(page, limit);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
+    queryKey: ['user', 'settings'],
+    queryFn: async () => readLocalPreferences(),
+    initialData: readLocalPreferences(),
+  });
+}
+
+export function useUpdateSettings() {
+  const setPreference = useUiStore((state) => state.setPreference);
+
+  return useMutation({
+    mutationFn: async (payload: Partial<LocalUserPreferences>) => {
+      const merged = { ...readLocalPreferences(), ...payload };
+      return writeLocalPreferences(merged);
     },
-    staleTime: 60_000,
+    onSuccess: (preferences) => {
+      for (const [key, value] of Object.entries(preferences)) {
+        setPreference(key as keyof LocalUserPreferences, value as LocalUserPreferences[keyof LocalUserPreferences]);
+      }
+    },
+  });
+}
+
+export function useDevices() {
+  return useDevicesQuery();
+}
+
+export function useSessions() {
+  return useQuery({
+    queryKey: queryKeys.sessions,
+    queryFn: async () => (await listSessions()).items,
+    initialData: [] as AuthSession[],
   });
 }

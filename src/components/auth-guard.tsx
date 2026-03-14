@@ -2,8 +2,16 @@
 
 import { useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useAuthStore } from '@/stores/auth-store';
 import { Spinner } from '@/components/shared/spinner';
+import { useAuthStore } from '@/stores/auth-store';
+
+function FullscreenLoader() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <Spinner size="lg" />
+    </div>
+  );
+}
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const isHydrated = useAuthStore((state) => state.isHydrated);
@@ -13,21 +21,17 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (!isHydrated) return;
-    if (!isAuthenticated) {
-      const search = searchParams?.toString();
-      const redirectTarget = pathname ? `${pathname}${search ? `?${search}` : ''}` : '/chat';
-      const redirectUrl = `/login?redirect=${encodeURIComponent(redirectTarget)}`;
-      router.replace(redirectUrl);
+    if (!isHydrated || isAuthenticated) {
+      return;
     }
-  }, [isHydrated, isAuthenticated, pathname, router, searchParams]);
+
+    const search = searchParams.toString();
+    const redirectTarget = pathname ? `${pathname}${search ? `?${search}` : ''}` : '/chat';
+    router.replace(`/login?redirect=${encodeURIComponent(redirectTarget)}`);
+  }, [isAuthenticated, isHydrated, pathname, router, searchParams]);
 
   if (!isHydrated) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-950">
-        <Spinner size="lg" />
-      </div>
-    );
+    return <FullscreenLoader />;
   }
 
   if (!isAuthenticated) {
@@ -42,22 +46,19 @@ export function GuestGuard({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectParam = searchParams?.get('redirect');
-  const redirectTo = redirectParam && redirectParam.startsWith('/') ? redirectParam : '/chat';
+  const redirectTarget = searchParams.get('redirect');
+  const redirectTo = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/chat';
 
   useEffect(() => {
-    if (!isHydrated) return;
-    if (isAuthenticated) {
-      router.replace(redirectTo);
+    if (!isHydrated || !isAuthenticated) {
+      return;
     }
-  }, [isHydrated, isAuthenticated, redirectTo, router]);
+
+    router.replace(redirectTo);
+  }, [isAuthenticated, isHydrated, redirectTo, router]);
 
   if (!isHydrated) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-950">
-        <Spinner size="lg" />
-      </div>
-    );
+    return <FullscreenLoader />;
   }
 
   if (isAuthenticated) {

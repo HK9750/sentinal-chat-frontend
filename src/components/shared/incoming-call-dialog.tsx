@@ -1,137 +1,56 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { Phone, PhoneOff, Video } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { useCallStore } from '@/stores/call-store';
-import { useSocket } from '@/providers/socket-provider';
-import { useAcceptCall, useDeclineCall, useAddCallParticipant } from '@/queries/use-call-queries';
-import { useAuthStore } from '@/stores/auth-store';
-import { useWebRTC } from '@/hooks/use-webrtc';
-import { cn } from '@/lib/utils';
 
 export function IncomingCallDialog() {
-  const uiState = useCallStore((state) => state.uiState);
-  const activeCall = useCallStore((state) => state.activeCall);
-  const incomingCallerId = useCallStore((state) => state.incomingCallerId);
-  const incomingCallerName = useCallStore((state) => state.incomingCallerName);
-  const incomingCallType = useCallStore((state) => state.incomingCallType);
-  const incomingOfferSdp = useCallStore((state) => state.incomingOfferSdp);
-  const acceptCallState = useCallStore((state) => state.acceptCall);
-  const declineCallState = useCallStore((state) => state.declineCall);
-  const setLocalStream = useCallStore((state) => state.setLocalStream);
+  const incomingCall = useCallStore((state) => state.incomingCall);
+  const setIncomingCall = useCallStore((state) => state.setIncomingCall);
+  const setActiveCall = useCallStore((state) => state.setActiveCall);
+  const resetCall = useCallStore((state) => state.resetCall);
 
-  const user = useAuthStore((state) => state.user);
-  const { sendCallEnd } = useSocket();
-  const acceptCallMutation = useAcceptCall();
-  const declineCallMutation = useDeclineCall();
-  const addParticipant = useAddCallParticipant();
-  const { answerCall, cleanup: cleanupWebRTC } = useWebRTC();
+  const handleDecline = useCallback(() => {
+    resetCall();
+  }, [resetCall]);
 
-  const isOpen = uiState === 'incoming' && activeCall !== null;
-
-  const handleAccept = useCallback(async () => {
-    if (!activeCall || !incomingCallerId || !incomingOfferSdp || !user) return;
-
-    try {
-      // 1. Acquire local media
-      const constraints: MediaStreamConstraints = {
-        audio: true,
-        video: incomingCallType === 'VIDEO',
-      };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      setLocalStream(stream);
-
-      // 2. Mark as connected on the server
-      await acceptCallMutation.mutateAsync(activeCall.id);
-
-      // 3. Add ourselves as a participant
-      addParticipant.mutate({ callId: activeCall.id, userId: user.id });
-
-      // 4. Transition to connecting state
-      acceptCallState();
-
-      // 5. Create WebRTC peer connection, set remote offer, generate answer, send via WS
-      await answerCall(activeCall.id, incomingCallerId, stream, incomingOfferSdp);
-    } catch (error) {
-      console.error('Failed to accept call:', error);
-      handleDecline();
+  const handleAccept = useCallback(() => {
+    if (!incomingCall) {
+      return;
     }
-  }, [
-    activeCall,
-    incomingCallerId,
-    incomingOfferSdp,
-    incomingCallType,
-    user,
-    setLocalStream,
-    acceptCallMutation,
-    addParticipant,
-    acceptCallState,
-    answerCall,
-  ]);
 
-  const handleDecline = useCallback(async () => {
-    if (!activeCall) return;
-
-    try {
-      await declineCallMutation.mutateAsync(activeCall.id);
-      sendCallEnd(activeCall.id, 'DECLINED');
-    } catch (error) {
-      console.error('Failed to decline call:', error);
-    } finally {
-      cleanupWebRTC();
-      declineCallState();
-    }
-  }, [activeCall, declineCallMutation, sendCallEnd, cleanupWebRTC, declineCallState]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const audio = new Audio('/sounds/ringtone.mp3');
-    audio.loop = true;
-    audio.play().catch(() => {
-      // autoplay may be blocked
+    setActiveCall({
+      call_id: incomingCall.call_id,
+      conversation_id: incomingCall.conversation_id,
+      type: incomingCall.type,
+      initiator_id: incomingCall.initiated_by,
+      started_at: incomingCall.started_at,
+      status: 'connecting',
     });
-
-    return () => {
-      audio.pause();
-      audio.currentTime = 0;
-    };
-  }, [isOpen]);
+    setIncomingCall(null);
+  }, [incomingCall, setActiveCall, setIncomingCall]);
 
   return (
-    <Dialog open={isOpen}>
-      <DialogContent
-        showCloseButton={false}
-        className="bg-background/95 border-border backdrop-blur-xl sm:max-w-md"
-      >
+    <Dialog open={Boolean(incomingCall)} onOpenChange={(open) => (!open ? handleDecline() : undefined)}>
+      <DialogContent showCloseButton={false} className="border-border/70 bg-background/95 backdrop-blur-xl sm:max-w-md">
         <DialogHeader className="items-center space-y-4">
           <div className="relative">
-            <div className="absolute inset-0 animate-ping rounded-full bg-primary/30" />
-            <div className="absolute inset-0 animate-pulse rounded-full bg-primary/20" />
-            <UserAvatar
-              user={{
-                id: incomingCallerId || '',
-                display_name: incomingCallerName || 'Unknown',
-              }}
-              size="xl"
-              className="relative"
-            />
+            <div className="absolute inset-0 animate-ping rounded-full bg-primary/20" />
+            <UserAvatar size="xl" className="relative" user={{ display_name: 'Incoming caller' }} />
           </div>
           <div className="text-center">
-            <DialogTitle className="text-xl text-foreground">
-              {incomingCallerName || 'Unknown'}
-            </DialogTitle>
+            <DialogTitle className="text-xl text-foreground">Incoming encrypted call</DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Incoming {incomingCallType === 'VIDEO' ? 'video' : 'voice'} call...
+              {incomingCall ? `A ${incomingCall.type === 'VIDEO' ? 'video' : 'voice'} call is waiting.` : 'No active incoming call.'}
             </DialogDescription>
           </div>
         </DialogHeader>
@@ -141,12 +60,7 @@ export function IncomingCallDialog() {
             variant="destructive"
             size="icon-lg"
             onClick={handleDecline}
-            disabled={declineCallMutation.isPending}
-            className={cn(
-              'h-16 w-16 rounded-full',
-              'bg-destructive hover:bg-destructive/90',
-              'shadow-lg shadow-destructive/20'
-            )}
+            className="h-16 w-16 rounded-full shadow-lg shadow-destructive/20"
           >
             <PhoneOff className="h-7 w-7" />
           </Button>
@@ -154,18 +68,9 @@ export function IncomingCallDialog() {
           <Button
             size="icon-lg"
             onClick={handleAccept}
-            disabled={acceptCallMutation.isPending}
-            className={cn(
-              'h-16 w-16 rounded-full',
-              'bg-green-500 hover:bg-green-600 text-white',
-              'shadow-lg shadow-green-500/20'
-            )}
+            className="h-16 w-16 rounded-full bg-green-500 text-white shadow-lg shadow-green-500/20 hover:bg-green-600"
           >
-            {incomingCallType === 'VIDEO' ? (
-              <Video className="h-7 w-7" />
-            ) : (
-              <Phone className="h-7 w-7" />
-            )}
+            {incomingCall?.type === 'VIDEO' ? <Video className="h-7 w-7" /> : <Phone className="h-7 w-7" />}
           </Button>
         </div>
       </DialogContent>

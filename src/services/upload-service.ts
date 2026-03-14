@@ -1,78 +1,90 @@
-import { apiClient } from './api-client';
-import { ApiResponse, Upload } from '@/types';
+import type { AxiosProgressEvent } from 'axios';
+import { apiClient, getUploadProgress, unwrapData } from '@/services/api-client';
+import { API_ROUTES } from '@/lib/constants';
+import type {
+  Attachment,
+  AttachmentViewedPayload,
+  CreateAttachmentRequest,
+  MessageAttachmentsPayload,
+  UploadedFile,
+  UploadedFilesPayload,
+} from '@/types';
 
-export interface CreateUploadRequest {
-  file_name: string;
-  file_size: number;
-  content_type: string;
-  uploader_id: string;
+function normalizeAttachment(attachment: Attachment): Attachment {
+  return {
+    ...attachment,
+    filename: attachment.filename ?? null,
+    viewed_at: attachment.viewed_at ?? null,
+    thumbnail_url: attachment.thumbnail_url ?? null,
+    width: attachment.width ?? null,
+    height: attachment.height ?? null,
+    duration_seconds: attachment.duration_seconds ?? null,
+  };
 }
 
-export interface UpdateUploadProgressRequest {
-  uploaded_bytes: number;
+export async function uploadEncryptedBlob(
+  blob: Blob,
+  filename: string,
+  onProgress?: (progress: number) => void
+): Promise<UploadedFile> {
+  const formData = new FormData();
+  formData.append('file', blob, filename);
+
+  return unwrapData<UploadedFile>(
+    apiClient.post(API_ROUTES.uploads.single, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (event: AxiosProgressEvent) => {
+        onProgress?.(getUploadProgress(event));
+      },
+    })
+  );
 }
 
-export const uploadService = {
-  create: async (data: CreateUploadRequest): Promise<ApiResponse<Upload & { upload_url: string }>> => {
-    return apiClient.post('/v1/uploads', data);
-  },
+export async function uploadEncryptedBlobs(
+  files: Array<{ blob: Blob; filename: string }>,
+  onProgress?: (progress: number) => void
+): Promise<UploadedFilesPayload> {
+  const formData = new FormData();
 
-  getById: async (uploadId: string): Promise<ApiResponse<Upload>> => {
-    return apiClient.get(`/v1/uploads/${uploadId}`);
-  },
+  for (const file of files) {
+    formData.append('files', file.blob, file.filename);
+  }
 
-  updateProgress: async (
-    uploadId: string,
-    data: UpdateUploadProgressRequest
-  ): Promise<ApiResponse<Upload>> => {
-    return apiClient.post(`/v1/uploads/${uploadId}/progress`, data);
-  },
+  return unwrapData<UploadedFilesPayload>(
+    apiClient.post(API_ROUTES.uploads.bulk, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (event: AxiosProgressEvent) => {
+        onProgress?.(getUploadProgress(event));
+      },
+    })
+  );
+}
 
-  markComplete: async (uploadId: string): Promise<ApiResponse<Upload>> => {
-    return apiClient.post(`/v1/uploads/${uploadId}/complete`);
-  },
+export async function createAttachment(input: CreateAttachmentRequest): Promise<Attachment> {
+  const attachment = await unwrapData<Attachment>(apiClient.post(API_ROUTES.uploads.attachments, input));
+  return normalizeAttachment(attachment);
+}
 
-  markFailed: async (uploadId: string): Promise<ApiResponse<void>> => {
-    return apiClient.post(`/v1/uploads/${uploadId}/fail`);
-  },
+export async function getAttachment(attachmentId: string): Promise<Attachment> {
+  const attachment = await unwrapData<Attachment>(apiClient.get(API_ROUTES.uploads.attachment(attachmentId)));
+  return normalizeAttachment(attachment);
+}
 
-  delete: async (uploadId: string): Promise<ApiResponse<void>> => {
-    return apiClient.delete(`/v1/uploads/${uploadId}`);
-  },
+export async function markAttachmentViewed(attachmentId: string): Promise<AttachmentViewedPayload> {
+  return unwrapData<AttachmentViewedPayload>(apiClient.post(API_ROUTES.uploads.viewed(attachmentId)));
+}
 
-  list: async (
-    uploaderId: string,
-    page = 1,
-    limit = 20
-  ): Promise<ApiResponse<{ uploads: Upload[]; total: number }>> => {
-    return apiClient.get('/v1/uploads', {
-      params: { uploader_id: uploaderId, page, limit },
-    });
-  },
+export async function listMessageAttachments(messageId: string): Promise<Attachment[]> {
+  const payload = await unwrapData<MessageAttachmentsPayload>(apiClient.get(API_ROUTES.messages.attachments(messageId)));
+  return payload.attachments.map(normalizeAttachment);
+}
 
-  listCompleted: async (uploaderId: string, page = 1, limit = 20): Promise<ApiResponse<{ uploads: Upload[] }>> => {
-    return apiClient.get('/v1/uploads/completed', {
-      params: { uploader_id: uploaderId, page, limit },
-    });
-  },
+export async function downloadEncryptedAttachment(url: string): Promise<Blob> {
+  const response = await fetch(url);
 
-  listInProgress: async (uploaderId: string): Promise<ApiResponse<{ uploads: Upload[] }>> => {
-    return apiClient.get('/v1/uploads/in-progress', {
-      params: { uploader_id: uploaderId },
-    });
-  },
+  if (!response.ok) {
+    throw new Error('Unable to download encrypted attachment.');
+  }
 
-  listStale: async (
-    olderThanSec: number
-  ): Promise<ApiResponse<{ uploads: Upload[] }>> => {
-    return apiClient.get('/v1/uploads/stale', {
-      params: { older_than_sec: olderThanSec },
-    });
-  },
-
-  deleteStale: async (olderThanSec: number): Promise<ApiResponse<{ deleted: number }>> => {
-    return apiClient.delete('/v1/uploads/stale', {
-      params: { older_than_sec: olderThanSec },
-    });
-  },
-};
+  return response.blob();
+}

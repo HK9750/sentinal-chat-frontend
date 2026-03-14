@@ -46,15 +46,15 @@ export function PrivacyTab() {
 
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label className="text-slate-200">Last Seen</Label>
+            <Label className="text-slate-200">Compact Mode</Label>
             <p className="text-sm text-slate-500">
-              Show when you were last active
+              Tighten spacing across dense conversation surfaces
             </p>
           </div>
           <Switch
-            checked={settings?.privacy_last_seen === 'EVERYONE'}
+            checked={settings?.compact_mode ?? false}
             onCheckedChange={(checked) =>
-              handleToggle('privacy_last_seen', checked ? 'EVERYONE' : 'NOBODY')
+              handleToggle('compact_mode', checked)
             }
           />
         </div>

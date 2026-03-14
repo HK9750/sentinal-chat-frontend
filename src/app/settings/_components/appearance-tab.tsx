@@ -11,7 +11,7 @@ export function AppearanceTab() {
   const updateSettings = useUpdateSettings();
 
   const handleThemeChange = useCallback(
-    async (theme: 'LIGHT' | 'DARK' | 'SYSTEM') => {
+    async (theme: 'light' | 'dark' | 'system') => {
       await updateSettings.mutateAsync({ theme });
     },
     [updateSettings]
@@ -31,8 +31,8 @@ export function AppearanceTab() {
           <div className="grid grid-cols-3 gap-4">
             <Button
               type="button"
-              variant={settings?.theme === 'LIGHT' ? 'default' : 'outline'}
-              onClick={() => handleThemeChange('LIGHT')}
+              variant={settings?.theme === 'light' ? 'default' : 'outline'}
+              onClick={() => handleThemeChange('light')}
               className="h-auto py-4 flex flex-col gap-2 border-slate-700"
             >
               <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-300" />
@@ -40,8 +40,8 @@ export function AppearanceTab() {
             </Button>
             <Button
               type="button"
-              variant={settings?.theme === 'DARK' ? 'default' : 'outline'}
-              onClick={() => handleThemeChange('DARK')}
+              variant={settings?.theme === 'dark' ? 'default' : 'outline'}
+              onClick={() => handleThemeChange('dark')}
               className="h-auto py-4 flex flex-col gap-2 border-slate-700"
             >
               <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-700" />
@@ -49,8 +49,8 @@ export function AppearanceTab() {
             </Button>
             <Button
               type="button"
-              variant={settings?.theme === 'SYSTEM' ? 'default' : 'outline'}
-              onClick={() => handleThemeChange('SYSTEM')}
+              variant={settings?.theme === 'system' ? 'default' : 'outline'}
+              onClick={() => handleThemeChange('system')}
               className="h-auto py-4 flex flex-col gap-2 border-slate-700"
             >
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-100 to-slate-900 border border-slate-400" />

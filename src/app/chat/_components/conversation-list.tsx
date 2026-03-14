@@ -1,102 +1,109 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useConversations } from '@/queries/use-conversation-queries';
-import { ConversationItem, ConversationListSkeleton } from './conversation-item';
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
+import { MessageSquarePlus, Search, Settings } from 'lucide-react';
 import { SearchInput } from '@/components/shared/search-input';
 import { UserMenu } from '@/components/shared/user-menu';
 import { NewConversationDialog } from '@/components/shared/new-conversation-dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Settings, MessageSquarePlus } from 'lucide-react';
-import Link from 'next/link';
+import { getConversationSubtitle, getConversationTitle } from '@/lib/utils';
+import { useConversations } from '@/queries/use-conversation-queries';
+import { useAuthStore } from '@/stores/auth-store';
+import { ConversationItem, ConversationListSkeleton } from './conversation-item';
 
-export function ConversationList() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const selectedId = searchParams.get('conversation');
-  const searchQuery = searchParams.get('search') || '';
-  const [newChatOpen, setNewChatOpen] = useState(false);
+interface ConversationListProps {
+  selectedConversationId: string | null;
+}
 
-  const { data: conversations, isLoading } = useConversations();
+export function ConversationList({ selectedConversationId }: ConversationListProps) {
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const [query, setQuery] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const conversationsQuery = useConversations();
 
   const filteredConversations = useMemo(() => {
-    if (!searchQuery || !conversations) return conversations;
-    const query = searchQuery.toLowerCase();
-    return conversations.filter(
-      (conv) =>
-        conv.subject?.toLowerCase().includes(query) ||
-        conv.description?.toLowerCase().includes(query) ||
-        conv.last_message?.content?.toLowerCase().includes(query)
-    );
-  }, [conversations, searchQuery]);
+    const conversations = conversationsQuery.data?.items ?? [];
+    const normalizedQuery = query.trim().toLowerCase();
 
-  const handleSelect = (id: string) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('conversation', id);
-    router.push(`?${params.toString()}`, { scroll: false });
-  };
+    if (!normalizedQuery) {
+      return conversations;
+    }
 
-  const handleSearch = (value: string) => {
-    const params = new URLSearchParams(searchParams);
-    if (value) params.set('search', value);
-    else params.delete('search');
-    router.push(`?${params.toString()}`, { scroll: false });
-  };
+    return conversations.filter((conversation) => {
+      const haystack = [
+        getConversationTitle(conversation, currentUserId),
+        getConversationSubtitle(conversation, currentUserId),
+        conversation.description ?? '',
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(normalizedQuery);
+    });
+  }, [conversationsQuery.data?.items, currentUserId, query]);
 
   return (
-    <div className="flex flex-col h-full bg-background border-r">
-      <div className="p-4 border-b">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <svg className="w-5 h-5 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            </div>
-            <h1 className="text-lg font-semibold text-foreground">Sentinel Chat</h1>
+    <div className="flex min-h-full w-full flex-col">
+      <div className="border-b border-border/70 px-4 py-4">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <p className="section-kicker">Sentinel</p>
+            <h1 className="mt-1 text-xl font-semibold tracking-[-0.04em]">Conversations</h1>
           </div>
           <UserMenu />
         </div>
 
-        <div className="flex gap-2">
-          <SearchInput value={searchQuery} onChange={handleSearch} placeholder="Search conversations..." className="flex-1" />
-          <Button size="icon" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-accent shrink-0" onClick={() => setNewChatOpen(true)}>
-            <MessageSquarePlus className="h-5 w-5" />
+        <div className="flex items-center gap-2">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Search titles, people, and notes"
+            className="flex-1"
+          />
+          <Button type="button" variant="outline" size="icon" className="rounded-full" onClick={() => setDialogOpen(true)}>
+            <MessageSquarePlus className="size-4" />
           </Button>
-          <Button size="icon" variant="ghost" className="text-muted-foreground hover:text-foreground shrink-0" asChild>
+          <Button asChild type="button" variant="outline" size="icon" className="rounded-full">
             <Link href="/settings">
-              <Settings className="h-5 w-5" />
+              <Settings className="size-4" />
             </Link>
           </Button>
         </div>
       </div>
 
+      <div className="border-b border-border/70 px-4 py-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <Search className="size-3.5" />
+          Search is local to loaded conversation metadata right now.
+        </div>
+      </div>
+
       <ScrollArea className="flex-1">
-        {isLoading ? (
+        {conversationsQuery.isLoading ? (
           <ConversationListSkeleton />
-        ) : filteredConversations?.length === 0 ? (
-          <div className="p-8 text-center">
-            <p className="text-muted-foreground text-sm">
-              {searchQuery ? 'No conversations found' : 'No conversations yet'}
+        ) : filteredConversations.length === 0 ? (
+          <div className="px-6 py-12 text-center">
+            <p className="text-sm font-medium">{query ? 'No matching conversations' : 'No conversations yet'}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {query ? 'Try another search term.' : 'Create a new encrypted conversation to get started.'}
             </p>
           </div>
         ) : (
-          <div className="pb-4">
-            {filteredConversations?.map((conversation) => (
+          <div className="px-2 py-2">
+            {filteredConversations.map((conversation) => (
               <ConversationItem
                 key={conversation.id}
                 conversation={conversation}
-                isSelected={selectedId === conversation.id}
-                onClick={() => handleSelect(conversation.id)}
+                isSelected={selectedConversationId === conversation.id}
               />
             ))}
           </div>
         )}
       </ScrollArea>
 
-      <NewConversationDialog open={newChatOpen} onOpenChange={setNewChatOpen} />
+      <NewConversationDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }

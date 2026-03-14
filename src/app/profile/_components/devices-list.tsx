@@ -25,7 +25,7 @@ export function DevicesList() {
           )}
           {devices?.map((device) => (
             <div
-              key={device.id}
+              key={device.session_id}
               className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50"
             >
               <div className="flex items-center gap-3">
@@ -34,21 +34,21 @@ export function DevicesList() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-200">
-                    {device.device_name}
+                    {device.name}
                   </p>
                   <p className="text-xs text-slate-500 capitalize">
-                    {device.device_type}
+                    {device.type}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {device.is_active ? (
+                {device.is_current ? (
                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-500">
-                    Active
+                    Current
                   </span>
                 ) : (
                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-700 text-slate-400">
-                    Offline
+                    Saved
                   </span>
                 )}
               </div>

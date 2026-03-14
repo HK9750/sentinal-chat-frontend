@@ -1,15 +1,13 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { Search, X, Loader2, MessageSquare, ArrowUp, ArrowDown } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { UserAvatar } from '@/components/shared/user-avatar';
-import { useSearchMessages } from '@/queries/use-message-queries';
-import { useDebounce } from '@/hooks/use-debounce';
-import { cn, formatRelativeTime } from '@/lib/utils';
-import type { Message } from '@/types';
+import { useDecryptedMessages } from '@/hooks/use-decrypted-messages';
+import { getMessageSearchText, getMessagePrimaryText } from '@/lib/message-payload';
+import { formatRelativeTime } from '@/lib/utils';
 
 interface MessageSearchPanelProps {
   conversationId: string;
@@ -18,227 +16,131 @@ interface MessageSearchPanelProps {
   onNavigateToMessage: (messageId: string) => void;
 }
 
-export function MessageSearchPanel({
-  conversationId,
-  isOpen,
-  onClose,
-  onNavigateToMessage,
-}: MessageSearchPanelProps) {
+export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigateToMessage }: MessageSearchPanelProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const debouncedQuery = useDebounce(query, 300);
+  const messages = useDecryptedMessages(conversationId);
 
-  const { data: results, isLoading } = useSearchMessages(
-    conversationId,
-    debouncedQuery
-  );
+  const results = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
 
-  useEffect(() => {
-    if (isOpen) {
-      inputRef.current?.focus();
+    if (!normalized) {
+      return [];
     }
-  }, [isOpen]);
 
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [results]);
+    return messages.items.filter((item) => getMessageSearchText(item.decrypted).includes(normalized));
+  }, [messages.items, query]);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (!results?.length) return;
+  const clampedSelectedIndex = results.length === 0 ? 0 : Math.min(selectedIndex, results.length - 1);
 
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1));
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIndex((prev) => Math.max(prev - 1, 0));
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        const selected = results[selectedIndex];
-        if (selected) {
-          onNavigateToMessage(selected.message.id);
-        }
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      }
-    },
-    [results, selectedIndex, onNavigateToMessage, onClose]
-  );
-
-  const handleNavigatePrev = useCallback(() => {
-    if (!results?.length) return;
-    setSelectedIndex((prev) => Math.max(prev - 1, 0));
-    const selected = results[Math.max(selectedIndex - 1, 0)];
-    if (selected) {
-      onNavigateToMessage(selected.message.id);
-    }
-  }, [results, selectedIndex, onNavigateToMessage]);
-
-  const handleNavigateNext = useCallback(() => {
-    if (!results?.length) return;
-    setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1));
-    const selected = results[Math.min(selectedIndex + 1, results.length - 1)];
-    if (selected) {
-      onNavigateToMessage(selected.message.id);
-    }
-  }, [results, selectedIndex, onNavigateToMessage]);
-
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   return (
-    <div className="absolute top-0 right-0 w-80 h-full bg-background/95 border-l border-border backdrop-blur-xl flex flex-col z-10">
-      <div className="p-3 border-b border-border">
+    <div className="absolute inset-y-0 right-0 z-20 flex w-full max-w-sm flex-col border-l border-border/70 bg-background/92 backdrop-blur-xl">
+      <div className="border-b border-border/70 p-4">
         <div className="flex items-center gap-2">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              ref={inputRef}
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Search in conversation..."
-              className="pl-10 pr-10 bg-background border-input text-foreground text-sm"
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setSelectedIndex(0);
+              }}
+              placeholder="Search loaded decrypted messages"
+              className="h-11 pl-10 pr-10"
             />
-            {query && (
+            {query ? (
               <Button
+                type="button"
                 variant="ghost"
-                size="icon"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-foreground"
-                onClick={() => setQuery('')}
+                size="icon-xs"
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+                onClick={() => {
+                  setQuery('');
+                  setSelectedIndex(0);
+                }}
               >
-                <X className="h-3 w-3" />
+                <X className="size-3.5" />
               </Button>
-            )}
+            ) : null}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground h-8 w-8"
-          >
-            <X className="h-4 w-4" />
+          <Button type="button" variant="ghost" size="icon" onClick={onClose}>
+            <X className="size-4" />
           </Button>
         </div>
 
-        {results && results.length > 0 && (
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-xs text-muted-foreground">
-              {selectedIndex + 1} of {results.length} results
+        {results.length > 0 ? (
+          <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              {clampedSelectedIndex + 1} of {results.length}
             </span>
             <div className="flex gap-1">
               <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleNavigatePrev}
-                disabled={selectedIndex === 0}
-                className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                type="button"
+                variant="outline"
+                size="icon-xs"
+                disabled={clampedSelectedIndex === 0}
+                onClick={() => {
+                  const nextIndex = Math.max(clampedSelectedIndex - 1, 0);
+                  setSelectedIndex(nextIndex);
+                  onNavigateToMessage(results[nextIndex].message.id);
+                }}
               >
-                <ArrowUp className="h-3 w-3" />
+                <ArrowUp className="size-3.5" />
               </Button>
               <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleNavigateNext}
-                disabled={selectedIndex === results.length - 1}
-                className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                type="button"
+                variant="outline"
+                size="icon-xs"
+                disabled={clampedSelectedIndex === results.length - 1}
+                onClick={() => {
+                  const nextIndex = Math.min(clampedSelectedIndex + 1, results.length - 1);
+                  setSelectedIndex(nextIndex);
+                  onNavigateToMessage(results[nextIndex].message.id);
+                }}
               >
-                <ArrowDown className="h-3 w-3" />
+                <ArrowDown className="size-3.5" />
               </Button>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
-      <ScrollArea className="flex-1">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      <ScrollArea className="flex-1 p-2">
+        {query.trim().length < 2 ? (
+          <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+            Type at least two characters to search the messages that are already loaded on this device.
           </div>
-        ) : debouncedQuery.length < 2 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-            <Search className="h-8 w-8 mb-2 opacity-50" />
-            <p className="text-sm">Type to search messages</p>
-          </div>
-        ) : results?.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-            <MessageSquare className="h-8 w-8 mb-2 opacity-50" />
-            <p className="text-sm">No messages found</p>
-          </div>
+        ) : results.length === 0 ? (
+          <div className="px-4 py-10 text-center text-sm text-muted-foreground">No matches in the currently loaded message history.</div>
         ) : (
-          <div className="py-2">
-            {results?.map((result, index) => (
-              <SearchResultItem
+          <div className="space-y-2">
+            {results.map((result, index) => (
+              <button
                 key={result.message.id}
-                message={result.message}
-                highlight={result.highlight}
-                isSelected={index === selectedIndex}
+                type="button"
                 onClick={() => {
                   setSelectedIndex(index);
                   onNavigateToMessage(result.message.id);
                 }}
-              />
+                className={`w-full rounded-[20px] border px-3 py-3 text-left transition-colors ${
+                  index === clampedSelectedIndex ? 'border-primary/35 bg-primary/8' : 'border-border/60 hover:bg-background/60'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">{getMessagePrimaryText(result.decrypted)}</p>
+                  <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                    {formatRelativeTime(result.message.created_at)}
+                  </span>
+                </div>
+              </button>
             ))}
           </div>
         )}
       </ScrollArea>
     </div>
-  );
-}
-
-function SearchResultItem({
-  message,
-  highlight,
-  isSelected,
-  onClick,
-}: {
-  message: Message;
-  highlight?: string;
-  isSelected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'w-full px-3 py-2 text-left transition-colors',
-        isSelected
-          ? 'bg-primary/20 border-l-2 border-primary'
-          : 'hover:bg-muted border-l-2 border-transparent'
-      )}
-    >
-      <div className="flex items-start gap-2">
-        {message.sender && (
-          <UserAvatar
-            user={message.sender}
-            size="xs"
-            className="shrink-0 mt-0.5"
-          />
-        )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium text-foreground truncate">
-              {message.sender?.display_name || 'Unknown'}
-            </span>
-            <span className="text-xs text-muted-foreground shrink-0">
-              {formatRelativeTime(message.created_at)}
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground line-clamp-2 mt-0.5">
-            {highlight ? (
-              <span
-                dangerouslySetInnerHTML={{
-                  __html: highlight,
-                }}
-              />
-            ) : (
-              message.content || message.ciphertext || '[Encrypted]'
-            )}
-          </p>
-        </div>
-      </div>
-    </button>
   );
 }

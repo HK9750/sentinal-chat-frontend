@@ -1,38 +1,55 @@
-/**
- * UTF-8 safe base64 encode/decode utilities.
- *
- * The native `btoa()` / `atob()` functions only handle Latin1 characters
- * (code points 0–255). They throw `InvalidCharacterError` on any multi-byte
- * UTF-8 character such as emoji (😀), accented characters (é), or CJK scripts.
- *
- * These helpers first encode the string to UTF-8 bytes via TextEncoder,
- * then base64-encode the raw bytes. This is compatible with Go's
- * `encoding/base64.StdEncoding` on the backend, which operates on raw bytes.
- */
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
 
-/**
- * Encode a UTF-8 string to a base64 string.
- * Safe for emoji and all Unicode code points.
- */
-export function utf8ToBase64(str: string): string {
-    const bytes = new TextEncoder().encode(str);
-    // Convert Uint8Array to a binary string that btoa can handle
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
+function encodeBinary(binary: string): string {
+  if (typeof btoa === 'function') {
     return btoa(binary);
+  }
+
+  return Buffer.from(binary, 'binary').toString('base64');
 }
 
-/**
- * Decode a base64 string back to a UTF-8 string.
- * Safe for emoji and all Unicode code points.
- */
-export function base64ToUtf8(base64: string): string {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-    }
-    return new TextDecoder().decode(bytes);
+function decodeBinary(base64: string): string {
+  if (typeof atob === 'function') {
+    return atob(base64);
+  }
+
+  return Buffer.from(base64, 'base64').toString('binary');
+}
+
+export function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return encodeBinary(binary);
+}
+
+export function base64ToBytes(base64: string): Uint8Array {
+  const binary = decodeBinary(base64);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return bytes;
+}
+
+export function stringToBase64(value: string): string {
+  return bytesToBase64(textEncoder.encode(value));
+}
+
+export function base64ToString(value: string): string {
+  return textDecoder.decode(base64ToBytes(value));
+}
+
+export function jsonToBase64<T>(value: T): string {
+  return stringToBase64(JSON.stringify(value));
+}
+
+export function base64ToJson<T>(value: string): T {
+  return JSON.parse(base64ToString(value)) as T;
 }

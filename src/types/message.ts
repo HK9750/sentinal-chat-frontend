@@ -1,82 +1,130 @@
-export type MessageType =
-  | 'text'
-  | 'image'
-  | 'video'
-  | 'audio'
-  | 'file'
-  | 'location'
-  | 'contact'
-  | 'poll';
+import type {
+  SecureMessagePayload,
+  SecureTextPayload,
+  SecureFilePayload,
+  SecureAudioPayload,
+  SecureSystemPayload,
+} from '@/types/encryption';
+import type { Attachment, BackendMessageAttachment } from '@/types/upload';
 
-export interface Message {
+export type MessageType = 'TEXT' | 'AUDIO' | 'FILE' | 'POLL' | 'SYSTEM';
+export type DeliveryStatus = 'SENT' | 'DELIVERED' | 'READ' | 'PLAYED';
+
+export interface MessageSummary {
   id: string;
-  conversation_id: string;
   sender_id: string;
-  client_message_id?: string;
-  sequence_number: number;
-  message_type?: MessageType;
-  content?: string;
-  metadata?: Record<string, unknown> | string;
-  is_forwarded?: boolean;
-  is_deleted: boolean;
-  is_edited: boolean;
-  reply_to_msg_id?: string;
-  poll_id?: string;
-  mention_count?: number;
+  kind: string;
   created_at: string;
-  updated_at?: string;
-  edited_at?: string;
-  deleted_at?: string;
-  ciphertext?: string;
-  header?: string | Record<string, unknown>;
-  recipient_device_id?: string;
-  sender_device_id?: string;
-  sender?: {
-    id: string;
-    display_name: string;
-    avatar_url?: string;
-  };
+  seq_id: number;
+  deleted_at?: string | null;
 }
 
-export interface MessageCiphertext {
-  id: string;
-  message_id: string;
-  recipient_user_id: string;
-  recipient_device_id: string;
-  sender_device_id?: string;
-  ciphertext: string;
-  header?: string | Record<string, unknown>;
-  created_at: string;
+export interface MessageReceipt {
+  user_id: string;
+  status: DeliveryStatus;
+  delivered_at?: string | null;
+  read_at?: string | null;
+  played_at?: string | null;
+  updated_at: string;
 }
 
 export interface MessageReaction {
-  id: string;
-  message_id: string;
   user_id: string;
   reaction_code: string;
   created_at: string;
 }
 
-export interface MessageReceipt {
-  message_id: string;
-  user_id: string;
-  status: 'PENDING' | 'DELIVERED' | 'READ' | 'PLAYED';
-  delivered_at?: string;
-  read_at?: string;
-  played_at?: string;
-  updated_at: string;
+export interface PollOption {
+  id: string;
+  text: string;
+  position: number;
+  votes: number;
 }
 
-export interface MessageMention {
-  message_id: string;
-  user_id: string;
-  offset: number;
-  length: number;
+export interface Poll {
+  id: string;
+  question: string;
+  allows_multiple: boolean;
+  closes_at?: string | null;
+  closed: boolean;
+  options: PollOption[];
+  my_votes?: string[];
 }
 
-export interface StarredMessage {
-  user_id: string;
-  message_id: string;
-  starred_at: string;
-  message?: Message;
+export interface BackendMessage {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  client_message_id?: string | null;
+  seq_id: number;
+  type: MessageType;
+  encrypted_content?: string | null;
+  is_forwarded: boolean;
+  reply_to_msg_id?: string | null;
+  mention_count: number;
+  created_at: string;
+  edited_at?: string | null;
+  deleted_at?: string | null;
+  expires_at?: string | null;
+  attachments?: BackendMessageAttachment[];
+  receipts?: MessageReceipt[];
+  reactions?: MessageReaction[];
+  poll?: Poll | null;
+  pinned: boolean;
+  is_starred: boolean;
 }
+
+export interface Message extends Omit<BackendMessage, 'attachments'> {
+  attachments: Attachment[];
+}
+
+export interface MessagesPayload {
+  items: Message[];
+}
+
+export interface DecryptedMessageState {
+  status: 'ready' | 'missing-key' | 'error' | 'empty';
+  payload?: SecureMessagePayload;
+  error?: string;
+}
+
+export interface MessageDraft {
+  text: string;
+  files: File[];
+  reply_to_message_id?: string;
+}
+
+export interface SendMessageFrameData {
+  client_message_id: string;
+  type: MessageType;
+  encrypted_content: string;
+  attachment_ids?: string[];
+  reply_to_msg_id?: string;
+  expires_at?: string;
+}
+
+export interface EditMessageFrameData {
+  message_id: string;
+  encrypted_content: string;
+  expires_at?: string;
+}
+
+export interface DeleteMessageFrameData {
+  message_id: string;
+}
+
+export interface ReceiptFrameData {
+  message_ids: string[];
+  up_to_seq_id?: number;
+}
+
+export interface ReactionFrameData {
+  message_id: string;
+  reaction_code: string;
+}
+
+export type MessagePayloadByKind =
+  | SecureTextPayload
+  | SecureFilePayload
+  | SecureAudioPayload
+  | SecureSystemPayload;

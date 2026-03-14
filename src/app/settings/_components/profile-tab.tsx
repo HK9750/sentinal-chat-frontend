@@ -23,8 +23,8 @@ export function ProfileTab() {
 
       await updateProfile.mutateAsync({
         display_name: formData.get('display_name') as string,
-        status: formData.get('status') as string,
-        bio: formData.get('bio') as string,
+        email: formData.get('email') as string,
+        phone_number: formData.get('phone_number') as string,
       });
     },
     [updateProfile]
@@ -75,37 +75,37 @@ export function ProfileTab() {
               <Label htmlFor="username" className="text-slate-300">
                 Username
               </Label>
-              <Input
-                id="username"
-                defaultValue={profile?.username || user?.username}
-                disabled
-                className="bg-slate-800/50 border-slate-700 text-slate-500"
-              />
+                <Input
+                  id="username"
+                  defaultValue={profile?.username || user?.username || ''}
+                  disabled
+                  className="bg-slate-800/50 border-slate-700 text-slate-500"
+                />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="status" className="text-slate-300">
-              Status
+            <Label htmlFor="email" className="text-slate-300">
+              Email
             </Label>
             <Input
-              id="status"
-              name="status"
-              defaultValue={profile?.status || ''}
-              placeholder="What's on your mind?"
+              id="email"
+              name="email"
+              defaultValue={profile?.email || user?.email || ''}
+              placeholder="name@example.com"
               className="bg-slate-800 border-slate-700 text-slate-200"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="bio" className="text-slate-300">
-              Bio
+            <Label htmlFor="phone_number" className="text-slate-300">
+              Phone Number
             </Label>
             <Input
-              id="bio"
-              name="bio"
-              defaultValue={profile?.bio || ''}
-              placeholder="Tell us about yourself"
+              id="phone_number"
+              name="phone_number"
+              defaultValue={profile?.phone_number || user?.phone_number || ''}
+              placeholder="Optional"
               className="bg-slate-800 border-slate-700 text-slate-200"
             />
           </div>

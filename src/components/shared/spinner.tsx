@@ -1,3 +1,4 @@
+import { LoaderCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SpinnerProps {
@@ -5,24 +6,12 @@ interface SpinnerProps {
   className?: string;
 }
 
-const sizeClasses = {
-  sm: 'h-4 w-4 border-2',
-  md: 'h-8 w-8 border-2',
-  lg: 'h-10 w-10 border-3',
+const sizeClassMap = {
+  sm: 'size-4',
+  md: 'size-6',
+  lg: 'size-9',
 } as const;
 
 export function Spinner({ size = 'md', className }: SpinnerProps) {
-  return (
-    <div
-      className={cn(
-        'animate-spin rounded-full border-muted border-t-primary',
-        sizeClasses[size],
-        className
-      )}
-      role="status"
-      aria-label="Loading"
-    >
-      <span className="sr-only">Loading...</span>
-    </div>
-  );
+  return <LoaderCircle className={cn('animate-spin text-primary', sizeClassMap[size], className)} />;
 }

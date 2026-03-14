@@ -1,53 +1,50 @@
 import { z } from 'zod';
-import { VALIDATION } from './constants';
+import { MAX_MESSAGE_BYTES } from '@/lib/constants';
 
 export const loginSchema = z.object({
-  identity: z.string().min(1, 'Email or username is required'),
-  password: z.string().min(1, 'Password is required'),
+  identifier: z.string().trim().min(1, 'Enter your email, username, or phone number.'),
+  password: z.string().min(8, 'Password must be at least 8 characters.'),
 });
 
 export const registerSchema = z
   .object({
-    email: z.email('Invalid email address'),
-    username: z
-      .string()
-      .min(VALIDATION.USERNAME_MIN_LENGTH, `Username must be at least ${VALIDATION.USERNAME_MIN_LENGTH} characters`)
-      .max(VALIDATION.USERNAME_MAX_LENGTH, `Username must be at most ${VALIDATION.USERNAME_MAX_LENGTH} characters`)
-      .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
-    display_name: z
-      .string()
-      .max(VALIDATION.DISPLAY_NAME_MAX_LENGTH, `Display name must be at most ${VALIDATION.DISPLAY_NAME_MAX_LENGTH} characters`)
-      .optional(),
-    password: z
-      .string()
-      .min(VALIDATION.PASSWORD_MIN_LENGTH, `Password must be at least ${VALIDATION.PASSWORD_MIN_LENGTH} characters`),
-    confirmPassword: z.string(),
+    display_name: z.string().trim().min(2, 'Display name is too short.').max(255),
+    email: z.string().trim().email().optional().or(z.literal('')),
+    username: z.string().trim().min(3).max(64).optional().or(z.literal('')),
+    phone_number: z.string().trim().max(32).optional().or(z.literal('')),
+    password: z.string().min(8, 'Password must be at least 8 characters.'),
+    confirm_password: z.string().min(8, 'Confirm your password.'),
   })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'Passwords do not match',
-    path: ['confirmPassword'],
+  .superRefine((value, context) => {
+    if (!value.email && !value.username && !value.phone_number) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['email'],
+        message: 'Provide at least one identifier: email, username, or phone number.',
+      });
+    }
+
+    if (value.password !== value.confirm_password) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['confirm_password'],
+        message: 'Passwords do not match.',
+      });
+    }
   });
 
-export const profileSchema = z.object({
-  display_name: z
-    .string()
-    .max(VALIDATION.DISPLAY_NAME_MAX_LENGTH, `Display name must be at most ${VALIDATION.DISPLAY_NAME_MAX_LENGTH} characters`)
-    .optional(),
-  status: z
-    .string()
-    .max(VALIDATION.STATUS_MAX_LENGTH, `Status must be at most ${VALIDATION.STATUS_MAX_LENGTH} characters`)
-    .optional(),
-  bio: z
-    .string()
-    .max(VALIDATION.BIO_MAX_LENGTH, `Bio must be at most ${VALIDATION.BIO_MAX_LENGTH} characters`)
-    .optional(),
+export const conversationSchema = z.object({
+  type: z.enum(['DM', 'GROUP']),
+  subject: z.string().trim().max(255).optional().or(z.literal('')),
+  description: z.string().trim().max(255).optional().or(z.literal('')),
+  participant_ids: z.array(z.string().uuid('Use valid participant UUIDs.')).min(1),
+  disappearing_mode: z.enum(['OFF', '24_HOURS', '7_DAYS', '90_DAYS']).default('OFF'),
 });
 
-export const messageSchema = z.object({
-  content: z.string().min(1, 'Message cannot be empty').max(4096, 'Message is too long'),
+export const messageComposerSchema = z.object({
+  text: z.string().max(MAX_MESSAGE_BYTES, 'Message is too large.'),
 });
 
-export type LoginInput = z.infer<typeof loginSchema>;
-export type RegisterInput = z.infer<typeof registerSchema>;
-export type ProfileInput = z.infer<typeof profileSchema>;
-export type MessageInput = z.infer<typeof messageSchema>;
+export const accessCodeSchema = z.object({
+  code: z.string().trim().min(10, 'Paste a valid conversation access code.'),
+});

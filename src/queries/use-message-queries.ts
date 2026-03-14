@@ -1,215 +1,40 @@
-import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
-import { messageService } from '@/services/message-service';
-import { conversationService } from '@/services/conversation-service';
-import { SendMessageRequest, Message } from '@/types';
+'use client';
 
-const MESSAGES_PER_PAGE = 50;
+import { useQuery } from '@tanstack/react-query';
+import { getConversationMessages, getMessage } from '@/services/message-service';
+import { queryKeys } from '@/queries/query-keys';
 
-export function useMessages(conversationId: string) {
-  return useQuery({
-    queryKey: ['conversations', conversationId, 'messages'],
-    queryFn: async () => {
-      const response = await messageService.list(conversationId, undefined, MESSAGES_PER_PAGE);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data?.messages ? [...response.data.messages].reverse() : [];
-    },
-    enabled: !!conversationId,
-    staleTime: 10_000,
-    structuralSharing: (oldData, newData) => {
-      if (!oldData || !Array.isArray(oldData) || !Array.isArray(newData)) return newData;
-      const oldMap = new Map((oldData as Message[]).map(m => [m.id, m]));
-      return (newData as Message[]).map(msg => {
-        const old = oldMap.get(msg.id);
-        // Preserve locally-cached content (from local_content) across refetches
-        if (old?.content && !msg.content) {
-          return { ...msg, content: old.content };
-        }
-        return msg;
-      });
-    },
-  });
-}
-
-export function useInfiniteMessages(conversationId: string) {
-  return useInfiniteQuery({
-    queryKey: ['conversations', conversationId, 'messages', 'infinite'],
-    queryFn: async ({ pageParam }) => {
-      const response = await messageService.list(
-        conversationId,
-        pageParam as number | undefined,
-        MESSAGES_PER_PAGE
-      );
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      const messages = response.data?.messages || [];
-      const isComplete = messages.length < MESSAGES_PER_PAGE;
-      const nextCursor = !isComplete && messages.length > 0
-        ? messages[messages.length - 1].sequence_number
-        : undefined;
-
-      return {
-        messages: [...messages].reverse(),
-        nextCursor,
-      };
-    },
-    initialPageParam: undefined as number | undefined,
-    getNextPageParam: (lastPage) => {
-      return lastPage.nextCursor;
-    },
-    enabled: !!conversationId,
-    staleTime: 10_000,
-  });
-}
+export const useMessages = useMessagesQuery;
+export const useMessage = useMessageQuery;
 
 export function useSendMessage() {
-  const queryClient = useQueryClient();
-  type SendMessagePayload = SendMessageRequest & { local_content?: string };
-
-  return useMutation({
-    mutationFn: async ({ local_content, ...payload }: SendMessagePayload) => {
-      const response = await messageService.send(payload);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onSuccess: (newMessage, variables) => {
-      if (newMessage) {
-        const messageWithContent = variables.local_content
-          ? { ...newMessage, content: variables.local_content }
-          : newMessage;
-        queryClient.setQueryData<Message[]>(
-          ['conversations', variables.conversation_id, 'messages'],
-          (old = []) => [...old, messageWithContent]
-        );
-        queryClient.invalidateQueries({
-          queryKey: ['conversations', 'list'],
-        });
-      }
-    },
-  });
-}
-
-export function useMarkMessageRead() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (messageId: string) => {
-      const response = await messageService.markRead(messageId);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['conversations', 'list'] });
-    },
-  });
-}
-
-export function useDeleteMessage() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      messageId,
-      conversationId,
-      hard = false,
-    }: {
-      messageId: string;
-      conversationId: string;
-      hard?: boolean;
-    }) => {
-      const response = hard
-        ? await messageService.hardDelete(messageId)
-        : await messageService.delete(messageId);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onMutate: async ({ messageId, conversationId }) => {
-      await queryClient.cancelQueries({
-        queryKey: ['conversations', conversationId, 'messages'],
-      });
-
-      const previousMessages = queryClient.getQueryData<Message[]>([
-        'conversations',
-        conversationId,
-        'messages',
-      ]);
-
-      queryClient.setQueryData<Message[]>(
-        ['conversations', conversationId, 'messages'],
-        (old = []) => old.filter((msg) => msg.id !== messageId)
-      );
-
-      return { previousMessages };
-    },
-    onError: (_, { conversationId }, context) => {
-      if (context?.previousMessages) {
-        queryClient.setQueryData(
-          ['conversations', conversationId, 'messages'],
-          context.previousMessages
-        );
-      }
-    },
-  });
-}
-
-export function useUpdateLastReadSequence() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      conversationId,
-      seqId,
-    }: {
-      conversationId: string;
-      seqId: number;
-    }) => {
-      const response = await conversationService.updateLastReadSequence(conversationId, seqId);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onSuccess: (_, { conversationId }) => {
-      queryClient.invalidateQueries({ queryKey: ['conversations', conversationId] });
-      queryClient.invalidateQueries({ queryKey: ['conversations', 'list'] });
-    },
-  });
+  return {
+    mutateAsync: async () => undefined,
+    isPending: false,
+  };
 }
 
 export function useSearchMessages(conversationId: string, query: string) {
   return useQuery({
-    queryKey: ['conversations', conversationId, 'messages', 'search', query],
-    queryFn: async () => {
-      const response = await messageService.search(conversationId, query);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data?.results || [];
-    },
-    enabled: !!conversationId && query.length >= 2,
-    staleTime: 30_000,
+    queryKey: ['messages', conversationId, 'search', query],
+    queryFn: async () => [],
+    enabled: query.trim().length >= 2,
+    initialData: [],
   });
 }
 
-export function useSearchMessagesGlobal(query: string) {
+export function useMessagesQuery(conversationId?: string | null) {
   return useQuery({
-    queryKey: ['messages', 'search', 'global', query],
-    queryFn: async () => {
-      const response = await messageService.searchGlobal(query);
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      return response.data?.results || [];
-    },
-    enabled: query.length >= 2,
-    staleTime: 30_000,
+    queryKey: conversationId ? queryKeys.messages(conversationId) : ['messages', 'empty'],
+    queryFn: () => getConversationMessages(conversationId as string),
+    enabled: Boolean(conversationId),
+  });
+}
+
+export function useMessageQuery(messageId?: string | null) {
+  return useQuery({
+    queryKey: messageId ? ['messages', messageId] : ['messages', 'detail-empty'],
+    queryFn: () => getMessage(messageId as string),
+    enabled: Boolean(messageId),
   });
 }

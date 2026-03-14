@@ -1,39 +1,16 @@
+import { APP_LIMITATIONS, APP_NAME } from '@/lib/constants';
 
 export const siteConfig = {
-  name: 'Sentinel Chat',
-  description: 'Secure end-to-end encrypted messaging platform',
-  
-  nav: {
-    main: [
-      { label: 'Home', href: '/' },
-      { label: 'Features', href: '/#features' },
-    ],
-    auth: {
-      login: { label: 'Sign In', href: '/login' },
-      register: { label: 'Get Started', href: '/register' },
-    },
-  },
-  
-  links: {
-    github: 'https://github.com/sentinel-chat',
-    twitter: 'https://twitter.com/sentinelchat',
-  },
-  
-  seo: {
-    title: 'Sentinel Chat',
-    titleTemplate: '%s | Sentinel Chat',
-    description: 'Secure end-to-end encrypted messaging platform',
-    keywords: ['chat', 'messaging', 'secure', 'encrypted', 'privacy', 'e2ee'],
-    openGraph: {
-      type: 'website',
-      locale: 'en_US',
-      siteName: 'Sentinel Chat',
-    },
-  },
-  
-  features: {
-    videoCalls: true,
-    voiceCalls: true,
-    groupBroadcasts: false,
-  },
+  name: APP_NAME,
+  title: 'Encrypted conversations, designed with intention',
+  description:
+    'A shadcn-based chat workspace for encrypted text, files, voice notes, and resilient realtime signaling.',
+  keywords: ['chat', 'encrypted', 'websocket', 'voice notes', 'webrtc', 'privacy'],
+  navigation: [
+    { label: 'Chat', href: '/chat' },
+    { label: 'Profile', href: '/profile' },
+    { label: 'Settings', href: '/settings' },
+    { label: 'Broadcasts', href: '/broadcasts' },
+  ],
+  limitations: APP_LIMITATIONS,
 } as const;

@@ -1,49 +1,68 @@
+'use client';
+
 import { create } from 'zustand';
 
 interface ChatState {
-  typingUsers: Map<string, string[]>;
-  
-  setTypingUsers: (conversationId: string, userIds: string[]) => void;
-  addTypingUser: (conversationId: string, userId: string) => void;
-  removeTypingUser: (conversationId: string, userId: string) => void;
-  clearTypingUsers: (conversationId: string) => void;
+  selectedConversationId: string | null;
+  drafts: Record<string, string>;
+  typingByConversation: Record<string, Record<string, number>>;
+  setSelectedConversationId: (conversationId: string | null) => void;
+  setDraft: (conversationId: string, draft: string) => void;
+  clearDraft: (conversationId: string) => void;
+  markTyping: (conversationId: string, userId: string, active: boolean) => void;
+  pruneTyping: () => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
-  typingUsers: new Map(),
-
-  setTypingUsers: (conversationId, userIds) =>
+  selectedConversationId: null,
+  drafts: {},
+  typingByConversation: {},
+  setSelectedConversationId: (selectedConversationId) => set({ selectedConversationId }),
+  setDraft: (conversationId, draft) =>
+    set((state) => ({
+      drafts: {
+        ...state.drafts,
+        [conversationId]: draft,
+      },
+    })),
+  clearDraft: (conversationId) =>
     set((state) => {
-      const newTypingUsers = new Map(state.typingUsers);
-      newTypingUsers.set(conversationId, userIds);
-      return { typingUsers: newTypingUsers };
+      const nextDrafts = { ...state.drafts };
+      delete nextDrafts[conversationId];
+      return { drafts: nextDrafts };
     }),
-
-  addTypingUser: (conversationId, userId) =>
+  markTyping: (conversationId, userId, active) =>
     set((state) => {
-      const newTypingUsers = new Map(state.typingUsers);
-      const existing = newTypingUsers.get(conversationId) || [];
-      if (!existing.includes(userId)) {
-        newTypingUsers.set(conversationId, [...existing, userId]);
+      const currentConversation = { ...(state.typingByConversation[conversationId] ?? {}) };
+
+      if (active) {
+        currentConversation[userId] = Date.now() + 4_000;
+      } else {
+        delete currentConversation[userId];
       }
-      return { typingUsers: newTypingUsers };
-    }),
 
-  removeTypingUser: (conversationId, userId) =>
-    set((state) => {
-      const newTypingUsers = new Map(state.typingUsers);
-      const existing = newTypingUsers.get(conversationId) || [];
-      newTypingUsers.set(
-        conversationId,
-        existing.filter((id) => id !== userId)
-      );
-      return { typingUsers: newTypingUsers };
+      return {
+        typingByConversation: {
+          ...state.typingByConversation,
+          [conversationId]: currentConversation,
+        },
+      };
     }),
-
-  clearTypingUsers: (conversationId) =>
+  pruneTyping: () =>
     set((state) => {
-      const newTypingUsers = new Map(state.typingUsers);
-      newTypingUsers.delete(conversationId);
-      return { typingUsers: newTypingUsers };
+      const now = Date.now();
+      const nextTyping: ChatState['typingByConversation'] = {};
+
+      for (const [conversationId, users] of Object.entries(state.typingByConversation)) {
+        const activeUsers = Object.fromEntries(
+          Object.entries(users).filter(([, expiresAt]) => expiresAt > now)
+        );
+
+        if (Object.keys(activeUsers).length > 0) {
+          nextTyping[conversationId] = activeUsers;
+        }
+      }
+
+      return { typingByConversation: nextTyping };
     }),
 }));

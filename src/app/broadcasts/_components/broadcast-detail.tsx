@@ -1,261 +1,111 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { ArrowLeft, Plus, Trash2, Users, Search, UserPlus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { AlertTriangle, CheckCircle2, RadioTower, Sparkles } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { UserAvatar } from '@/components/shared/user-avatar';
-import {
-  useBroadcastRecipients,
-  useAddBroadcastRecipient,
-  useRemoveBroadcastRecipient,
-  useUpdateBroadcast,
-} from '@/queries/use-broadcast-queries';
-import type { Broadcast } from '@/types/broadcast';
-import { cn } from '@/lib/utils';
+import type { BroadcastDetail as BroadcastDetailType } from '@/types';
 
 interface BroadcastDetailProps {
-  broadcast: Broadcast;
-  onBack: () => void;
+  broadcast: BroadcastDetailType | null;
+  isLoading?: boolean;
 }
 
-export function BroadcastDetail({ broadcast, onBack }: BroadcastDetailProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [addRecipientDialogOpen, setAddRecipientDialogOpen] = useState(false);
-  const [newRecipientId, setNewRecipientId] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(broadcast.name);
-  const [editDescription, setEditDescription] = useState(broadcast.description || '');
+export function BroadcastDetail({ broadcast, isLoading = false }: BroadcastDetailProps) {
+  if (isLoading) {
+    return (
+      <section className="flex min-h-[calc(100vh-2rem)] items-center justify-center px-6 py-10">
+        <p className="text-sm text-muted-foreground">Loading broadcast context...</p>
+      </section>
+    );
+  }
 
-  const { data: recipients, isLoading } = useBroadcastRecipients(broadcast.id);
-  const addRecipient = useAddBroadcastRecipient();
-  const removeRecipient = useRemoveBroadcastRecipient();
-  const updateBroadcast = useUpdateBroadcast();
-
-  const filteredRecipients = recipients?.filter((r) =>
-    r.username?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleAddRecipient = useCallback(async () => {
-    if (!newRecipientId.trim()) return;
-
-    try {
-      await addRecipient.mutateAsync({
-        broadcastId: broadcast.id,
-        userId: newRecipientId.trim(),
-      });
-      setAddRecipientDialogOpen(false);
-      setNewRecipientId('');
-    } catch (error) {
-      console.error('Failed to add recipient:', error);
-    }
-  }, [newRecipientId, broadcast.id, addRecipient]);
-
-  const handleRemoveRecipient = useCallback(async (userId: string) => {
-    try {
-      await removeRecipient.mutateAsync({
-        broadcastId: broadcast.id,
-        userId,
-      });
-    } catch (error) {
-      console.error('Failed to remove recipient:', error);
-    }
-  }, [broadcast.id, removeRecipient]);
-
-  const handleSaveEdit = useCallback(async () => {
-    try {
-      await updateBroadcast.mutateAsync({
-        broadcastId: broadcast.id,
-        data: {
-          name: editName.trim(),
-          description: editDescription.trim() || undefined,
-        },
-      });
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Failed to update broadcast:', error);
-    }
-  }, [broadcast.id, editName, editDescription, updateBroadcast]);
+  if (!broadcast) {
+    return (
+      <section className="flex min-h-[calc(100vh-2rem)] items-center justify-center px-6 py-10">
+        <p className="text-sm text-muted-foreground">Select a broadcast note to inspect its current status.</p>
+      </section>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-4 p-4 border-b border-slate-800">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onBack}
-          className="text-slate-400 hover:text-white"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-
-        {isEditing ? (
-          <div className="flex-1 flex items-center gap-2">
-            <Input
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              className="bg-slate-800/50 border-slate-700 text-slate-200"
-            />
-            <Button
-              onClick={handleSaveEdit}
-              disabled={updateBroadcast.isPending}
-              className="bg-blue-600 hover:bg-blue-500"
-            >
-              Save
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsEditing(false);
-                setEditName(broadcast.name);
-                setEditDescription(broadcast.description || '');
-              }}
-              className="border-slate-600 text-slate-300"
-            >
-              Cancel
-            </Button>
+    <section className="flex min-h-[calc(100vh-2rem)] flex-col">
+      <div className="border-b border-border/70 px-6 py-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="section-kicker">Broadcast detail</p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em]">{broadcast.title}</h2>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{broadcast.description}</p>
           </div>
-        ) : (
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold text-slate-100">{broadcast.name}</h1>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsEditing(true)}
-                className="text-slate-400 hover:text-white"
-              >
-                Edit
-              </Button>
-            </div>
-            {broadcast.description && (
-              <p className="text-sm text-slate-400">{broadcast.description}</p>
-            )}
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="capitalize">
+              {broadcast.status}
+            </Badge>
+            <Badge variant="outline">{broadcast.audience}</Badge>
           </div>
-        )}
-
-        <Button
-          onClick={() => setAddRecipientDialogOpen(true)}
-          className="bg-blue-600 hover:bg-blue-500"
-        >
-          <UserPlus className="h-4 w-4 mr-2" />
-          Add Recipient
-        </Button>
-      </div>
-
-      <div className="p-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search recipients..."
-            className="pl-10 bg-slate-800/50 border-slate-700 text-slate-200"
-          />
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-600 border-t-blue-500" />
+      <div className="grid flex-1 gap-4 px-6 py-6 xl:grid-cols-[minmax(0,1.4fr)_320px]">
+        <Card className="surface-panel rounded-[26px] border-border/70 p-5">
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl bg-primary/10 p-2 text-primary">
+              <RadioTower className="size-4" />
+            </div>
+            <div>
+              <h3 className="font-semibold">Why this page exists</h3>
+              <p className="text-sm text-muted-foreground">
+                The frontend keeps the route visible, but avoids fake create, edit, or recipient flows until backend support is real.
+              </p>
+            </div>
           </div>
-        ) : filteredRecipients?.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-            <Users className="h-12 w-12 mb-4 opacity-50" />
-            <p>No recipients in this list</p>
-            <p className="text-sm mt-1">Add contacts to send broadcasts to</p>
-          </div>
-        ) : (
-          filteredRecipients?.map((recipient) => (
-            <Card
-              key={recipient.user_id}
-              className={cn(
-                'p-3 bg-slate-800/50 border-slate-700',
-                'flex items-center justify-between'
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <UserAvatar
-                  user={{
-                    id: recipient.user_id,
-                    display_name: recipient.username || 'User',
-                    avatar_url: recipient.avatar_url,
-                  }}
-                  size="sm"
-                />
-                <div>
-                  <p className="font-medium text-slate-200">
-                    {recipient.username || 'Unknown User'}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Added {new Date(recipient.added_at).toLocaleDateString()}
-                  </p>
-                </div>
+
+          <div className="mt-5 space-y-3">
+            {broadcast.notes.map((note) => (
+              <div key={note} className="rounded-[20px] border border-border/70 bg-background/60 px-4 py-3 text-sm text-muted-foreground">
+                {note}
               </div>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleRemoveRecipient(recipient.user_id)}
-                disabled={removeRecipient.isPending}
-                className="text-slate-400 hover:text-red-400"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </Card>
-          ))
-        )}
-      </div>
-
-      <Dialog open={addRecipientDialogOpen} onOpenChange={setAddRecipientDialogOpen}>
-        <DialogContent className="bg-slate-900 border-slate-700">
-          <DialogHeader>
-            <DialogTitle className="text-slate-100">Add Recipient</DialogTitle>
-            <DialogDescription className="text-slate-400">
-              Add a contact to this broadcast list by entering their user ID.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-4">
-            <label className="text-sm font-medium text-slate-300 mb-2 block">
-              User ID
-            </label>
-            <Input
-              value={newRecipientId}
-              onChange={(e) => setNewRecipientId(e.target.value)}
-              placeholder="Enter user ID"
-              className="bg-slate-800/50 border-slate-700 text-slate-200"
-            />
+            ))}
           </div>
+        </Card>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setAddRecipientDialogOpen(false)}
-              className="border-slate-600 text-slate-300"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddRecipient}
-              disabled={!newRecipientId.trim() || addRecipient.isPending}
-              className="bg-blue-600 hover:bg-blue-500"
-            >
-              Add Recipient
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+        <div className="space-y-4">
+          <Card className="surface-panel rounded-[26px] border-border/70 p-5">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="mt-0.5 size-4 text-primary" />
+              <div>
+                <h3 className="font-semibold">Current recommendation</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Use direct conversations or group threads for production messaging until broadcast APIs land.
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="surface-panel rounded-[26px] border-border/70 p-5">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 size-4 text-amber-500" />
+              <div>
+                <h3 className="font-semibold">What is intentionally missing</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Recipient management, composer flows, analytics, and delivery actions stay disabled to avoid drifting away from the backend contract.
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="surface-panel rounded-[26px] border-border/70 p-5">
+            <div className="flex items-start gap-3">
+              <Sparkles className="mt-0.5 size-4 text-primary" />
+              <div>
+                <h3 className="font-semibold">Next rewrite target</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  When backend routes exist, this section can evolve into encrypted broadcast drafting with audited recipient selection.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </section>
   );
 }

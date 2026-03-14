@@ -52,7 +52,7 @@ export default function ProfilePage() {
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={() => logout.mutate()}
+                onClick={() => logout.mutate(undefined)}
                 disabled={logout.isPending}
               >
                 {logout.isPending ? (

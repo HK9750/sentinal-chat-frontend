@@ -1,139 +1,83 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
+import { ArrowLeft, Phone, Search, Video } from 'lucide-react';
+import { UserAvatar } from '@/components/shared/user-avatar';
+import { Button } from '@/components/ui/button';
+import { getConversationTitle, getOtherParticipant } from '@/lib/utils';
 import { useConversation } from '@/queries/use-conversation-queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { useChatStore } from '@/stores/chat-store';
-import { UserAvatar } from '@/components/shared/user-avatar';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import type { CallType } from '@/types/call';
-import { MoreVertical, Phone, Video, ArrowLeft, Search } from 'lucide-react';
-
-const EMPTY_ARRAY: string[] = [];
+import type { CallType } from '@/types';
 
 interface ChatHeaderProps {
-    conversationId: string;
-    onBack?: () => void;
-    onStartCall: (callType: CallType) => void;
-    onOpenSearch: () => void;
+  conversationId: string;
+  onBack?: () => void;
+  onStartCall: (callType: CallType) => void;
+  onOpenSearch: () => void;
 }
 
 export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }: ChatHeaderProps) {
-    const { data: conversation } = useConversation(conversationId);
-    const currentUserId = useAuthStore((state) => state.user?.id);
-    const typingUsers = useChatStore(
-        useCallback(
-            (state) => state.typingUsers.get(conversationId) ?? EMPTY_ARRAY,
-            [conversationId]
-        )
-    );
+  const conversationQuery = useConversation(conversationId);
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const typingByConversation = useChatStore((state) => state.typingByConversation);
+  const typingUserIds = Object.keys(typingByConversation[conversationId] ?? {});
 
-    const otherParticipant = useMemo(() => {
-        if (conversation?.type !== 'DM' || !conversation.participants) return null;
-        return conversation.participants.find((p) => p.user_id !== currentUserId) ?? conversation.participants[0] ?? null;
-    }, [conversation?.type, conversation?.participants, currentUserId]);
+  const conversation = conversationQuery.data;
+  const otherParticipant = conversation ? getOtherParticipant(conversation, currentUserId) : null;
+  const title = conversation ? getConversationTitle(conversation, currentUserId) : 'Conversation';
 
-    const displayName = conversation?.type === 'DM'
-        ? (otherParticipant?.display_name || otherParticipant?.username || 'Chat')
-        : (conversation?.subject || 'Chat');
+  const subtitle = useMemo(() => {
+    if (!conversation) {
+      return 'Loading conversation...';
+    }
 
-    const avatarUrl = conversation?.type === 'DM'
-        ? otherParticipant?.avatar_url
-        : conversation?.avatar_url;
+    if (typingUserIds.length > 0) {
+      return typingUserIds.length === 1 ? 'Someone is typing...' : `${typingUserIds.length} people are typing...`;
+    }
 
-    const avatarFallback = conversation?.type === 'DM'
-        ? (displayName[0]?.toUpperCase() || 'D')
-        : 'G';
+    if (conversation.type === 'DM') {
+      return otherParticipant?.is_online ? 'Online now' : 'Encrypted direct message';
+    }
 
-    const isOnline = otherParticipant?.is_online ?? false;
+    return `${conversation.participants.length} participant${conversation.participants.length === 1 ? '' : 's'}`;
+  }, [conversation, otherParticipant?.is_online, typingUserIds.length]);
 
-    const typingText = useMemo(() => {
-        if (typingUsers.length === 0) return null;
-        if (typingUsers.length === 1) return 'typing...';
-        return `${typingUsers.length} people typing...`;
-    }, [typingUsers]);
+  return (
+    <div className="flex h-18 items-center justify-between border-b border-border/70 px-4">
+      <div className="flex min-w-0 items-center gap-3">
+        {onBack ? (
+          <Button type="button" variant="ghost" size="icon" className="lg:hidden" onClick={onBack}>
+            <ArrowLeft className="size-4" />
+          </Button>
+        ) : null}
 
-    const subtitle = useMemo(() => {
-        if (typingText) return typingText;
-        if (conversation?.type === 'DM') {
-            return isOnline ? 'Online' : 'Offline';
-        }
-        const count = conversation?.participant_count || conversation?.participants?.length || 0;
-        return `${count} participant${count === 1 ? '' : 's'}`;
-    }, [typingText, conversation?.type, conversation?.participant_count, conversation?.participants?.length, isOnline]);
+        <UserAvatar
+          src={conversation?.avatar_url ?? otherParticipant?.avatar_url}
+          alt={title}
+          fallback={title[0]}
+          size="md"
+          showStatus={conversation?.type === 'DM'}
+          isOnline={otherParticipant?.is_online ?? false}
+        />
 
-    return (
-        <div className="h-16 bg-background/80 backdrop-blur-md border-b flex items-center px-4 justify-between shrink-0">
-            <div className="flex items-center gap-3">
-                {onBack && (
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="lg:hidden text-muted-foreground hover:text-foreground"
-                        onClick={onBack}
-                    >
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                )}
-
-                <UserAvatar
-                    src={avatarUrl}
-                    alt={displayName}
-                    fallback={avatarFallback}
-                    size="md"
-                    showStatus={conversation?.type === 'DM'}
-                    isOnline={isOnline}
-                />
-
-                <div className="min-w-0">
-                    <h2 className="text-base font-semibold text-foreground truncate">
-                        {displayName}
-                    </h2>
-                    <p className={`text-xs truncate ${typingText ? 'text-primary' : isOnline && conversation?.type === 'DM' ? 'text-green-500' : 'text-muted-foreground'}`}>
-                        {subtitle}
-                    </p>
-                </div>
-            </div>
-
-            <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={onOpenSearch}>
-                    <Search className="h-5 w-5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={() => onStartCall('AUDIO')}>
-                    <Phone className="h-5 w-5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={() => onStartCall('VIDEO')}>
-                    <Video className="h-5 w-5" />
-                </Button>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                            <MoreVertical className="h-5 w-5" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem>View Info</DropdownMenuItem>
-                        <DropdownMenuItem onClick={onOpenSearch}>
-                            <Search className="h-4 w-4 mr-2" />
-                            Search Messages
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>Mute Notifications</DropdownMenuItem>
-                        {conversation?.type === 'GROUP' && (
-                            <>
-                                <Separator />
-                                <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">Leave Group</DropdownMenuItem>
-                            </>
-                        )}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
+        <div className="min-w-0">
+          <p className="truncate text-base font-semibold tracking-[-0.03em]">{title}</p>
+          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
         </div>
-    );
+      </div>
+
+      <div className="flex items-center gap-1">
+        <Button type="button" variant="ghost" size="icon" onClick={onOpenSearch}>
+          <Search className="size-4" />
+        </Button>
+        <Button type="button" variant="ghost" size="icon" onClick={() => onStartCall('AUDIO')}>
+          <Phone className="size-4" />
+        </Button>
+        <Button type="button" variant="ghost" size="icon" onClick={() => onStartCall('VIDEO')}>
+          <Video className="size-4" />
+        </Button>
+      </div>
+    </div>
+  );
 }

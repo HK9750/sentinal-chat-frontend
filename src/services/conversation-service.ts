@@ -1,102 +1,40 @@
-import { apiClient } from './api-client';
-import {
-  ApiResponse,
+import { apiClient, unwrapData } from '@/services/api-client';
+import { API_ROUTES, CONVERSATIONS_PER_PAGE } from '@/lib/constants';
+import type {
+  AddParticipantRequest,
   Conversation,
-  Participant,
-  ConversationSequence,
+  ConversationClearPayload,
+  ConversationListPayload,
+  ConversationParticipantsPayload,
   CreateConversationRequest,
 } from '@/types';
 
-export const conversationService = {
-  create: async (data: CreateConversationRequest): Promise<ApiResponse<Conversation>> => {
-    return apiClient.post('/v1/conversations', data);
-  },
+export async function listConversations(page = 1, limit = CONVERSATIONS_PER_PAGE): Promise<ConversationListPayload> {
+  return unwrapData<ConversationListPayload>(
+    apiClient.get(API_ROUTES.conversations.list, { params: { page, limit } })
+  );
+}
 
-  list: async (page = 1, limit = 20): Promise<ApiResponse<{ conversations: Conversation[]; total: number }>> => {
-    return apiClient.get('/v1/conversations', { params: { page, limit } });
-  },
+export async function getConversation(conversationId: string): Promise<Conversation> {
+  return unwrapData<Conversation>(apiClient.get(API_ROUTES.conversations.detail(conversationId)));
+}
 
-  getById: async (id: string): Promise<ApiResponse<Conversation>> => {
-    return apiClient.get(`/v1/conversations/${id}`);
-  },
+export async function createConversation(input: CreateConversationRequest): Promise<Conversation> {
+  return unwrapData<Conversation>(apiClient.post(API_ROUTES.conversations.create, input));
+}
 
-  update: async (id: string, data: Partial<Conversation>): Promise<ApiResponse<Conversation>> => {
-    return apiClient.put(`/v1/conversations/${id}`, data);
-  },
+export async function addParticipant(conversationId: string, input: AddParticipantRequest): Promise<Conversation> {
+  return unwrapData<Conversation>(apiClient.post(API_ROUTES.conversations.participants(conversationId), input));
+}
 
-  delete: async (id: string): Promise<ApiResponse<void>> => {
-    return apiClient.delete(`/v1/conversations/${id}`);
-  },
+export async function removeParticipant(conversationId: string, userId: string): Promise<Conversation> {
+  return unwrapData<Conversation>(apiClient.delete(API_ROUTES.conversations.removeParticipant(conversationId, userId)));
+}
 
-  getDirect: async (userId1: string, userId2: string): Promise<ApiResponse<Conversation>> => {
-    return apiClient.get('/v1/conversations/direct', { params: { user_id_1: userId1, user_id_2: userId2 } });
-  },
+export async function listParticipants(conversationId: string): Promise<ConversationParticipantsPayload> {
+  return unwrapData<ConversationParticipantsPayload>(apiClient.get(API_ROUTES.conversations.participants(conversationId)));
+}
 
-  search: async (query: string): Promise<ApiResponse<{ conversations: Conversation[] }>> => {
-    return apiClient.get('/v1/conversations/search', { params: { query } });
-  },
-
-  getByType: async (type: 'DM' | 'GROUP'): Promise<ApiResponse<{ conversations: Conversation[] }>> => {
-    return apiClient.get('/v1/conversations/type', { params: { type } });
-  },
-
-  getByInviteLink: async (link: string): Promise<ApiResponse<Conversation>> => {
-    return apiClient.get('/v1/conversations/invite', { params: { link } });
-  },
-
-  regenerateInviteLink: async (id: string): Promise<ApiResponse<{ invite_link: string }>> => {
-    return apiClient.post(`/v1/conversations/${id}/invite`);
-  },
-
-  addParticipant: async (conversationId: string, userId: string, role?: string): Promise<ApiResponse<void>> => {
-    return apiClient.post(`/v1/conversations/${conversationId}/participants`, { user_id: userId, role });
-  },
-
-  removeParticipant: async (conversationId: string, userId: string): Promise<ApiResponse<void>> => {
-    return apiClient.delete(`/v1/conversations/${conversationId}/participants/${userId}`);
-  },
-
-  listParticipants: async (conversationId: string): Promise<ApiResponse<{ participants: Participant[] }>> => {
-    return apiClient.get(`/v1/conversations/${conversationId}/participants`);
-  },
-
-  updateParticipantRole: async (conversationId: string, userId: string, role: string): Promise<ApiResponse<void>> => {
-    return apiClient.put(`/v1/conversations/${conversationId}/participants/${userId}/role`, { role });
-  },
-
-  mute: async (conversationId: string, until: string): Promise<ApiResponse<void>> => {
-    return apiClient.post(`/v1/conversations/${conversationId}/mute`, { until });
-  },
-
-  unmute: async (conversationId: string): Promise<ApiResponse<void>> => {
-    return apiClient.post(`/v1/conversations/${conversationId}/unmute`);
-  },
-
-  pin: async (conversationId: string): Promise<ApiResponse<void>> => {
-    return apiClient.post(`/v1/conversations/${conversationId}/pin`);
-  },
-
-  unpin: async (conversationId: string): Promise<ApiResponse<void>> => {
-    return apiClient.post(`/v1/conversations/${conversationId}/unpin`);
-  },
-
-  archive: async (conversationId: string): Promise<ApiResponse<void>> => {
-    return apiClient.post(`/v1/conversations/${conversationId}/archive`);
-  },
-
-  unarchive: async (conversationId: string): Promise<ApiResponse<void>> => {
-    return apiClient.post(`/v1/conversations/${conversationId}/unarchive`);
-  },
-
-  updateLastReadSequence: async (conversationId: string, seqId: number): Promise<ApiResponse<void>> => {
-    return apiClient.post(`/v1/conversations/${conversationId}/read-sequence`, { seq_id: seqId });
-  },
-
-  getSequence: async (conversationId: string): Promise<ApiResponse<ConversationSequence>> => {
-    return apiClient.get(`/v1/conversations/${conversationId}/sequence`);
-  },
-
-  incrementSequence: async (conversationId: string): Promise<ApiResponse<ConversationSequence>> => {
-    return apiClient.post(`/v1/conversations/${conversationId}/sequence`);
-  },
-};
+export async function clearConversation(conversationId: string): Promise<ConversationClearPayload> {
+  return unwrapData<ConversationClearPayload>(apiClient.post(API_ROUTES.conversations.clear(conversationId)));
+}

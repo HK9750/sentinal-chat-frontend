@@ -1,157 +1,47 @@
-export * from './user';
+export * from '@/types/broadcast';
+export * from '@/types/call';
+export * from '@/types/conversation';
+export * from '@/types/encryption';
+export * from '@/types/message';
+export * from '@/types/upload';
+export * from '@/types/user';
 
-export * from './message';
-
-export * from './conversation';
-
-export * from './call';
-
-export * from './broadcast';
-
-export * from './upload';
-
-export * from './encryption';
-
-export interface ApiResponse<T> {
+export interface ApiEnvelope<T> {
   success: boolean;
-  data?: T;
+  data: T;
   error?: string;
   code?: string;
 }
 
-export interface PaginatedResponse<T> {
+export interface ItemsPayload<T> {
+  items: T[];
+}
+
+export interface ListPayload<T> {
   items: T[];
   total: number;
-  page: number;
-  limit: number;
-  has_more: boolean;
 }
 
-export interface AuthTokens {
-  access_token: string;
-  refresh_token: string;
-  expires_at: string;
-  session_id: string;
-  device_id?: string;
-}
-
-export interface WebSocketEvent {
+export interface SocketEnvelope<T = unknown> {
   type: string;
-  timestamp: string;
+  request_id?: string;
   user_id?: string;
   conversation_id?: string;
-  payload?: unknown;
+  call_id?: string;
+  sent_at: string;
+  data?: T;
 }
 
-export interface WebSocketMessageNewEvent extends WebSocketEvent {
-  type: 'message:new';
-  payload: {
-    message_id: string;
-    conversation_id: string;
-    sender_id: string;
-    content?: string;
-  };
-}
-
-export interface WebSocketMessageReadEvent extends WebSocketEvent {
-  type: 'message:read';
-  payload: {
-    message_id: string;
-    conversation_id: string;
-    reader_id: string;
-  };
-}
-
-export interface WebSocketTypingEvent extends WebSocketEvent {
-  type: 'typing:started' | 'typing:stopped';
-  payload: {
-    conversation_id: string;
-    user_id: string;
-    display_name: string;
-    is_typing: boolean;
-  };
-}
-
-export interface WebSocketPresenceEvent extends WebSocketEvent {
-  type: 'presence:online' | 'presence:offline';
-  payload: {
-    user_id: string;
-    is_online: boolean;
-    status?: string;
-  };
-}
-
-export interface WebSocketCallEvent extends WebSocketEvent {
-  type: 'call:offer' | 'call:answer' | 'call:ice' | 'call:ended';
-  payload: {
-    call_id: string;
-    from_id: string;
-    to_id: string;
-    signal_type?: string;
-    data?: string;
-    reason?: string;
-  };
-}
-
-export type WebSocketClientMessage =
-  | { type: 'typing:started'; conversation_id: string }
-  | { type: 'typing:stopped'; conversation_id: string }
-  | { type: 'read'; message_id: string }
-  | { type: 'presence:online'; status?: string }
-  | { type: 'ping' };
-
-export interface RegisterRequest {
-  email: string;
-  username: string;
-  phone_number?: string;
-  password: string;
-  display_name?: string;
-  device_id: string;
-  device_name?: string;
-  device_type?: string;
-}
-
-export interface LoginRequest {
-  identity: string;
-  password: string;
-  device_id: string;
-  device_name?: string;
-  device_type?: string;
-}
-
-export interface RefreshRequest {
+export interface ConnectionReadyPayload {
+  user_id: string;
   session_id: string;
-  refresh_token: string;
+  device_id: string;
 }
 
-export interface SendMessageRequest {
-  conversation_id: string;
-  ciphertexts: Array<{
-    recipient_device_id: string;
-    ciphertext: string;
-    header?: Record<string, unknown>;
-  }>;
-  message_type?: string;
-  client_message_id?: string;
-  idempotency_key?: string;
-}
-
-export interface CreateConversationRequest {
-  type: 'DM' | 'GROUP';
-  subject?: string;
-  description?: string;
-  participants: string[];
-}
-
-export interface UpdateProfileRequest {
-  display_name?: string;
-  avatar_url?: string;
-  bio?: string;
-  status?: string;
-}
-
-export interface UpdateSettingsRequest {
-  notifications_enabled?: boolean;
-  theme?: 'LIGHT' | 'DARK' | 'SYSTEM';
-  language?: string;
+export interface ClientSocketFrame<T = unknown> {
+  type: string;
+  request_id?: string;
+  conversation_id?: string;
+  call_id?: string;
+  data?: T;
 }

@@ -1,126 +1,114 @@
 'use client';
 
+import { Download, FileAudio, FileText, ShieldAlert } from 'lucide-react';
 import { UserAvatar } from '@/components/shared/user-avatar';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { cn, formatTime } from '@/lib/utils';
-import { Message } from '@/types';
-import { Check, CheckCheck, Clock } from 'lucide-react';
-
-type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read';
+import { Button } from '@/components/ui/button';
+import { cn, formatTimestamp } from '@/lib/utils';
+import { getMessageAssetManifests, getMessagePrimaryText, isRenderableTextPayload } from '@/lib/message-payload';
+import { openEncryptedAttachment } from '@/services/encryption-service';
+import type { DecryptedMessageState, Message } from '@/types';
 
 interface MessageBubbleProps {
+  conversationId: string;
   message: Message;
+  decrypted: DecryptedMessageState;
   isOwn: boolean;
   showAvatar: boolean;
-  status?: MessageStatus;
+  authorLabel?: string;
+  avatarUrl?: string | null;
 }
 
 export function MessageBubble({
+  conversationId,
   message,
+  decrypted,
   isOwn,
   showAvatar,
-  status = 'sent',
+  authorLabel,
+  avatarUrl,
 }: MessageBubbleProps) {
-  const StatusIcon = {
-    sending: Clock,
-    sent: Check,
-    delivered: CheckCheck,
-    read: CheckCheck,
-  }[status];
+  const payload = decrypted.status === 'ready' ? decrypted.payload : undefined;
+  const manifests = getMessageAssetManifests(payload);
+  const showWarning = decrypted.status === 'missing-key' || decrypted.status === 'error';
 
   return (
-    <div className={cn('flex', isOwn ? 'justify-end' : 'justify-start')}>
+    <div className={cn('flex gap-2', isOwn ? 'justify-end' : 'justify-start')}>
+      {!isOwn ? (
+        showAvatar ? <UserAvatar src={avatarUrl} alt={authorLabel} fallback={authorLabel?.[0] ?? 'U'} size="sm" /> : <div className="size-8 shrink-0" />
+      ) : null}
+
       <div
         className={cn(
-          'flex items-end gap-2 max-w-[75%]',
-          isOwn ? 'flex-row-reverse' : ''
+          'max-w-[78%] rounded-[24px] border px-4 py-3 shadow-sm',
+          isOwn
+            ? 'border-primary/25 bg-primary/12 text-foreground'
+            : 'border-border/70 bg-background/75 text-foreground'
         )}
       >
-        {showAvatar && !isOwn && message.sender ? (
-          <UserAvatar
-            user={message.sender}
-            size="sm"
-            className="shrink-0"
-          />
-        ) : !isOwn ? (
-          <div className="w-8 shrink-0" />
-        ) : null}
+        {!isOwn && showAvatar && authorLabel ? <p className="mb-1 text-xs font-semibold text-primary">{authorLabel}</p> : null}
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div
-              className={cn(
-                'px-4 py-2.5 rounded-2xl relative group',
-                isOwn
-                  ? 'bg-primary text-primary-foreground rounded-br-md'
-                  : 'bg-muted text-foreground rounded-bl-md'
-              )}
-            >
-              {!isOwn && message.sender && showAvatar && (
-                <p className="text-xs font-medium text-primary mb-1">
-                  {message.sender.display_name}
-                </p>
-              )}
-
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                {message.content || (message.ciphertext ? '🔒 Encrypted message' : '[No content]')}
-              </p>
-
-              <div
-                className={cn(
-                  'flex items-center gap-1 mt-1',
-                  isOwn ? 'justify-end' : ''
-                )}
-              >
-                <span
-                  className={cn(
-                    'text-[10px]',
-                    isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                  )}
-                >
-                  {formatTime(message.created_at)}
-                </span>
-
-                {isOwn && (
-                  <StatusIcon
-                    className={cn(
-                      'h-3 w-3',
-                      status === 'read'
-                        ? 'text-primary-foreground'
-                        : 'text-primary-foreground/70',
-                      status === 'sending' && 'animate-pulse'
-                    )}
-                  />
-                )}
-              </div>
-
-              {message.is_edited && (
-                <span
-                  className={cn(
-                    'text-[10px] ml-1',
-                    isOwn ? 'text-primary-foreground/50' : 'text-muted-foreground'
-                  )}
-                >
-                  edited
-                </span>
-              )}
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side={isOwn ? 'left' : 'right'}>
-            <p className="text-xs">
-              {new Date(message.created_at).toLocaleString()}
-            </p>
-            {message.is_edited && message.edited_at && (
-              <p className="text-xs text-muted-foreground/80">
-                Edited: {new Date(message.edited_at).toLocaleString()}
-              </p>
+        <div className="space-y-3">
+          <p className="whitespace-pre-wrap text-sm leading-relaxed">
+            {showWarning ? (
+              <span className="inline-flex items-start gap-2 text-destructive">
+                <ShieldAlert className="mt-0.5 size-4 shrink-0" />
+                {getMessagePrimaryText(decrypted)}
+              </span>
+            ) : (
+              getMessagePrimaryText(decrypted)
             )}
-          </TooltipContent>
-        </Tooltip>
+          </p>
+
+          {payload && !isRenderableTextPayload(payload) ? (
+            <div className="space-y-2">
+              {manifests.map((manifest, index) => {
+                const attachment = message.attachments.find((item) => item.id === manifest.attachment_id) ?? message.attachments[index];
+
+                if (!attachment) {
+                  return null;
+                }
+
+                const isAudio = payload.kind === 'audio';
+
+                return (
+                  <div key={manifest.file_id} className="rounded-2xl border border-border/70 bg-background/55 px-3 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-secondary text-secondary-foreground">
+                          {isAudio ? <FileAudio className="size-4" /> : <FileText className="size-4" />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{manifest.filename}</p>
+                          <p className="text-xs text-muted-foreground">{isAudio ? 'Encrypted voice note' : 'Encrypted file attachment'}</p>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          const blob = await openEncryptedAttachment(conversationId, attachment, manifest);
+                          const url = URL.createObjectURL(blob);
+                          window.open(url, '_blank', 'noopener,noreferrer');
+                          window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                        }}
+                      >
+                        <Download className="size-4" />
+                        Open
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-2 flex items-center justify-end gap-2 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+          {message.edited_at ? <span>Edited</span> : null}
+          <span>{formatTimestamp(message.created_at)}</span>
+        </div>
       </div>
     </div>
   );

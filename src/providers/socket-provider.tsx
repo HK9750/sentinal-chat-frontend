@@ -1,345 +1,172 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useCallback, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { env } from '@/config/env';
+import { useSocketConnection } from '@/hooks/use-socket-connection';
+import { SOCKET_EVENT } from '@/lib/constants';
+import { setServerDeviceId } from '@/lib/device';
+import { queryKeys } from '@/queries/query-keys';
+import { normalizeMessage } from '@/services/message-service';
 import { useAuthStore } from '@/stores/auth-store';
-import { useChatStore } from '@/stores/chat-store';
 import { useCallStore } from '@/stores/call-store';
-import type { WebSocketEvent, WebSocketTypingEvent } from '@/types';
-import type { Call, CallType } from '@/types/call';
+import { useChatStore } from '@/stores/chat-store';
+import type { ConnectionReadyPayload, IncomingCall, Message, SocketEnvelope } from '@/types';
 
-const BASE_RECONNECT_MS = 1_000;
-const MAX_RECONNECT_MS = 30_000;
-const HEARTBEAT_INTERVAL_MS = 25_000;
+type SocketContextValue = ReturnType<typeof useSocketConnection>;
 
-interface BackendCallSignaling {
-  type: string;
-  call_id: string;
-  from_id: string;
-  to_id: string;
-  signal_type: string;
-  data: string;
-  conversation_id?: string;
-}
+const SocketContext = createContext<SocketContextValue | null>(null);
 
-interface SocketContextType {
-  sendTypingStart: (conversationId: string) => void;
-  sendTypingStop: (conversationId: string) => void;
-  sendReadReceipt: (messageId: string) => void;
+function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
+  const queryClient = useQueryClient();
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const markTyping = useChatStore((state) => state.markTyping);
+  const setIncomingCall = useCallStore((state) => state.setIncomingCall);
+  const setActiveCall = useCallStore((state) => state.setActiveCall);
+  const enqueueSignal = useCallStore((state) => state.enqueueSignal);
+  const setCallStatus = useCallStore((state) => state.setCallStatus);
+  const resetCall = useCallStore((state) => state.resetCall);
 
-  sendCallOffer: (callId: string, participantId: string, sdp: RTCSessionDescriptionInit) => void;
-  sendCallAnswer: (callId: string, participantId: string, sdp: RTCSessionDescriptionInit) => void;
-  sendIceCandidate: (callId: string, participantId: string, candidate: RTCIceCandidate) => void;
-  sendCallEnd: (callId: string, reason?: string) => void;
+  useEffect(() => {
+    return socket.subscribe((envelope: SocketEnvelope) => {
+      switch (envelope.type) {
+        case SOCKET_EVENT.connectionReady: {
+          const payload = envelope.data as ConnectionReadyPayload | undefined;
 
-  isConnected: boolean;
-}
+          if (payload?.device_id) {
+            setServerDeviceId(payload.device_id);
+          }
+          break;
+        }
+        case SOCKET_EVENT.typingStarted:
+        case SOCKET_EVENT.typingStopped: {
+          const conversationId = envelope.conversation_id;
+          const userId = (envelope.data as { user_id?: string } | undefined)?.user_id;
 
-const SocketContext = createContext<SocketContextType | null>(null);
+          if (conversationId && userId) {
+            markTyping(conversationId, userId, envelope.type === SOCKET_EVENT.typingStarted);
+          }
+          break;
+        }
+        case SOCKET_EVENT.messageNew:
+        case SOCKET_EVENT.messageEdited:
+        case SOCKET_EVENT.messageDeleted: {
+          const message = (envelope.data as { message?: Message } | undefined)?.message;
 
-export function useSocket() {
-  const context = useContext(SocketContext);
-  if (!context) {
-    throw new Error('useSocket must be used within SocketProvider');
-  }
-  return context;
+          if (!message?.conversation_id) {
+            break;
+          }
+
+          const normalized = normalizeMessage(message as never);
+          queryClient.setQueryData<Message[]>(queryKeys.messages(normalized.conversation_id), (current) => {
+            const existing = current ?? [];
+            const next = existing.filter(
+              (item) => item.id !== normalized.id && item.client_message_id !== normalized.client_message_id
+            );
+            next.push(normalized);
+            return next.sort((left, right) => left.seq_id - right.seq_id);
+          });
+          queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+          break;
+        }
+        case SOCKET_EVENT.messageReaction:
+        case SOCKET_EVENT.messagePinned:
+        case SOCKET_EVENT.messageUnpinned:
+        case SOCKET_EVENT.receiptUpdate:
+        case SOCKET_EVENT.pollUpdate: {
+          if (envelope.conversation_id) {
+            queryClient.invalidateQueries({ queryKey: queryKeys.messages(envelope.conversation_id) });
+            queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+          }
+          break;
+        }
+        case 'conversation:created':
+        case 'conversation:participant_added':
+        case 'conversation:participant_removed':
+        case 'conversation:cleared': {
+          queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+          if (envelope.conversation_id) {
+            queryClient.invalidateQueries({ queryKey: queryKeys.conversation(envelope.conversation_id) });
+          }
+          break;
+        }
+        case SOCKET_EVENT.callIncoming: {
+          const payload = envelope.data as IncomingCall | undefined;
+
+          if (!payload?.call_id || !envelope.conversation_id) {
+            break;
+          }
+
+          if (payload.initiated_by === currentUserId) {
+            setActiveCall({
+              call_id: payload.call_id,
+              conversation_id: envelope.conversation_id,
+              type: payload.type,
+              initiator_id: payload.initiated_by,
+              started_at: payload.started_at,
+              status: 'outgoing',
+            });
+          } else {
+            setIncomingCall({
+              call_id: payload.call_id,
+              conversation_id: envelope.conversation_id,
+              initiated_by: payload.initiated_by,
+              type: payload.type,
+              started_at: payload.started_at,
+            });
+          }
+          break;
+        }
+        case SOCKET_EVENT.callOffer:
+        case SOCKET_EVENT.callAnswer:
+        case SOCKET_EVENT.callIce: {
+          if (!envelope.call_id) {
+            break;
+          }
+
+          enqueueSignal({
+            id: `${envelope.type}:${envelope.call_id}:${envelope.sent_at}`,
+            type: envelope.type as 'call:offer' | 'call:answer' | 'call:ice',
+            call_id: envelope.call_id,
+            conversation_id: envelope.conversation_id,
+            signal: envelope.data as { from_user_id: string; payload: Record<string, unknown> },
+          });
+          break;
+        }
+        case SOCKET_EVENT.callEnded: {
+          const reason = (envelope.data as { reason?: string } | undefined)?.reason;
+          setCallStatus('ended', reason);
+          window.setTimeout(() => {
+            resetCall();
+          }, 500);
+          break;
+        }
+        default:
+          break;
+      }
+    });
+  }, [currentUserId, enqueueSignal, markTyping, queryClient, resetCall, setActiveCall, setCallStatus, setIncomingCall, socket]);
+
+  return null;
 }
 
 export function SocketProvider({ children }: { children: React.ReactNode }) {
-  const queryClient = useQueryClient();
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const attemptRef = useRef(0);
-  const [isConnected, setIsConnected] = useState(false);
-
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const tokens = useAuthStore((state) => state.tokens);
-
-  const addTypingUser = useChatStore((state) => state.addTypingUser);
-  const removeTypingUser = useChatStore((state) => state.removeTypingUser);
-
-  const setIncomingCall = useCallStore((state) => state.setIncomingCall);
-  const endCall = useCallStore((state) => state.endCall);
-
-  const send = useCallback((data: Record<string, unknown>) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(data));
-    }
-  }, []);
-
-  const clearHeartbeat = useCallback(() => {
-    if (heartbeatRef.current) {
-      clearInterval(heartbeatRef.current);
-      heartbeatRef.current = null;
-    }
-  }, []);
-
-  const startHeartbeat = useCallback(() => {
-    clearHeartbeat();
-    heartbeatRef.current = setInterval(() => {
-      send({ type: 'ping' });
-    }, HEARTBEAT_INTERVAL_MS);
-  }, [send, clearHeartbeat]);
-
-  const scheduleReconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) return;
-    const delay = Math.min(BASE_RECONNECT_MS * 2 ** attemptRef.current, MAX_RECONNECT_MS);
-    attemptRef.current += 1;
-    reconnectTimeoutRef.current = setTimeout(() => {
-      reconnectTimeoutRef.current = null;
-      connectRef.current?.();
-    }, delay);
-  }, []);
-
-  const connectRef = useRef<() => void>(undefined);
-
-  const connect = useCallback(() => {
-    const accessToken = tokens?.access_token;
-    if (!accessToken) return;
-    if (
-      wsRef.current?.readyState === WebSocket.OPEN ||
-      wsRef.current?.readyState === WebSocket.CONNECTING
-    ) {
-      return;
-    }
-
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-
-    const wsUrl = `${env.SOCKET_URL}/v1/ws?token=${accessToken}`;
-    const ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => {
-      setIsConnected(true);
-      attemptRef.current = 0;
-      startHeartbeat();
-    };
-
-    ws.onmessage = (event) => {
-      const rawParts = (event.data as string).split('\n');
-
-      for (const rawPart of rawParts) {
-        const trimmed = rawPart.trim();
-        if (!trimmed) continue;
-
-        let data: WebSocketEvent & Record<string, unknown>;
-        try {
-          data = JSON.parse(trimmed) as WebSocketEvent & Record<string, unknown>;
-        } catch (error) {
-          console.warn('Error parsing WebSocket message part:', error, trimmed);
-          continue;
-        }
-
-        switch (data.type) {
-          case 'message:new': {
-            const convId = data.conversation_id as string | undefined;
-            queryClient.invalidateQueries({
-              queryKey: ['conversations', convId, 'messages'],
-            });
-            queryClient.invalidateQueries({
-              queryKey: ['conversations', 'list'],
-            });
-            break;
-          }
-
-          case 'message:read': {
-            const convId = data.conversation_id as string | undefined;
-            queryClient.invalidateQueries({
-              queryKey: ['conversations', convId, 'messages'],
-            });
-            break;
-          }
-
-          case 'message:delivered': {
-            const convId = data.conversation_id as string | undefined;
-            queryClient.invalidateQueries({
-              queryKey: ['conversations', convId, 'messages'],
-            });
-            break;
-          }
-
-          case 'typing:started': {
-            const tp = data as unknown as WebSocketTypingEvent['payload'];
-            addTypingUser(tp.conversation_id, tp.user_id);
-            break;
-          }
-
-          case 'typing:stopped': {
-            const tp = data as unknown as WebSocketTypingEvent['payload'];
-            removeTypingUser(tp.conversation_id, tp.user_id);
-            break;
-          }
-
-          case 'presence:online':
-          case 'presence:offline': {
-            queryClient.invalidateQueries({ queryKey: ['conversations', 'list'] });
-            break;
-          }
-
-          case 'call:offer': {
-            const sig = data as unknown as BackendCallSignaling;
-            const callType: CallType =
-              sig.data && sig.data.includes('m=video') ? 'VIDEO' : 'AUDIO';
-            const incomingCall: Call = {
-              id: sig.call_id,
-              conversation_id: sig.conversation_id || '',
-              type: callType,
-              status: 'RINGING',
-              initiator_id: sig.from_id,
-              created_at: new Date().toISOString(),
-            };
-            setIncomingCall(incomingCall, sig.from_id, '', sig.data);
-            break;
-          }
-
-          case 'call:answer': {
-            const sig = data as unknown as BackendCallSignaling;
-            const pc = useCallStore.getState().peerConnections.get(sig.from_id);
-            if (pc && sig.data) {
-              pc.setRemoteDescription(
-                new RTCSessionDescription({ type: 'answer', sdp: sig.data })
-              );
-            }
-            break;
-          }
-
-          case 'call:ice': {
-            const sig = data as unknown as BackendCallSignaling;
-            const pc = useCallStore.getState().peerConnections.get(sig.from_id);
-            if (pc && sig.data) {
-              try {
-                const parsed = JSON.parse(sig.data) as RTCIceCandidateInit;
-                pc.addIceCandidate(new RTCIceCandidate(parsed));
-              } catch {
-                pc.addIceCandidate(new RTCIceCandidate({ candidate: sig.data }));
-              }
-            }
-            break;
-          }
-
-          case 'call:ended': {
-            endCall();
-            queryClient.invalidateQueries({ queryKey: ['calls'] });
-            break;
-          }
-
-          case 'pong':
-            break;
-
-          default:
-            break;
-        }
-      }
-    };
-
-    ws.onerror = () => {};
-
-    ws.onclose = () => {
-      setIsConnected(false);
-      clearHeartbeat();
-      wsRef.current = null;
-
-      if (useAuthStore.getState().isAuthenticated && useAuthStore.getState().tokens?.access_token) {
-        scheduleReconnect();
-      }
-    };
-
-    wsRef.current = ws;
-  }, [
-    tokens?.access_token,
-    queryClient,
-    addTypingUser,
-    removeTypingUser,
-    setIncomingCall,
-    endCall,
-    startHeartbeat,
-    clearHeartbeat,
-    scheduleReconnect,
-  ]);
-
-  // Keep connectRef up to date
-  connectRef.current = connect;
-
-  useEffect(() => {
-    if (isAuthenticated && tokens?.access_token) {
-      connect();
-    }
-
-    return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-      clearHeartbeat();
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-    };
-  }, [isAuthenticated, tokens?.access_token, connect, clearHeartbeat]);
-
-  const sendTypingStart = useCallback(
-    (conversationId: string) => send({ type: 'typing:start', conversation_id: conversationId }),
-    [send]
-  );
-
-  const sendTypingStop = useCallback(
-    (conversationId: string) => send({ type: 'typing:stop', conversation_id: conversationId }),
-    [send]
-  );
-
-  const sendReadReceipt = useCallback(
-    (messageId: string) => send({ type: 'read', message_id: messageId }),
-    [send]
-  );
-
-  const sendCallOffer = useCallback(
-    (callId: string, participantId: string, sdp: RTCSessionDescriptionInit) =>
-      send({ type: 'call:offer', call_id: callId, participant_id: participantId, sdp: sdp.sdp }),
-    [send]
-  );
-
-  const sendCallAnswer = useCallback(
-    (callId: string, participantId: string, sdp: RTCSessionDescriptionInit) =>
-      send({ type: 'call:answer', call_id: callId, participant_id: participantId, sdp: sdp.sdp }),
-    [send]
-  );
-
-  const sendIceCandidate = useCallback(
-    (callId: string, participantId: string, candidate: RTCIceCandidate) =>
-      send({
-        type: 'call:ice',
-        call_id: callId,
-        participant_id: participantId,
-        candidate: candidate.toJSON(),
-      }),
-    [send]
-  );
-
-  const sendCallEnd = useCallback(
-    (callId: string, reason?: string) =>
-      send({ type: 'call:end', call_id: callId, reason: reason || 'COMPLETED' }),
-    [send]
-  );
+  const socket = useSocketConnection();
+  const value = useMemo(() => socket, [socket]);
 
   return (
-    <SocketContext.Provider
-      value={{
-        sendTypingStart,
-        sendTypingStop,
-        sendReadReceipt,
-        sendCallOffer,
-        sendCallAnswer,
-        sendIceCandidate,
-        sendCallEnd,
-        isConnected,
-      }}
-    >
+    <SocketContext.Provider value={value}>
+      <SocketEventBridge socket={socket} />
       {children}
     </SocketContext.Provider>
   );
+}
+
+export function useSocket() {
+  const context = useContext(SocketContext);
+
+  if (!context) {
+    throw new Error('useSocket must be used within SocketProvider.');
+  }
+
+  return context;
 }

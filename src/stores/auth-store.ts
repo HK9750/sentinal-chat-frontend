@@ -1,77 +1,95 @@
+'use client';
+
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { User, AuthTokens } from '@/types';
-import { setAuthCookie, clearAuthCookie } from '@/lib/cookies';
-import { clearServerDeviceId } from '@/lib/device';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import { STORAGE_KEYS } from '@/lib/constants';
+import { clearAuthCookie, setAuthCookie } from '@/lib/cookies';
+import { clearConversationKeys } from '@/lib/crypto-storage';
+import { clearDeviceState } from '@/lib/device';
+import type { AuthPayload, AuthSession, AuthTokens, AuthUser } from '@/types';
+
+type AuthStatus = 'anonymous' | 'authenticated';
 
 interface AuthState {
-  user: User | null;
+  user: AuthUser | null;
+  session: AuthSession | null;
   tokens: AuthTokens | null;
+  status: AuthStatus;
   isAuthenticated: boolean;
   isHydrated: boolean;
-
-  login: (user: User, tokens: AuthTokens) => void;
-  logout: () => void;
+  setAuth: (payload: AuthPayload) => void;
   updateTokens: (tokens: AuthTokens) => void;
-  setUser: (user: User | null) => void;
-  setHydrated: (hydrated: boolean) => void;
-  updateUser: (updates: Partial<User>) => void;
+  updateUser: (patch: Partial<AuthUser>) => void;
+  clearAuth: () => void;
+  markHydrated: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
+      session: null,
       tokens: null,
+      status: 'anonymous',
       isAuthenticated: false,
       isHydrated: false,
-
-      login: (user, tokens) => {
-        setAuthCookie(tokens.access_token);
+      setAuth: (payload) => {
         set({
-          user,
-          tokens,
+          user: payload.user,
+          session: payload.session,
+          tokens: payload.tokens,
+          status: 'authenticated',
           isAuthenticated: true,
         });
-      },
 
-      logout: () => {
+        setAuthCookie(payload.tokens.access_token, payload.tokens.expires_at);
+      },
+      updateTokens: (tokens) => {
+        set({ tokens, status: 'authenticated', isAuthenticated: true });
+        setAuthCookie(tokens.access_token, tokens.expires_at);
+      },
+      updateUser: (patch) => {
+        set((state) => ({
+          user: state.user
+            ? {
+                ...state.user,
+                ...patch,
+              }
+            : state.user,
+        }));
+      },
+      clearAuth: () => {
         clearAuthCookie();
-        clearServerDeviceId();
+        clearDeviceState();
+        clearConversationKeys();
         set({
           user: null,
+          session: null,
           tokens: null,
+          status: 'anonymous',
           isAuthenticated: false,
         });
       },
-
-      updateTokens: (tokens) => {
-        setAuthCookie(tokens.access_token);
-        set({ tokens });
+      markHydrated: () => {
+        const hasTokens = Boolean(get().tokens?.access_token);
+        set({
+          isHydrated: true,
+          status: hasTokens ? 'authenticated' : 'anonymous',
+          isAuthenticated: hasTokens,
+        });
       },
-
-      setUser: (user) => set({ user }),
-
-      setHydrated: (hydrated) => set({ isHydrated: hydrated }),
-
-      updateUser: (updates) => set((state) => ({
-        user: state.user ? { ...state.user, ...updates } : null,
-      })),
     }),
     {
-      name: 'auth-storage',
+      name: STORAGE_KEYS.auth,
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
+        session: state.session,
         tokens: state.tokens,
-        isAuthenticated: state.isAuthenticated,
+        status: state.status,
       }),
       onRehydrateStorage: () => (state) => {
-        if (state) {
-          state.setHydrated(true);
-          if (state.tokens?.access_token) {
-            setAuthCookie(state.tokens.access_token);
-          }
-        }
+        state?.markHydrated();
       },
     }
   )

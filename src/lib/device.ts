@@ -1,67 +1,83 @@
-
-const CLIENT_DEVICE_ID_KEY = 'sentinel_device_id';
-const SERVER_DEVICE_UUID_KEY = 'sentinel_device_uuid';
+import { STORAGE_KEYS } from '@/lib/constants';
+import type { ClientDeviceInput } from '@/types';
 
 export function getOrCreateClientDeviceId(): string {
-  if (typeof window === 'undefined') return '';
-
-  let deviceId = localStorage.getItem(CLIENT_DEVICE_ID_KEY);
-  if (!deviceId) {
-    deviceId = crypto.randomUUID();
-    localStorage.setItem(CLIENT_DEVICE_ID_KEY, deviceId);
+  if (typeof window === 'undefined') {
+    return 'server-render';
   }
-  return deviceId;
+
+  const existing = window.localStorage.getItem(STORAGE_KEYS.deviceId);
+
+  if (existing) {
+    return existing;
+  }
+
+  const nextId = crypto.randomUUID();
+  window.localStorage.setItem(STORAGE_KEYS.deviceId, nextId);
+  return nextId;
 }
 
 export function getDeviceName(): string {
-  if (typeof window === 'undefined') return 'Web Browser';
-
-  const ua = navigator.userAgent;
-  let browser = 'Web Browser';
-
-  if (ua.includes('Edg')) {
-    browser = 'Edge';
-  } else if (ua.includes('Chrome') && !ua.includes('Edg')) {
-    browser = 'Chrome';
-  } else if (ua.includes('Firefox')) {
-    browser = 'Firefox';
-  } else if (ua.includes('Safari') && !ua.includes('Chrome')) {
-    browser = 'Safari';
+  if (typeof navigator === 'undefined') {
+    return 'Server Render';
   }
 
-  let os = '';
-  if (ua.includes('Linux')) os = 'Linux';
-  else if (ua.includes('Mac')) os = 'macOS';
-  else if (ua.includes('Windows')) os = 'Windows';
-  else if (ua.includes('Android')) os = 'Android';
-  else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+  const userAgent = navigator.userAgent;
+  const browser = userAgent.includes('Firefox')
+    ? 'Firefox'
+    : userAgent.includes('Edg')
+      ? 'Edge'
+      : userAgent.includes('Chrome')
+        ? 'Chrome'
+        : userAgent.includes('Safari')
+          ? 'Safari'
+          : 'Browser';
 
-  return os ? `${browser} on ${os}` : browser;
+  const platform = userAgent.includes('Windows')
+    ? 'Windows'
+    : userAgent.includes('Mac OS X')
+      ? 'macOS'
+      : userAgent.includes('Android')
+        ? 'Android'
+        : userAgent.includes('iPhone') || userAgent.includes('iPad')
+          ? 'iOS'
+          : 'Linux';
+
+  return `${browser} on ${platform}`;
 }
 
 export function getDeviceType(): string {
   return 'web';
 }
 
-export function getDeviceInfo(): { id: string; name: string; type: string } {
+export function getClientDeviceInput(): ClientDeviceInput {
   return {
-    id: getOrCreateClientDeviceId(),
-    name: getDeviceName(),
-    type: getDeviceType(),
+    device_id: getOrCreateClientDeviceId(),
+    device_name: getDeviceName(),
+    device_type: getDeviceType(),
   };
 }
 
-export function setServerDeviceId(uuid: string): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(SERVER_DEVICE_UUID_KEY, uuid);
+export function setServerDeviceId(deviceId: string): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(STORAGE_KEYS.serverDeviceId, deviceId);
 }
 
 export function getServerDeviceId(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem(SERVER_DEVICE_UUID_KEY);
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  return window.localStorage.getItem(STORAGE_KEYS.serverDeviceId);
 }
 
-export function clearServerDeviceId(): void {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem(SERVER_DEVICE_UUID_KEY);
+export function clearDeviceState(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.removeItem(STORAGE_KEYS.serverDeviceId);
 }
