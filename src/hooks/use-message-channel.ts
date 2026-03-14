@@ -32,7 +32,7 @@ export function useMessageChannel(conversationId?: string | null) {
           envelope.type === SOCKET_EVENT.messageEdited ||
           envelope.type === SOCKET_EVENT.messageDeleted
         ) {
-          const incoming = envelope.data?.message as Message | undefined;
+          const incoming = (envelope.data as { message?: Message } | undefined)?.message;
 
           if (!incoming) {
             return;
