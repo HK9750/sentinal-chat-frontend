@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { AlertTriangle, ArrowLeftRight } from 'lucide-react';
 import { Spinner } from '@/components/shared/spinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { clearOAuthFlow, readOAuthFlow } from '@/lib/oauth';
+import { clearOAuthFlow, consumeOAuthFlow, readOAuthFlow } from '@/lib/oauth';
 import { useOAuthExchangeMutation } from '@/queries/use-auth-queries';
 import type { OAuthProvider } from '@/types';
 
@@ -21,11 +21,18 @@ export default function OAuthCallbackPage() {
   const searchParams = useSearchParams();
   const exchangeMutation = useOAuthExchangeMutation();
   const [error, setError] = useState<string | null>(null);
+  const attemptRef = useRef<string | null>(null);
 
   const provider = useMemo(() => {
     const raw = Array.isArray(params.provider) ? params.provider[0] : params.provider;
     return raw && isOAuthProvider(raw) ? raw : null;
   }, [params.provider]);
+
+  const code = searchParams.get('code');
+  const state = searchParams.get('state');
+  const providerError = searchParams.get('error');
+  const providerErrorDescription = searchParams.get('error_description');
+  const attemptKey = provider && code && state ? `${provider}:${code}:${state}` : null;
 
   useEffect(() => {
     let active = true;
@@ -36,11 +43,6 @@ export default function OAuthCallbackPage() {
         return;
       }
 
-      const code = searchParams.get('code');
-      const state = searchParams.get('state');
-      const providerError = searchParams.get('error');
-      const providerErrorDescription = searchParams.get('error_description');
-
       if (providerError) {
         setError(providerErrorDescription ?? 'The provider did not complete the sign-in flow.');
         return;
@@ -48,6 +50,10 @@ export default function OAuthCallbackPage() {
 
       if (!code || !state) {
         setError('The OAuth callback is missing the required code or state values.');
+        return;
+      }
+
+      if (attemptKey && attemptRef.current === attemptKey) {
         return;
       }
 
@@ -64,23 +70,31 @@ export default function OAuthCallbackPage() {
         return;
       }
 
+      if (attemptKey) {
+        attemptRef.current = attemptKey;
+      }
+
+      const consumedFlow = consumeOAuthFlow(provider);
+
+      if (!consumedFlow) {
+        setError('This sign-in session has already been used. Start the OAuth flow again.');
+        return;
+      }
+
       try {
         await exchangeMutation.mutateAsync({
           provider,
           input: {
             code,
-            code_verifier: flow.code_verifier,
-            redirect_uri: flow.redirect_uri,
+            code_verifier: consumedFlow.code_verifier,
+            redirect_uri: consumedFlow.redirect_uri,
           },
         });
 
-        clearOAuthFlow(provider);
-
         if (active) {
-          router.replace(flow.post_auth_redirect || '/chat');
+          router.replace(consumedFlow.post_auth_redirect || '/chat');
         }
       } catch (exchangeError) {
-        clearOAuthFlow(provider);
         if (active) {
           setError(exchangeError instanceof Error ? exchangeError.message : 'Unable to complete OAuth sign-in.');
         }
@@ -92,7 +106,7 @@ export default function OAuthCallbackPage() {
     return () => {
       active = false;
     };
-  }, [exchangeMutation, provider, router, searchParams]);
+  }, [attemptKey, code, exchangeMutation, provider, providerError, providerErrorDescription, router, state]);
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">

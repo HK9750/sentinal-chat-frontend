@@ -157,39 +157,35 @@ export function MessageInput({ conversationId }: MessageInputProps) {
   }, [currentUserId]);
 
   return (
-    <div className="border-t border-border/70 bg-background/65">
+    <div className="border-t border-border/70 bg-[#f0f2f5]">
       <UploadProgressList conversationId={conversationId} />
 
-      <form onSubmit={handleSubmit} className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-4 py-4">
-        <Textarea
-          value={text}
-          onChange={(event) => {
-            const nextValue = event.target.value;
-            setText(nextValue);
-            sendTyping(nextValue.trim().length > 0);
-          }}
-          placeholder="Write an encrypted message"
-          className="min-h-24 rounded-[24px] border-border/70 bg-background/70 px-4 py-3"
-        />
-
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <FileUploadButton onFilesSelected={handleFilesSelected} disabled={isBusy} className="rounded-full" />
-            <Button type="button" variant="outline" size="sm" onClick={handleVoiceToggle} disabled={voiceUpload.isPending}>
-              {voiceNote.isRecording ? <StopCircle className="size-4" /> : <Mic className="size-4" />}
-              {voiceNote.isRecording ? 'Stop voice note' : 'Record voice note'}
-            </Button>
-            <span className="text-xs text-muted-foreground">{helperText}</span>
-          </div>
-
-          <Button type="submit" disabled={!text.trim() || isBusy}>
-            {isBusy ? <LoaderCircle className="size-4 animate-spin" /> : <Send className="size-4" />}
-            Send
+      <form onSubmit={handleSubmit} className="mx-auto flex w-full max-w-5xl items-end gap-3 px-3 py-3 lg:px-4">
+        <div className="flex flex-1 items-end gap-2 rounded-[28px] bg-background px-2 py-2 shadow-sm">
+          <FileUploadButton onFilesSelected={handleFilesSelected} disabled={isBusy} className="rounded-full text-muted-foreground" />
+          <Button type="button" variant="ghost" size="icon" onClick={handleVoiceToggle} disabled={voiceUpload.isPending} className="rounded-full text-muted-foreground">
+            {voiceNote.isRecording ? <StopCircle className="size-5 text-destructive" /> : <Mic className="size-5" />}
           </Button>
+          <Textarea
+            value={text}
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              setText(nextValue);
+              sendTyping(nextValue.trim().length > 0);
+            }}
+            placeholder="Type a message"
+            className="min-h-[44px] border-0 bg-transparent px-1 py-2 shadow-none focus-visible:ring-0"
+          />
         </div>
 
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <Button type="submit" size="icon-lg" className="h-12 w-12 rounded-full" disabled={!text.trim() || isBusy}>
+          {isBusy ? <LoaderCircle className="size-4 animate-spin" /> : <Send className="size-4" />}
+        </Button>
       </form>
+
+      <div className="mx-auto w-full max-w-5xl px-4 pb-3 text-xs text-muted-foreground">{helperText}</div>
+
+      {error ? <p className="px-4 pb-4 text-sm text-destructive">{error}</p> : null}
     </div>
   );
 }

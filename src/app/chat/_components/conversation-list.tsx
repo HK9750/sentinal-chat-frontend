@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { MessageSquarePlus, Search, Settings } from 'lucide-react';
+import { Archive, MessageSquarePlus, Settings } from 'lucide-react';
 import { SearchInput } from '@/components/shared/search-input';
 import { UserMenu } from '@/components/shared/user-menu';
 import { NewConversationDialog } from '@/components/shared/new-conversation-dialog';
@@ -46,11 +46,10 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
 
   return (
     <div className="flex min-h-full w-full flex-col">
-      <div className="border-b border-border/70 px-4 py-4">
+      <div className="border-b border-border/70 bg-background/85 px-4 pb-3 pt-4 backdrop-blur-xl">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <p className="section-kicker">Sentinel</p>
-            <h1 className="mt-1 text-xl font-semibold tracking-[-0.04em]">Conversations</h1>
+            <p className="text-[22px] font-semibold tracking-[-0.04em] text-foreground">Chats</p>
           </div>
           <UserMenu />
         </div>
@@ -59,7 +58,7 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
           <SearchInput
             value={query}
             onChange={setQuery}
-            placeholder="Search titles, people, and notes"
+            placeholder="Search or start new chat"
             className="flex-1"
           />
           <Button type="button" variant="outline" size="icon" className="rounded-full" onClick={() => setDialogOpen(true)}>
@@ -71,12 +70,16 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
             </Link>
           </Button>
         </div>
-      </div>
 
-      <div className="border-b border-border/70 px-4 py-3 text-xs text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <Search className="size-3.5" />
-          Search is local to loaded conversation metadata right now.
+        <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-emerald-500/12 px-2 py-1 text-emerald-700">Encrypted</span>
+            <span>{filteredConversations.length} visible</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Archive className="size-3.5" />
+            Search chats instantly
+          </div>
         </div>
       </div>
 
@@ -87,11 +90,11 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
           <div className="px-6 py-12 text-center">
             <p className="text-sm font-medium">{query ? 'No matching conversations' : 'No conversations yet'}</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {query ? 'Try another search term.' : 'Create a new encrypted conversation to get started.'}
+              {query ? 'Try another search term.' : 'Use the new chat button to start talking to your contacts.'}
             </p>
           </div>
         ) : (
-          <div className="px-2 py-2">
+          <div>
             {filteredConversations.map((conversation) => (
               <ConversationItem
                 key={conversation.id}

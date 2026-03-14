@@ -106,3 +106,28 @@ export interface ProfileMetrics {
   session_count: number;
   secure_conversation_count: number;
 }
+
+export interface Contact {
+  id: string;
+  display_name: string;
+  username?: string | null;
+  email?: string | null;
+  avatar_url?: string | null;
+  is_online: boolean;
+  is_blocked: boolean;
+  nickname?: string | null;
+  created_at: string;
+  last_seen_at?: string | null;
+}
+
+export interface UserSearchResult {
+  id: string;
+  display_name: string;
+  username?: string | null;
+  email?: string | null;
+  avatar_url?: string | null;
+  is_online: boolean;
+  is_contact: boolean;
+  is_blocked: boolean;
+  nickname?: string | null;
+}

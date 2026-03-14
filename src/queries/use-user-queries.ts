@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth-store';
 import { useUiStore } from '@/stores/ui-store';
 import { queryKeys } from '@/queries/query-keys';
@@ -12,7 +12,8 @@ import {
   writeLocalPreferences,
 } from '@/services/user-service';
 import { listSessions } from '@/services/auth-service';
-import type { AuthSession, LocalUserPreferences } from '@/types';
+import { addContact, listContacts, removeContact, searchUsers } from '@/services/user-service-api';
+import type { AuthSession, Contact, LocalUserPreferences } from '@/types';
 
 export function useProfileMetricsQuery() {
   return useQuery({
@@ -84,18 +85,43 @@ export function useUpdateProfile() {
 
 export function useContacts() {
   return useQuery({
-    queryKey: ['contacts'],
-    queryFn: async () => [],
-    initialData: [],
+    queryKey: queryKeys.contacts,
+    queryFn: async () => (await listContacts()).items,
+    initialData: [] as Contact[],
   });
 }
 
 export function useSearchUsers(query: string, options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: ['users', 'search', query],
-    queryFn: async () => [],
-    enabled: options?.enabled ?? false,
-    initialData: [],
+    queryKey: queryKeys.userSearch(query),
+    queryFn: async () => (await searchUsers(query)).items,
+    enabled: (options?.enabled ?? false) && query.trim().length > 0,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+}
+
+export function useAddContact() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: addContact,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.contacts });
+      queryClient.invalidateQueries({ queryKey: ['users', 'search'] });
+    },
+  });
+}
+
+export function useRemoveContact() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: removeContact,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.contacts });
+      queryClient.invalidateQueries({ queryKey: ['users', 'search'] });
+    },
   });
 }
 

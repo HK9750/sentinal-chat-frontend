@@ -11,6 +11,7 @@ interface StoredOAuthFlow {
   state: string;
   redirect_uri: string;
   post_auth_redirect: string;
+  consumed_at?: number;
 }
 
 function toBase64Url(bytes: Uint8Array): string {
@@ -73,4 +74,15 @@ export function readOAuthFlow(provider: OAuthProvider): StoredOAuthFlow | null {
 export function clearOAuthFlow(provider: OAuthProvider): void {
   assertBrowser();
   window.sessionStorage.removeItem(getStorageKey(provider));
+}
+
+export function consumeOAuthFlow(provider: OAuthProvider): StoredOAuthFlow | null {
+  const flow = readOAuthFlow(provider);
+
+  if (!flow) {
+    return null;
+  }
+
+  clearOAuthFlow(provider);
+  return flow;
 }

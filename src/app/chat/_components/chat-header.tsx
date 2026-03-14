@@ -44,7 +44,7 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
   }, [conversation, otherParticipant?.is_online, typingUserIds.length]);
 
   return (
-    <div className="flex h-18 items-center justify-between border-b border-border/70 px-4">
+    <div className="flex h-16 items-center justify-between border-b border-border/70 bg-[#f0f2f5] px-4">
       <div className="flex min-w-0 items-center gap-3">
         {onBack ? (
           <Button type="button" variant="ghost" size="icon" className="lg:hidden" onClick={onBack}>
@@ -62,7 +62,7 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
         />
 
         <div className="min-w-0">
-          <p className="truncate text-base font-semibold tracking-[-0.03em]">{title}</p>
+          <p className="truncate text-base font-medium tracking-[-0.02em]">{title}</p>
           <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
         </div>
       </div>

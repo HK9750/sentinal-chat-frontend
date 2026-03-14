@@ -52,6 +52,11 @@ export const API_ROUTES = {
     oauthUrl: (provider: string) => `/v1/auth/oauth/${provider}/url`,
     oauthExchange: (provider: string) => `/v1/auth/oauth/${provider}/exchange`,
   },
+  users: {
+    search: '/v1/users/search',
+    contacts: '/v1/users/contacts',
+    removeContact: (contactUserId: string) => `/v1/users/contacts/${contactUserId}`,
+  },
   conversations: {
     list: '/v1/conversations',
     create: '/v1/conversations',
@@ -128,7 +133,7 @@ export const DEFAULT_PREFERENCES: LocalUserPreferences = {
 };
 
 export const APP_LIMITATIONS = {
-  userSearch: 'The backend does not expose user search. Start a chat with known participant IDs.',
+  userSearch: 'Search results come from the backend and are optimized for starting chats and managing contacts.',
   broadcasts: 'Broadcast routes are not available in the current backend build.',
   serverSearch: 'Encrypted message search is local-only. Only loaded messages can be searched.',
   keySync: 'Conversation keys stay on this device unless you export them and import them elsewhere.',

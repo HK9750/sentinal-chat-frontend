@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useDecryptedMessages } from '@/hooks/use-decrypted-messages';
 import { getMessageSearchText, getMessagePrimaryText } from '@/lib/message-payload';
 import { formatRelativeTime } from '@/lib/utils';
@@ -20,16 +21,17 @@ export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigate
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const messages = useDecryptedMessages(conversationId);
+  const debouncedQuery = useDebouncedValue(query, 180);
 
   const results = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
+    const normalized = debouncedQuery.trim().toLowerCase();
 
     if (!normalized) {
       return [];
     }
 
     return messages.items.filter((item) => getMessageSearchText(item.decrypted).includes(normalized));
-  }, [messages.items, query]);
+  }, [debouncedQuery, messages.items]);
 
   const clampedSelectedIndex = results.length === 0 ? 0 : Math.min(selectedIndex, results.length - 1);
 
@@ -38,8 +40,8 @@ export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigate
   }
 
   return (
-    <div className="absolute inset-y-0 right-0 z-20 flex w-full max-w-sm flex-col border-l border-border/70 bg-background/92 backdrop-blur-xl">
-      <div className="border-b border-border/70 p-4">
+    <div className="absolute inset-y-0 right-0 z-20 flex w-full max-w-sm flex-col border-l border-border/70 bg-[#f8fafb]/96 backdrop-blur-xl">
+      <div className="border-b border-border/70 bg-[#f0f2f5] p-4">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -49,8 +51,8 @@ export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigate
                 setQuery(event.target.value);
                 setSelectedIndex(0);
               }}
-              placeholder="Search loaded decrypted messages"
-              className="h-11 pl-10 pr-10"
+              placeholder="Search this chat"
+              className="h-11 rounded-full border-border/70 bg-background pl-10 pr-10 shadow-none"
             />
             {query ? (
               <Button
@@ -126,8 +128,8 @@ export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigate
                   setSelectedIndex(index);
                   onNavigateToMessage(result.message.id);
                 }}
-                className={`w-full rounded-[20px] border px-3 py-3 text-left transition-colors ${
-                  index === clampedSelectedIndex ? 'border-primary/35 bg-primary/8' : 'border-border/60 hover:bg-background/60'
+                className={`w-full rounded-[18px] border px-3 py-3 text-left transition-colors ${
+                  index === clampedSelectedIndex ? 'border-primary/35 bg-primary/8' : 'border-border/60 bg-background/80 hover:bg-background'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">

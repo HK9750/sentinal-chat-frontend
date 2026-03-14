@@ -39,10 +39,10 @@ export function MessageBubble({
 
       <div
         className={cn(
-          'max-w-[78%] rounded-[24px] border px-4 py-3 shadow-sm',
+          'max-w-[78%] rounded-[12px] border px-3 py-2 shadow-sm',
           isOwn
-            ? 'border-primary/25 bg-primary/12 text-foreground'
-            : 'border-border/70 bg-background/75 text-foreground'
+            ? 'border-primary/15 bg-[#d9fdd3] text-slate-900'
+            : 'border-border/40 bg-white text-slate-900'
         )}
       >
         {!isOwn && showAvatar && authorLabel ? <p className="mb-1 text-xs font-semibold text-primary">{authorLabel}</p> : null}
@@ -105,7 +105,7 @@ export function MessageBubble({
           ) : null}
         </div>
 
-        <div className="mt-2 flex items-center justify-end gap-2 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+        <div className="mt-1 flex items-center justify-end gap-2 text-[11px] text-muted-foreground">
           {message.edited_at ? <span>Edited</span> : null}
           <span>{formatTimestamp(message.created_at)}</span>
         </div>

@@ -68,7 +68,7 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4">
+    <div className="flex-1 overflow-y-auto bg-[#efeae2] px-3 py-6 lg:px-6">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
         {messagesQuery.items.map(({ message, decrypted }, index) => {
           const previous = messagesQuery.items[index - 1]?.message;
