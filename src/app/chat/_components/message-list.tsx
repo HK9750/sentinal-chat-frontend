@@ -21,6 +21,15 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
 
   useEffect(() => {
     if (scrollRef.current && messagesQuery.items.length > 0) {
+      const scroller = scrollRef.current.parentElement;
+      const nearBottom = scroller
+        ? scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 160
+        : true;
+
+      if (!nearBottom) {
+        return;
+      }
+
       scrollRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }, [messagesQuery.items.length, scrollRef]);
@@ -45,6 +54,28 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
     return (
       <div className="flex flex-1 items-center justify-center">
         <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (conversationQuery.isError) {
+    return (
+      <div className="flex flex-1 items-center justify-center px-6">
+        <div className="text-center">
+          <p className="text-base font-semibold">Unable to load this conversation</p>
+          <p className="mt-1 text-sm text-muted-foreground">Refresh or go back to the chat list and try again.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (messagesQuery.isError) {
+    return (
+      <div className="flex flex-1 items-center justify-center px-6">
+        <div className="text-center">
+          <p className="text-base font-semibold">Unable to load messages</p>
+          <p className="mt-1 text-sm text-muted-foreground">The conversation opened, but message history could not be loaded.</p>
+        </div>
       </div>
     );
   }

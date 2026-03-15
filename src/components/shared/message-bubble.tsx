@@ -1,6 +1,7 @@
 'use client';
 
 import { Download, FileAudio, FileText, ShieldAlert } from 'lucide-react';
+import { useState } from 'react';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
 import { cn, formatTimestamp } from '@/lib/utils';
@@ -30,6 +31,7 @@ export function MessageBubble({
   const payload = decrypted.status === 'ready' ? decrypted.payload : undefined;
   const manifests = getMessageAssetManifests(payload);
   const showWarning = decrypted.status === 'missing-key' || decrypted.status === 'error';
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
   return (
     <div className={cn('flex gap-2', isOwn ? 'justify-end' : 'justify-start')}>
@@ -88,10 +90,15 @@ export function MessageBubble({
                         variant="outline"
                         size="sm"
                         onClick={async () => {
-                          const blob = await openEncryptedAttachment(conversationId, attachment, manifest);
-                          const url = URL.createObjectURL(blob);
-                          window.open(url, '_blank', 'noopener,noreferrer');
-                          window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                          try {
+                            setAttachmentError(null);
+                            const blob = await openEncryptedAttachment(conversationId, attachment, manifest);
+                            const url = URL.createObjectURL(blob);
+                            window.open(url, '_blank', 'noopener,noreferrer');
+                            window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                          } catch (error) {
+                            setAttachmentError(error instanceof Error ? error.message : 'Unable to open encrypted attachment.');
+                          }
                         }}
                       >
                         <Download className="size-4" />
@@ -103,6 +110,8 @@ export function MessageBubble({
               })}
             </div>
           ) : null}
+
+          {attachmentError ? <p className="text-xs text-destructive">{attachmentError}</p> : null}
         </div>
 
         <div className="mt-1 flex items-center justify-end gap-2 text-[11px] text-muted-foreground">

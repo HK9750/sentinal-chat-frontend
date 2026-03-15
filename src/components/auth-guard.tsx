@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Spinner } from '@/components/shared/spinner';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -18,24 +18,22 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     if (!isHydrated || isAuthenticated) {
       return;
     }
 
-    const search = searchParams.toString();
-    const redirectTarget = pathname ? `${pathname}${search ? `?${search}` : ''}` : '/chat';
+    const redirectTarget = pathname || '/chat';
     router.replace(`/login?redirect=${encodeURIComponent(redirectTarget)}`);
-  }, [isAuthenticated, isHydrated, pathname, router, searchParams]);
+  }, [isAuthenticated, isHydrated, pathname, router]);
 
   if (!isHydrated) {
     return <FullscreenLoader />;
   }
 
   if (!isAuthenticated) {
-    return null;
+    return <FullscreenLoader />;
   }
 
   return <>{children}</>;
@@ -45,24 +43,21 @@ export function GuestGuard({ children }: { children: React.ReactNode }) {
   const isHydrated = useAuthStore((state) => state.isHydrated);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirectTarget = searchParams.get('redirect');
-  const redirectTo = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/chat';
 
   useEffect(() => {
     if (!isHydrated || !isAuthenticated) {
       return;
     }
 
-    router.replace(redirectTo);
-  }, [isAuthenticated, isHydrated, redirectTo, router]);
+    router.replace('/chat');
+  }, [isAuthenticated, isHydrated, router]);
 
   if (!isHydrated) {
     return <FullscreenLoader />;
   }
 
   if (isAuthenticated) {
-    return null;
+    return <FullscreenLoader />;
   }
 
   return <>{children}</>;

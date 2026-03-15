@@ -1,21 +1,22 @@
-'use client';
+"use client";
 
-import { useCallback, useMemo, useState } from 'react';
-import { LoaderCircle, Mic, Send, StopCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { useEncryption } from '@/hooks/use-encryption';
-import { useFileEncryption } from '@/hooks/use-file-encryption';
-import { useMessageChannel } from '@/hooks/use-message-channel';
-import { useTypingChannel } from '@/hooks/use-typing-channel';
-import { useVoiceNote } from '@/hooks/use-voice-note';
-import { useEncryptedVoiceUploadMutation } from '@/queries/use-upload-queries';
-import { useAuthStore } from '@/stores/auth-store';
-import { useUploadStore } from '@/stores/upload-store';
-import { createClientMessageId } from '@/lib/crypto';
-import type { SecureMessagePayload } from '@/types';
-import { FileUploadButton } from '@/components/shared/file-upload-button';
-import { UploadProgressList } from '@/components/shared/upload-progress-list';
+import { useCallback, useMemo, useState } from "react";
+import { LoaderCircle, Mic, Send, StopCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { useEncryption } from "@/hooks/use-encryption";
+import { useFileEncryption } from "@/hooks/use-file-encryption";
+import { useMessageChannel } from "@/hooks/use-message-channel";
+import { useTypingChannel } from "@/hooks/use-typing-channel";
+import { useVoiceNote } from "@/hooks/use-voice-note";
+import { useEncryptedVoiceUploadMutation } from "@/queries/use-upload-queries";
+import { useAuthStore } from "@/stores/auth-store";
+import { useUploadStore } from "@/stores/upload-store";
+import { createClientMessageId } from "@/lib/crypto";
+import { hasConversationKey } from "@/services/encryption-service";
+import type { SecureMessagePayload } from "@/types";
+import { FileUploadButton } from "@/components/shared/file-upload-button";
+import { UploadProgressList } from "@/components/shared/upload-progress-list";
 
 interface MessageInputProps {
   conversationId: string;
@@ -31,17 +32,31 @@ export function MessageInput({ conversationId }: MessageInputProps) {
   const voiceNote = useVoiceNote();
   const addUpload = useUploadStore((state) => state.addUpload);
   const updateUpload = useUploadStore((state) => state.updateUpload);
-  const [text, setText] = useState('');
+  const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const isBusy = fileEncryption.isPending || voiceUpload.isPending || voiceNote.isRecording;
+  const isBusy =
+    fileEncryption.isPending || voiceUpload.isPending || voiceNote.isRecording;
 
   const submitPayload = useCallback(
-    async (payload: SecureMessagePayload) => {
-      const encryptedContent = await encryptForConversation(conversationId, payload);
-      return sendMessage(encryptedContent, payload.kind === 'audio' ? 'AUDIO' : payload.kind === 'file' ? 'FILE' : payload.kind === 'system' ? 'SYSTEM' : 'TEXT');
+    async (payload: SecureMessagePayload, attachmentIds: string[] = []) => {
+      const encryptedContent = await encryptForConversation(
+        conversationId,
+        payload,
+      );
+      return sendMessage(
+        encryptedContent,
+        payload.kind === "audio"
+          ? "AUDIO"
+          : payload.kind === "file"
+            ? "FILE"
+            : payload.kind === "system"
+              ? "SYSTEM"
+              : "TEXT",
+        attachmentIds,
+      );
     },
-    [conversationId, encryptForConversation, sendMessage]
+    [conversationId, encryptForConversation, sendMessage],
   );
 
   const handleSubmit = useCallback(
@@ -53,68 +68,125 @@ export function MessageInput({ conversationId }: MessageInputProps) {
         return;
       }
 
+      if (!hasConversationKey(conversationId)) {
+        setError(
+          "Import this conversation access code before sending messages from this device.",
+        );
+        return;
+      }
+
       setError(null);
 
       try {
-        await submitPayload({ kind: 'text', text: trimmed });
-        setText('');
+        await submitPayload({ kind: "text", text: trimmed });
+        setText("");
         sendTyping(false);
       } catch (submitError) {
-        setError(submitError instanceof Error ? submitError.message : 'Unable to send the message.');
+        setError(
+          submitError instanceof Error
+            ? submitError.message
+            : "Unable to send the message.",
+        );
       }
     },
-    [sendTyping, submitPayload, text]
+    [conversationId, sendTyping, submitPayload, text],
   );
 
   const handleFilesSelected = useCallback(
     async (files: File[]) => {
       setError(null);
 
-      for (const file of files) {
-        addUpload({
-          id: `${conversationId}:${file.name}:${crypto.randomUUID()}`,
-          conversation_id: conversationId,
-          filename: file.name,
-          mime_type: file.type || 'application/octet-stream',
-          progress: 0,
-          status: 'encrypting',
-        });
+      if (!hasConversationKey(conversationId)) {
+        setError(
+          "Import this conversation access code before uploading attachments from this device.",
+        );
+        return;
       }
 
-      try {
-        const uploadIds = useUploadStore
-          .getState()
-          .items.filter((item) => item.conversation_id === conversationId)
-          .slice(-files.length)
-          .map((item) => item.id);
+      const uploadIds = files.map(
+        (file) => `${conversationId}:${file.name}:${crypto.randomUUID()}`,
+      );
 
-        const result = await fileEncryption.mutateAsync(files, {
-          onSuccess: undefined,
-        } as never);
-
-        uploadIds.forEach((id) => updateUpload(id, { status: 'done', progress: 100 }));
-
-        await submitPayload({
-          kind: 'file',
-          files: result.manifests,
-          caption: '',
+      files.forEach((file, index) => {
+        const uploadId = uploadIds[index];
+        addUpload({
+          id: uploadId,
+          conversation_id: conversationId,
+          filename: file.name,
+          mime_type: file.type || "application/octet-stream",
+          progress: 0,
+          status: "encrypting",
         });
+      });
+
+      try {
+        files.forEach((file, index) => {
+          const id = uploadIds[index];
+          updateUpload(id, { status: "uploading", progress: 5 });
+        });
+
+        const result = await fileEncryption.mutateAsync({
+          files,
+          onProgress: (progress) => {
+            uploadIds.forEach((id) =>
+              updateUpload(id, { status: "uploading", progress }),
+            );
+          },
+        });
+
+        uploadIds.forEach((id) =>
+          updateUpload(id, { status: "registering", progress: 100 }),
+        );
+
+        uploadIds.forEach((id) =>
+          updateUpload(id, { status: "done", progress: 100 }),
+        );
+
+        await submitPayload(
+          {
+            kind: "file",
+            files: result.manifests,
+            caption: "",
+          },
+          result.attachments.map((attachment) => attachment.id),
+        );
+
+        window.setTimeout(() => {
+          uploadIds.forEach((id) => useUploadStore.getState().removeUpload(id));
+        }, 2500);
       } catch (uploadError) {
-        const message = uploadError instanceof Error ? uploadError.message : 'Unable to upload encrypted files.';
+        const message =
+          uploadError instanceof Error
+            ? uploadError.message
+            : "Unable to upload encrypted files.";
+        uploadIds.forEach((id) =>
+          updateUpload(id, { status: "error", error: message }),
+        );
         setError(message);
       }
     },
-    [addUpload, conversationId, fileEncryption, submitPayload, updateUpload]
+    [addUpload, conversationId, fileEncryption, submitPayload, updateUpload],
   );
 
   const handleVoiceToggle = useCallback(async () => {
     setError(null);
 
+    if (!voiceNote.isRecording && !hasConversationKey(conversationId)) {
+      setError(
+        "Import this conversation access code before recording a voice note from this device.",
+      );
+      return;
+    }
+
     if (!voiceNote.isRecording) {
       try {
         await voiceNote.startRecording();
       } catch (recordError) {
-        setError(recordError instanceof Error ? recordError.message : 'Unable to access the microphone.');
+        setError(
+          recordError instanceof Error
+            ? recordError.message
+            : "Unable to access the microphone.",
+        );
       }
       return;
     }
@@ -125,46 +197,92 @@ export function MessageInput({ conversationId }: MessageInputProps) {
       addUpload({
         id: uploadId,
         conversation_id: conversationId,
-        filename: 'voice-note.webm',
+        filename: "voice-note.webm",
         mime_type: recording.mime_type,
         progress: 0,
-        status: 'encrypting',
+        status: "encrypting",
       });
 
-      const result = await voiceUpload.mutateAsync(recording, {
-        onSuccess: undefined,
-      } as never);
-
-      updateUpload(uploadId, { status: 'done', progress: 100 });
-
-      await submitPayload({
-        kind: 'audio',
-        transcript: '',
-        duration_ms: recording.duration_ms,
-        clips: [result.manifest],
+      const result = await voiceUpload.mutateAsync({
+        recording,
+        onProgress: (progress) => {
+          updateUpload(uploadId, { status: "uploading", progress });
+        },
       });
+
+      updateUpload(uploadId, { status: "registering", progress: 100 });
+      updateUpload(uploadId, { status: "done", progress: 100 });
+
+      await submitPayload(
+        {
+          kind: "audio",
+          transcript: "",
+          duration_ms: recording.duration_ms,
+          clips: [result.manifest],
+        },
+        [result.attachment.id],
+      );
+
+      window.setTimeout(() => {
+        useUploadStore.getState().removeUpload(uploadId);
+      }, 2500);
     } catch (voiceError) {
-      setError(voiceError instanceof Error ? voiceError.message : 'Unable to send the encrypted voice note.');
+      const message =
+        voiceError instanceof Error
+          ? voiceError.message
+          : "Unable to send the encrypted voice note.";
+      useUploadStore
+        .getState()
+        .items.filter((item) => item.id.startsWith("voice:"))
+        .forEach((item) =>
+          updateUpload(item.id, { status: "error", error: message }),
+        );
+      setError(message);
     }
-  }, [addUpload, conversationId, submitPayload, updateUpload, voiceNote, voiceUpload]);
+  }, [
+    addUpload,
+    conversationId,
+    submitPayload,
+    updateUpload,
+    voiceNote,
+    voiceUpload,
+  ]);
 
   const helperText = useMemo(() => {
     if (!currentUserId) {
-      return 'Sign in again if sending stops working.';
+      return "Sign in again if sending stops working.";
     }
 
-    return 'Messages, files, and voice notes are encrypted before they leave this browser.';
+    return "Messages, files, and voice notes are encrypted before they leave this browser.";
   }, [currentUserId]);
 
   return (
     <div className="border-t border-border/70 bg-[#f0f2f5]">
       <UploadProgressList conversationId={conversationId} />
 
-      <form onSubmit={handleSubmit} className="mx-auto flex w-full max-w-5xl items-end gap-3 px-3 py-3 lg:px-4">
+      <form
+        onSubmit={handleSubmit}
+        className="mx-auto flex w-full max-w-5xl items-end gap-3 px-3 py-3 lg:px-4"
+      >
         <div className="flex flex-1 items-end gap-2 rounded-[28px] bg-background px-2 py-2 shadow-sm">
-          <FileUploadButton onFilesSelected={handleFilesSelected} disabled={isBusy} className="rounded-full text-muted-foreground" />
-          <Button type="button" variant="ghost" size="icon" onClick={handleVoiceToggle} disabled={voiceUpload.isPending} className="rounded-full text-muted-foreground">
-            {voiceNote.isRecording ? <StopCircle className="size-5 text-destructive" /> : <Mic className="size-5" />}
+          <FileUploadButton
+            onFilesSelected={handleFilesSelected}
+            disabled={isBusy}
+            className="rounded-full text-muted-foreground"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={handleVoiceToggle}
+            disabled={voiceUpload.isPending}
+            className="rounded-full text-muted-foreground"
+          >
+            {voiceNote.isRecording ? (
+              <StopCircle className="size-5 text-destructive" />
+            ) : (
+              <Mic className="size-5" />
+            )}
           </Button>
           <Textarea
             value={text}
@@ -178,14 +296,27 @@ export function MessageInput({ conversationId }: MessageInputProps) {
           />
         </div>
 
-        <Button type="submit" size="icon-lg" className="h-12 w-12 rounded-full" disabled={!text.trim() || isBusy}>
-          {isBusy ? <LoaderCircle className="size-4 animate-spin" /> : <Send className="size-4" />}
+        <Button
+          type="submit"
+          size="icon-lg"
+          className="h-12 w-12 rounded-full"
+          disabled={!text.trim() || isBusy}
+        >
+          {isBusy ? (
+            <LoaderCircle className="size-4 animate-spin" />
+          ) : (
+            <Send className="size-4" />
+          )}
         </Button>
       </form>
 
-      <div className="mx-auto w-full max-w-5xl px-4 pb-3 text-xs text-muted-foreground">{helperText}</div>
+      <div className="mx-auto w-full max-w-5xl px-4 pb-3 text-xs text-muted-foreground">
+        {helperText}
+      </div>
 
-      {error ? <p className="px-4 pb-4 text-sm text-destructive">{error}</p> : null}
+      {error ? (
+        <p className="px-4 pb-4 text-sm text-destructive">{error}</p>
+      ) : null}
     </div>
   );
 }

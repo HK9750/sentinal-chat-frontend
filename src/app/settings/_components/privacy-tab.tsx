@@ -19,18 +19,18 @@ export function PrivacyTab() {
   );
 
   return (
-    <Card className="bg-slate-900 border-slate-800">
+    <Card className="border-border/70 bg-card">
       <CardHeader>
-        <CardTitle className="text-slate-100">Privacy</CardTitle>
-        <CardDescription className="text-slate-400">
+        <CardTitle>Privacy</CardTitle>
+        <CardDescription>
           Control your privacy settings
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label className="text-slate-200">Read Receipts</Label>
-            <p className="text-sm text-slate-500">
+            <Label>Read Receipts</Label>
+            <p className="text-sm text-muted-foreground">
               Let others know when you&apos;ve read their messages
             </p>
           </div>
@@ -42,12 +42,12 @@ export function PrivacyTab() {
           />
         </div>
 
-        <Separator className="bg-slate-800" />
+        <Separator />
 
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label className="text-slate-200">Compact Mode</Label>
-            <p className="text-sm text-slate-500">
+            <Label>Compact Mode</Label>
+            <p className="text-sm text-muted-foreground">
               Tighten spacing across dense conversation surfaces
             </p>
           </div>

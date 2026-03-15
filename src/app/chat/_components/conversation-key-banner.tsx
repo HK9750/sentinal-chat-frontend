@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Check, Download, KeyRound, Upload } from 'lucide-react';
 import { parseConversationAccessCode } from '@/lib/crypto';
-import { ensureConversationKey, getConversationKey, saveConversationKey } from '@/lib/crypto-storage';
+import { getConversationKey, saveConversationKey } from '@/lib/crypto-storage';
 import { Button } from '@/components/ui/button';
 import { useEncryption } from '@/hooks/use-encryption';
 
@@ -22,21 +22,6 @@ export function ConversationKeyBanner({ conversationId }: ConversationKeyBannerP
     setHasKey(Boolean(getConversationKey(conversationId)));
     setMessage(null);
     setIsCopied(false);
-  }, [conversationId]);
-
-  const handleGenerate = useCallback(async () => {
-    setBusy(true);
-    setMessage(null);
-
-    try {
-      await ensureConversationKey(conversationId);
-      setHasKey(true);
-      setMessage('Local conversation key is ready. Share its access code with trusted devices manually.');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Unable to create a local conversation key.');
-    } finally {
-      setBusy(false);
-    }
   }, [conversationId]);
 
   const handleImport = useCallback(async () => {
@@ -111,10 +96,6 @@ export function ConversationKeyBanner({ conversationId }: ConversationKeyBannerP
               <Button type="button" variant="outline" size="sm" onClick={handleImport} disabled={busy}>
                 <Upload className="size-4" />
                 Import code
-              </Button>
-              <Button type="button" size="sm" onClick={handleGenerate} disabled={busy}>
-                <KeyRound className="size-4" />
-                Generate local key
               </Button>
             </>
           )}

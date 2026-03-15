@@ -6,7 +6,7 @@ import type { AuthSession } from '@/types';
 import { Shield, Activity } from 'lucide-react';
 
 export function SessionsList() {
-  const { data: sessionsPayload } = useSessions();
+  const { data: sessionsPayload, isLoading, isError } = useSessions();
   const sessions = sessionsPayload?.items ?? [];
 
   return (
@@ -22,7 +22,9 @@ export function SessionsList() {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {sessions?.length === 0 && (
+          {isLoading && <p className="text-sm text-slate-500">Loading sessions...</p>}
+          {isError && <p className="text-sm text-destructive">Unable to load sessions right now.</p>}
+          {!isLoading && !isError && sessions?.length === 0 && (
             <p className="text-sm text-slate-500">No active sessions</p>
           )}
           {sessions?.map((session: AuthSession) => (

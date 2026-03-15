@@ -56,7 +56,7 @@ export function LoginForm() {
       cardTitle="Welcome back"
       cardDescription="Use your email, username, or phone number to continue."
       footerText="Need an account?"
-      footerHref="/register"
+      footerHref={redirectTo === '/chat' ? '/register' : `/register?redirect=${encodeURIComponent(redirectTo)}`}
       footerLabel="Create one"
     >
       <form onSubmit={handleSubmit} className="space-y-5">

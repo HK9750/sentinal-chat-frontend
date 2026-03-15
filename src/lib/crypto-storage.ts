@@ -93,6 +93,16 @@ export async function ensureConversationKey(conversationId: string): Promise<Con
   return saveConversationKey(created);
 }
 
+export function requireConversationKeyRecord(conversationId: string): ConversationKeyRecord {
+  const record = getConversationKey(conversationId);
+
+  if (!record) {
+    throw new Error('This device does not have the conversation key for this thread yet. Import the access code first.');
+  }
+
+  return record;
+}
+
 export function removeConversationKey(conversationId: string): void {
   const vault = readVault();
   writeVault({

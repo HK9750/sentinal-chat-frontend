@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { ArrowLeft, Phone, Search, Video } from 'lucide-react';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
+import { APP_LIMITATIONS } from '@/lib/constants';
 import { getConversationTitle, getOtherParticipant } from '@/lib/utils';
 import { useConversation } from '@/queries/use-conversation-queries';
 import { useAuthStore } from '@/stores/auth-store';
@@ -26,10 +27,11 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
   const conversation = conversationQuery.data;
   const otherParticipant = conversation ? getOtherParticipant(conversation, currentUserId) : null;
   const title = conversation ? getConversationTitle(conversation, currentUserId) : 'Conversation';
+  const actionsDisabled = conversationQuery.isLoading || conversationQuery.isError || !conversation;
 
   const subtitle = useMemo(() => {
     if (!conversation) {
-      return 'Loading conversation...';
+      return conversationQuery.isError ? 'Unable to load conversation' : 'Loading conversation...';
     }
 
     if (typingUserIds.length > 0) {
@@ -41,7 +43,7 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
     }
 
     return `${conversation.participants.length} participant${conversation.participants.length === 1 ? '' : 's'}`;
-  }, [conversation, otherParticipant?.is_online, typingUserIds.length]);
+  }, [conversation, conversationQuery.isError, otherParticipant?.is_online, typingUserIds.length]);
 
   return (
     <div className="flex h-16 items-center justify-between border-b border-border/70 bg-[#f0f2f5] px-4">
@@ -68,13 +70,13 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
       </div>
 
       <div className="flex items-center gap-1">
-        <Button type="button" variant="ghost" size="icon" onClick={onOpenSearch}>
+        <Button type="button" variant="ghost" size="icon" onClick={onOpenSearch} disabled={actionsDisabled}>
           <Search className="size-4" />
         </Button>
-        <Button type="button" variant="ghost" size="icon" onClick={() => onStartCall('AUDIO')}>
+        <Button type="button" variant="ghost" size="icon" onClick={() => onStartCall('AUDIO')} disabled>
           <Phone className="size-4" />
         </Button>
-        <Button type="button" variant="ghost" size="icon" onClick={() => onStartCall('VIDEO')}>
+        <Button type="button" variant="ghost" size="icon" onClick={() => onStartCall('VIDEO')} disabled title={APP_LIMITATIONS.calls}>
           <Video className="size-4" />
         </Button>
       </div>

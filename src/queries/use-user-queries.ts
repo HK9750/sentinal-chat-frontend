@@ -53,23 +53,11 @@ export function useUpdatePreferencesMutation() {
 export function useUserProfile() {
   const user = useAuthStore((state) => state.user);
 
-  return useQuery({
-    queryKey: ['user', 'profile'],
-    queryFn: async () => ({
-      ...user,
-      status: 'Encrypted and ready',
-      bio: 'Messages, voice notes, and files stay encrypted before transport.',
-      created_at: user ? new Date().toISOString() : undefined,
-    }),
-    initialData: user
-      ? {
-          ...user,
-          status: 'Encrypted and ready',
-          bio: 'Messages, voice notes, and files stay encrypted before transport.',
-          created_at: new Date().toISOString(),
-        }
-      : undefined,
-  });
+  return {
+    data: user,
+    isLoading: false,
+    isError: false,
+  };
 }
 
 export function useUpdateProfile() {
@@ -126,11 +114,13 @@ export function useRemoveContact() {
 }
 
 export function useUserSettings() {
-  return useQuery({
-    queryKey: ['user', 'settings'],
-    queryFn: async () => readLocalPreferences(),
-    initialData: readLocalPreferences(),
-  });
+  const preferences = useUiStore((state) => state.preferences);
+
+  return {
+    data: preferences,
+    isLoading: false,
+    isError: false,
+  };
 }
 
 export function useUpdateSettings() {

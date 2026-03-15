@@ -6,12 +6,14 @@ import type { VoiceRecordingResult } from '@/types';
 
 export function useEncryptedFileUploadMutation(conversationId: string) {
   return useMutation({
-    mutationFn: (files: File[]) => prepareEncryptedFiles(conversationId, files),
+    mutationFn: ({ files, onProgress }: { files: File[]; onProgress?: (progress: number) => void }) =>
+      prepareEncryptedFiles(conversationId, files, onProgress),
   });
 }
 
 export function useEncryptedVoiceUploadMutation(conversationId: string) {
   return useMutation({
-    mutationFn: (recording: VoiceRecordingResult) => prepareEncryptedVoiceNote(conversationId, recording),
+    mutationFn: ({ recording, onProgress }: { recording: VoiceRecordingResult; onProgress?: (progress: number) => void }) =>
+      prepareEncryptedVoiceNote(conversationId, recording, onProgress),
   });
 }

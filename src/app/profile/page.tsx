@@ -5,7 +5,7 @@ import { UserAvatar } from '@/components/shared/user-avatar';
 import { Spinner } from '@/components/shared/spinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useUserProfile, useContacts } from '@/queries/use-user-queries';
+import { useDevices, useSessions, useUserProfile, useContacts } from '@/queries/use-user-queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { useLogout } from '@/queries/use-auth-queries';
 import {
@@ -18,7 +18,6 @@ import {
   Calendar,
 } from 'lucide-react';
 import Link from 'next/link';
-import { format } from 'date-fns';
 
 import { StatCard } from './_components/stat-card';
 import { DevicesList } from './_components/devices-list';
@@ -27,6 +26,8 @@ import { SessionsList } from './_components/sessions-list';
 export default function ProfilePage() {
   const { data: profile } = useUserProfile();
   const { data: contacts } = useContacts();
+  const { data: devices } = useDevices();
+  const { data: sessions } = useSessions();
   const user = useAuthStore((state) => state.user);
   const logout = useLogout();
 
@@ -83,10 +84,6 @@ export default function ProfilePage() {
                   <p className="text-slate-400">
                     @{profile?.username || user?.username}
                   </p>
-                  {profile?.status && (
-                    <p className="text-slate-500 mt-2">{profile.status}</p>
-                  )}
-
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-4 text-sm text-slate-500">
                     {profile?.email && (
                       <div className="flex items-center gap-1">
@@ -94,12 +91,10 @@ export default function ProfilePage() {
                         {profile.email}
                       </div>
                     )}
-                    {profile?.created_at && (
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        Joined {format(new Date(profile.created_at), 'MMMM yyyy')}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4" />
+                      Secure account
+                    </div>
                   </div>
                 </div>
                 <Button
@@ -122,13 +117,13 @@ export default function ProfilePage() {
             />
             <StatCard
               title="Devices"
-              value={0}
+              value={devices?.length || 0}
               icon={Smartphone}
               description="Connected devices"
             />
             <StatCard
               title="Sessions"
-              value={0}
+              value={sessions?.length || 0}
               icon={Shield}
               description="Active login sessions"
             />

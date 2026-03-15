@@ -19,19 +19,19 @@ export function NotificationsTab() {
   );
 
   return (
-    <Card className="bg-slate-900 border-slate-800">
+    <Card className="border-border/70 bg-card">
       <CardHeader>
-        <CardTitle className="text-slate-100">Notifications</CardTitle>
-        <CardDescription className="text-slate-400">
+        <CardTitle>Notifications</CardTitle>
+        <CardDescription>
           Manage how you receive notifications
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label className="text-slate-200">Enable Notifications</Label>
-            <p className="text-sm text-slate-500">
-              Receive push notifications for new messages
+            <Label>Message Sounds</Label>
+            <p className="text-sm text-muted-foreground">
+              Play a sound for new messages in supported browsers
             </p>
           </div>
           <Switch
@@ -42,12 +42,12 @@ export function NotificationsTab() {
           />
         </div>
 
-        <Separator className="bg-slate-800" />
+        <Separator />
 
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label className="text-slate-200">Enter to Send</Label>
-            <p className="text-sm text-slate-500">
+            <Label>Enter to Send</Label>
+            <p className="text-sm text-muted-foreground">
               Press Enter to send instead of creating a new line
             </p>
           </div>
@@ -59,12 +59,12 @@ export function NotificationsTab() {
           />
         </div>
 
-        <Separator className="bg-slate-800" />
+        <Separator />
 
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label className="text-slate-200">Reduce Motion</Label>
-            <p className="text-sm text-slate-500">
+            <Label>Reduce Motion</Label>
+            <p className="text-sm text-muted-foreground">
               Tone down non-essential animations across the app
             </p>
           </div>

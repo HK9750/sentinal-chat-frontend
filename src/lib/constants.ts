@@ -22,7 +22,6 @@ export const VOICE_NOTE_MIME_TYPES = [
 
 export const STORAGE_KEYS = {
   auth: 'sentinel.auth',
-  theme: 'sentinel.theme',
   ui: 'sentinel.ui',
   uploads: 'sentinel.uploads',
   conversationKeys: 'sentinel.crypto.vault',
@@ -137,4 +136,5 @@ export const APP_LIMITATIONS = {
   broadcasts: 'Broadcast routes are not available in the current backend build.',
   serverSearch: 'Encrypted message search is local-only. Only loaded messages can be searched.',
   keySync: 'Conversation keys stay on this device unless you export them and import them elsewhere.',
+  calls: 'Call transport exists, but the new encrypted calling experience is still being rebuilt.',
 } as const;

@@ -1,9 +1,9 @@
 import {
   clearConversationKeys,
-  ensureConversationKey,
   getConversationKey,
   importConversationAccessCode,
   listConversationKeys,
+  requireConversationKeyRecord,
   saveConversationKey,
 } from '@/lib/crypto-storage';
 import {
@@ -39,7 +39,7 @@ function toBlobPart(bytes: Uint8Array): ArrayBuffer {
 }
 
 async function requireConversationKey(conversationId: string): Promise<ConversationKeyRecord> {
-  return ensureConversationKey(conversationId);
+  return requireConversationKeyRecord(conversationId);
 }
 
 export function hasConversationKey(conversationId: string): boolean {

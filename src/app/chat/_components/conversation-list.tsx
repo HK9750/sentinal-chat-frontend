@@ -86,6 +86,11 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
       <ScrollArea className="flex-1">
         {conversationsQuery.isLoading ? (
           <ConversationListSkeleton />
+        ) : conversationsQuery.isError ? (
+          <div className="px-6 py-12 text-center">
+            <p className="text-sm font-medium">Unable to load conversations</p>
+            <p className="mt-1 text-sm text-muted-foreground">Check your connection and refresh the page.</p>
+          </div>
         ) : filteredConversations.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <p className="text-sm font-medium">{query ? 'No matching conversations' : 'No conversations yet'}</p>

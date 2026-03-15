@@ -18,22 +18,22 @@ export function AppearanceTab() {
   );
 
   return (
-    <Card className="bg-slate-900 border-slate-800">
+    <Card className="border-border/70 bg-card">
       <CardHeader>
-        <CardTitle className="text-slate-100">Appearance</CardTitle>
-        <CardDescription className="text-slate-400">
+        <CardTitle>Appearance</CardTitle>
+        <CardDescription>
           Customize how Sentinel Chat looks
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-3">
-          <Label className="text-slate-200">Theme</Label>
+          <Label>Theme</Label>
           <div className="grid grid-cols-3 gap-4">
             <Button
               type="button"
               variant={settings?.theme === 'light' ? 'default' : 'outline'}
               onClick={() => handleThemeChange('light')}
-              className="h-auto py-4 flex flex-col gap-2 border-slate-700"
+              className="h-auto flex flex-col gap-2 border-border/70 py-4"
             >
               <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-300" />
               <span className="text-xs">Light</span>
@@ -42,7 +42,7 @@ export function AppearanceTab() {
               type="button"
               variant={settings?.theme === 'dark' ? 'default' : 'outline'}
               onClick={() => handleThemeChange('dark')}
-              className="h-auto py-4 flex flex-col gap-2 border-slate-700"
+              className="h-auto flex flex-col gap-2 border-border/70 py-4"
             >
               <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-700" />
               <span className="text-xs">Dark</span>
@@ -51,7 +51,7 @@ export function AppearanceTab() {
               type="button"
               variant={settings?.theme === 'system' ? 'default' : 'outline'}
               onClick={() => handleThemeChange('system')}
-              className="h-auto py-4 flex flex-col gap-2 border-slate-700"
+              className="h-auto flex flex-col gap-2 border-border/70 py-4"
             >
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-100 to-slate-900 border border-slate-400" />
               <span className="text-xs">System</span>

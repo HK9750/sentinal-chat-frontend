@@ -8,11 +8,7 @@ export function AuthenticatedProviders({ children }: { children: React.ReactNode
   const isHydrated = useAuthStore((state) => state.isHydrated);
   const isAuthenticated = useAuthStore((state) => state.status === 'authenticated');
 
-  if (!isHydrated) {
-    return null;
-  }
-
-  if (!isAuthenticated) {
+  if (!isHydrated || !isAuthenticated) {
     return <>{children}</>;
   }
 

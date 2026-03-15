@@ -14,57 +14,59 @@ import { PrivacyTab } from './_components/privacy-tab';
 export default function SettingsPage() {
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-slate-950">
-        <header className="border-b border-slate-800 bg-slate-900/50 sticky top-0 z-10">
-          <div className="max-w-5xl mx-auto px-4 py-4">
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-10 border-b border-border/70 bg-background/90 backdrop-blur-xl">
+          <div className="mx-auto max-w-5xl px-4 py-4">
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 size="icon"
                 asChild
-                className="text-slate-400 hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 <Link href="/chat">
                   <ArrowLeft className="h-5 w-5" />
                 </Link>
               </Button>
-              <h1 className="text-xl font-semibold text-white">Settings</h1>
+              <h1 className="text-xl font-semibold text-foreground">Settings</h1>
             </div>
           </div>
         </header>
 
-        <main className="max-w-5xl mx-auto px-4 py-8">
+        <main className="mx-auto max-w-5xl px-4 py-8">
           <Tabs defaultValue="profile" className="space-y-6">
-            <TabsList className="bg-slate-900 border border-slate-800">
+            <div className="overflow-x-auto pb-2">
+              <TabsList className="inline-flex min-w-max border border-border/70 bg-card">
               <TabsTrigger
                 value="profile"
-                className="data-[state=active]:bg-slate-800"
+                className="data-[state=active]:bg-muted"
               >
                 <User className="h-4 w-4 mr-2" />
                 Profile
               </TabsTrigger>
               <TabsTrigger
                 value="notifications"
-                className="data-[state=active]:bg-slate-800"
+                className="data-[state=active]:bg-muted"
               >
                 <Bell className="h-4 w-4 mr-2" />
                 Notifications
               </TabsTrigger>
               <TabsTrigger
                 value="appearance"
-                className="data-[state=active]:bg-slate-800"
+                className="data-[state=active]:bg-muted"
               >
                 <Palette className="h-4 w-4 mr-2" />
                 Appearance
               </TabsTrigger>
               <TabsTrigger
                 value="privacy"
-                className="data-[state=active]:bg-slate-800"
+                className="data-[state=active]:bg-muted"
               >
                 <Shield className="h-4 w-4 mr-2" />
                 Privacy
               </TabsTrigger>
-            </TabsList>
+              </TabsList>
+            </div>
 
             <TabsContent value="profile" className="mt-6">
               <ProfileTab />

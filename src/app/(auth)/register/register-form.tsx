@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { UserPlus } from 'lucide-react';
 import { Spinner } from '@/components/shared/spinner';
 import { Button } from '@/components/ui/button';
@@ -52,8 +52,11 @@ function buildRegisterPayload(values: {
 
 export function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const registerMutation = useRegister();
   const [formError, setFormError] = useState<string | null>(null);
+  const redirectTarget = searchParams.get('redirect');
+  const redirectTo = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/chat';
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -77,12 +80,12 @@ export function RegisterForm() {
 
       try {
         await registerMutation.mutateAsync(buildRegisterPayload(parsed.data));
-        router.replace('/chat');
+        router.replace(redirectTo);
       } catch {
         setFormError('We could not create your account right now. Try again in a moment.');
       }
     },
-    [registerMutation, router]
+    [redirectTo, registerMutation, router]
   );
 
   const errorMessage = formError ?? registerMutation.error?.message ?? null;
@@ -94,7 +97,7 @@ export function RegisterForm() {
       cardTitle="Join Sentinel"
       cardDescription="Create an account with at least one unique identifier."
       footerText="Already have an account?"
-      footerHref="/login"
+      footerHref={redirectTo === '/chat' ? '/login' : `/login?redirect=${encodeURIComponent(redirectTo)}`}
       footerLabel="Sign in"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -185,7 +188,7 @@ export function RegisterForm() {
         </Button>
       </form>
 
-      <OAuthButtonRow postAuthRedirect="/chat" />
+      <OAuthButtonRow postAuthRedirect={redirectTo} />
     </AuthShell>
   );
 }

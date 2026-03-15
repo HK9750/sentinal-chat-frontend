@@ -64,6 +64,7 @@ export function UploadProgressList({
               variant="ghost"
               size="icon-xs"
               onClick={() => removeUpload(item.id)}
+              aria-label={`Remove ${item.filename} upload status`}
             >
               <X className="size-3.5" />
             </Button>

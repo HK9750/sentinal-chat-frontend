@@ -5,7 +5,7 @@ import { useDevices } from '@/queries/use-user-queries';
 import { Smartphone } from 'lucide-react';
 
 export function DevicesList() {
-  const { data: devices } = useDevices();
+  const { data: devices, isLoading, isError } = useDevices();
 
   return (
     <Card className="bg-slate-900 border-slate-800">
@@ -20,7 +20,9 @@ export function DevicesList() {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {devices?.length === 0 && (
+          {isLoading && <p className="text-sm text-slate-500">Loading devices...</p>}
+          {isError && <p className="text-sm text-destructive">Unable to load devices right now.</p>}
+          {!isLoading && !isError && devices?.length === 0 && (
             <p className="text-sm text-slate-500">No devices found</p>
           )}
           {devices?.map((device) => (

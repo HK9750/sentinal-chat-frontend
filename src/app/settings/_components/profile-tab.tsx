@@ -31,10 +31,10 @@ export function ProfileTab() {
   );
 
   return (
-    <Card className="bg-slate-900 border-slate-800">
+    <Card className="border-border/70 bg-card">
       <CardHeader>
-        <CardTitle className="text-slate-100">Profile Information</CardTitle>
-        <CardDescription className="text-slate-400">
+        <CardTitle>Profile Information</CardTitle>
+        <CardDescription>
           Update your personal information and how others see you
         </CardDescription>
       </CardHeader>
@@ -47,45 +47,46 @@ export function ProfileTab() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="border-slate-700 text-slate-300"
+                className="border-border/70"
+                disabled
               >
-                Change Avatar
+                Avatar updates next
               </Button>
-              <p className="text-xs text-slate-500 mt-2">
-                JPG, PNG or GIF. Max 2MB.
+              <p className="mt-2 text-xs text-muted-foreground">
+                Profile edits are local-only until profile APIs are added to the backend.
               </p>
             </div>
           </div>
 
-          <Separator className="bg-slate-800" />
+          <Separator />
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="display_name" className="text-slate-300">
+              <Label htmlFor="display_name">
                 Display Name
               </Label>
               <Input
                 id="display_name"
                 name="display_name"
                 defaultValue={profile?.display_name || user?.display_name}
-                className="bg-slate-800 border-slate-700 text-slate-200"
+                className="border-border/70 bg-background"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-slate-300">
+              <Label htmlFor="username">
                 Username
               </Label>
                 <Input
                   id="username"
                   defaultValue={profile?.username || user?.username || ''}
                   disabled
-                  className="bg-slate-800/50 border-slate-700 text-slate-500"
+                  className="border-border/70 bg-muted/40 text-muted-foreground"
                 />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-slate-300">
+            <Label htmlFor="email">
               Email
             </Label>
             <Input
@@ -93,12 +94,12 @@ export function ProfileTab() {
               name="email"
               defaultValue={profile?.email || user?.email || ''}
               placeholder="name@example.com"
-              className="bg-slate-800 border-slate-700 text-slate-200"
+              className="border-border/70 bg-background"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="phone_number" className="text-slate-300">
+            <Label htmlFor="phone_number">
               Phone Number
             </Label>
             <Input
@@ -106,7 +107,7 @@ export function ProfileTab() {
               name="phone_number"
               defaultValue={profile?.phone_number || user?.phone_number || ''}
               placeholder="Optional"
-              className="bg-slate-800 border-slate-700 text-slate-200"
+              className="border-border/70 bg-background"
             />
           </div>
 
@@ -114,7 +115,6 @@ export function ProfileTab() {
             <Button
               type="submit"
               disabled={updateProfile.isPending}
-              className="bg-blue-600 hover:bg-blue-500"
             >
               {updateProfile.isPending ? (
                 <>

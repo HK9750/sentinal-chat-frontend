@@ -112,7 +112,11 @@ export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigate
       </div>
 
       <ScrollArea className="flex-1 p-2">
-        {query.trim().length < 2 ? (
+        {messages.isLoading ? (
+          <div className="px-4 py-10 text-center text-sm text-muted-foreground">Loading available message history...</div>
+        ) : messages.isError ? (
+          <div className="px-4 py-10 text-center text-sm text-destructive">Unable to search because message history could not be loaded.</div>
+        ) : query.trim().length < 2 ? (
           <div className="px-4 py-10 text-center text-sm text-muted-foreground">
             Type at least two characters to search the messages that are already loaded on this device.
           </div>

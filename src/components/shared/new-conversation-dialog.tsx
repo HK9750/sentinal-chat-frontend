@@ -178,8 +178,8 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
       return;
     }
 
-    if (selectedGroupIds.length === 0) {
-      setError('Select at least one participant for the group.');
+    if (selectedGroupIds.length < 2) {
+      setError('Select at least two participants for a group chat.');
       return;
     }
 
@@ -265,7 +265,11 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
                   </div>
 
                   <div className="max-h-[360px] space-y-1 overflow-y-auto">
-                    {!debouncedQuery.trim() ? (
+                    {searchResultsQuery.isError ? (
+                      <div className="rounded-2xl border border-dashed border-destructive/30 px-4 py-10 text-center text-sm text-destructive">
+                        Search failed. Try again in a moment.
+                      </div>
+                    ) : !debouncedQuery.trim() ? (
                       <div className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
                         Start typing to search all users.
                       </div>
@@ -290,11 +294,17 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
                                   variant="outline"
                                   className="rounded-full"
                                   onClick={() => void handleAddContact(person.id)}
+                                  disabled={addContact.isPending || createConversation.isPending}
                                 >
                                   <UserPlus className="size-4" />
                                 </Button>
                               ) : null}
-                              <Button size="sm" className="rounded-full" onClick={() => void handleCreateDirectConversation(person.id)}>
+                              <Button
+                                size="sm"
+                                className="rounded-full"
+                                onClick={() => void handleCreateDirectConversation(person.id)}
+                                disabled={createConversation.isPending}
+                              >
                                 Chat
                               </Button>
                             </div>
@@ -374,7 +384,7 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
                       ? `${selectedGroupIds.length} participant${selectedGroupIds.length === 1 ? '' : 's'} selected`
                       : 'No participants selected yet'}
                   </p>
-                  <Button onClick={() => void handleCreateGroup()} disabled={selectedGroupIds.length === 0 || !groupName.trim()}>
+                  <Button onClick={() => void handleCreateGroup()} disabled={selectedGroupIds.length < 2 || !groupName.trim() || createConversation.isPending}>
                     Create group
                   </Button>
                 </div>
