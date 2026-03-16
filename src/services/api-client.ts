@@ -1,7 +1,7 @@
 import axios, { AxiosError, type AxiosProgressEvent, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 import { env } from '@/config/env';
 import { API_ROUTES } from '@/lib/constants';
-import { clearAuthCookie, setAuthCookie } from '@/lib/cookies';
+import { setAuthCookie } from '@/lib/cookies';
 import { useAuthStore } from '@/stores/auth-store';
 import type { ApiEnvelope, AuthPayload } from '@/types';
 
@@ -60,8 +60,7 @@ async function refreshAccessToken(): Promise<AuthPayload | null> {
         return payload;
       })
       .catch(() => {
-        clearAuthCookie();
-        useAuthStore.getState().clearAuth();
+        useAuthStore.getState().resetAuth();
         return null;
       })
       .finally(() => {

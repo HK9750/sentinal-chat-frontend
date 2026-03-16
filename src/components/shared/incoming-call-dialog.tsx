@@ -68,7 +68,7 @@ export function IncomingCallDialog() {
           <Button
             size="icon-lg"
             onClick={handleAccept}
-            className="h-16 w-16 rounded-full bg-green-500 text-white shadow-lg shadow-green-500/20 hover:bg-green-600"
+            className="h-16 w-16 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90"
           >
             {incomingCall?.type === 'VIDEO' ? <Video className="h-7 w-7" /> : <Phone className="h-7 w-7" />}
           </Button>

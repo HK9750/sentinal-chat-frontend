@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { LoaderCircle, Mic, Send, StopCircle } from "lucide-react";
+import { LoaderCircle, Mic, Send, ShieldCheck, StopCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useEncryption } from "@/hooks/use-encryption";
@@ -34,6 +34,13 @@ export function MessageInput({ conversationId }: MessageInputProps) {
   const updateUpload = useUploadStore((state) => state.updateUpload);
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  const markUploadsError = useCallback(
+    (uploadIds: string[], message: string) => {
+      uploadIds.forEach((id) => updateUpload(id, { status: "error", error: message }));
+    },
+    [updateUpload],
+  );
 
   const isBusy =
     fileEncryption.isPending || voiceUpload.isPending || voiceNote.isRecording;
@@ -138,17 +145,31 @@ export function MessageInput({ conversationId }: MessageInputProps) {
           updateUpload(id, { status: "registering", progress: 100 }),
         );
 
+        try {
+          uploadIds.forEach((id) =>
+            updateUpload(id, { status: "sending", progress: 100 }),
+          );
+
+          await submitPayload(
+            {
+              kind: "file",
+              files: result.manifests,
+              caption: "",
+            },
+            result.attachments.map((attachment) => attachment.id),
+          );
+        } catch (sendError) {
+          const message =
+            sendError instanceof Error
+              ? sendError.message
+              : "Upload finished, but the message could not be sent.";
+          markUploadsError(uploadIds, message);
+          setError(message);
+          return;
+        }
+
         uploadIds.forEach((id) =>
           updateUpload(id, { status: "done", progress: 100 }),
-        );
-
-        await submitPayload(
-          {
-            kind: "file",
-            files: result.manifests,
-            caption: "",
-          },
-          result.attachments.map((attachment) => attachment.id),
         );
 
         window.setTimeout(() => {
@@ -159,17 +180,16 @@ export function MessageInput({ conversationId }: MessageInputProps) {
           uploadError instanceof Error
             ? uploadError.message
             : "Unable to upload encrypted files.";
-        uploadIds.forEach((id) =>
-          updateUpload(id, { status: "error", error: message }),
-        );
+        markUploadsError(uploadIds, message);
         setError(message);
       }
     },
-    [addUpload, conversationId, fileEncryption, submitPayload, updateUpload],
+    [addUpload, conversationId, fileEncryption, markUploadsError, submitPayload, updateUpload],
   );
 
   const handleVoiceToggle = useCallback(async () => {
     setError(null);
+    let uploadId: string | null = null;
 
     if (!voiceNote.isRecording && !hasConversationKey(conversationId)) {
       setError(
@@ -193,7 +213,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
 
     try {
       const recording = await voiceNote.stopRecording();
-      const uploadId = `voice:${createClientMessageId()}`;
+      uploadId = `voice:${createClientMessageId()}`;
       addUpload({
         id: uploadId,
         conversation_id: conversationId,
@@ -206,37 +226,59 @@ export function MessageInput({ conversationId }: MessageInputProps) {
       const result = await voiceUpload.mutateAsync({
         recording,
         onProgress: (progress) => {
-          updateUpload(uploadId, { status: "uploading", progress });
+          if (uploadId) {
+            updateUpload(uploadId, { status: "uploading", progress });
+          }
         },
       });
 
-      updateUpload(uploadId, { status: "registering", progress: 100 });
-      updateUpload(uploadId, { status: "done", progress: 100 });
+      if (uploadId) {
+        updateUpload(uploadId, { status: "registering", progress: 100 });
+      }
 
-      await submitPayload(
-        {
-          kind: "audio",
-          transcript: "",
-          duration_ms: recording.duration_ms,
-          clips: [result.manifest],
-        },
-        [result.attachment.id],
-      );
+      try {
+        if (uploadId) {
+          updateUpload(uploadId, { status: "sending", progress: 100 });
+        }
+
+        await submitPayload(
+          {
+            kind: "audio",
+            transcript: "",
+            duration_ms: recording.duration_ms,
+            clips: [result.manifest],
+          },
+          [result.attachment.id],
+        );
+      } catch (sendError) {
+        const message =
+          sendError instanceof Error
+            ? sendError.message
+            : "Voice note uploaded, but the message could not be sent.";
+        if (uploadId) {
+          updateUpload(uploadId, { status: "error", error: message });
+        }
+        setError(message);
+        return;
+      }
+
+      if (uploadId) {
+        updateUpload(uploadId, { status: "done", progress: 100 });
+      }
 
       window.setTimeout(() => {
-        useUploadStore.getState().removeUpload(uploadId);
+        if (uploadId) {
+          useUploadStore.getState().removeUpload(uploadId);
+        }
       }, 2500);
     } catch (voiceError) {
       const message =
         voiceError instanceof Error
           ? voiceError.message
           : "Unable to send the encrypted voice note.";
-      useUploadStore
-        .getState()
-        .items.filter((item) => item.id.startsWith("voice:"))
-        .forEach((item) =>
-          updateUpload(item.id, { status: "error", error: message }),
-        );
+      if (uploadId) {
+        updateUpload(uploadId, { status: "error", error: message });
+      }
       setError(message);
     }
   }, [
@@ -257,66 +299,71 @@ export function MessageInput({ conversationId }: MessageInputProps) {
   }, [currentUserId]);
 
   return (
-    <div className="border-t border-border/70 bg-[#f0f2f5]">
+    <div className="border-t border-border bg-card/90 backdrop-blur-xl">
       <UploadProgressList conversationId={conversationId} />
 
-      <form
-        onSubmit={handleSubmit}
-        className="mx-auto flex w-full max-w-5xl items-end gap-3 px-3 py-3 lg:px-4"
-      >
-        <div className="flex flex-1 items-end gap-2 rounded-[28px] bg-background px-2 py-2 shadow-sm">
-          <FileUploadButton
-            onFilesSelected={handleFilesSelected}
-            disabled={isBusy}
-            className="rounded-full text-muted-foreground"
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={handleVoiceToggle}
-            disabled={voiceUpload.isPending}
-            className="rounded-full text-muted-foreground"
-          >
-            {voiceNote.isRecording ? (
-              <StopCircle className="size-5 text-destructive" />
-            ) : (
-              <Mic className="size-5" />
-            )}
-          </Button>
-          <Textarea
-            value={text}
-            onChange={(event) => {
-              const nextValue = event.target.value;
-              setText(nextValue);
-              sendTyping(nextValue.trim().length > 0);
-            }}
-            placeholder="Type a message"
-            className="min-h-[44px] border-0 bg-transparent px-1 py-2 shadow-none focus-visible:ring-0"
-          />
+      <div className="mx-auto w-full max-w-5xl px-3 pb-4 pt-3 lg:px-4">
+        <div className="rounded-[30px] border border-border bg-card p-3 shadow-lg">
+          <form onSubmit={handleSubmit} className="flex items-end gap-3">
+            <div className="flex flex-1 items-end gap-2 rounded-[24px] border border-border bg-background px-2 py-2">
+              <FileUploadButton
+                onFilesSelected={handleFilesSelected}
+                disabled={isBusy}
+                className="text-muted-foreground"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={handleVoiceToggle}
+                disabled={voiceUpload.isPending}
+                className="rounded-2xl text-muted-foreground"
+              >
+                {voiceNote.isRecording ? (
+                  <StopCircle className="size-5 text-destructive" />
+                ) : (
+                  <Mic className="size-5" />
+                )}
+              </Button>
+              <Textarea
+                value={text}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setText(nextValue);
+                  sendTyping(nextValue.trim().length > 0);
+                }}
+                placeholder="Write a message, attach a file, or record a voice note"
+                className="min-h-[52px] border-0 bg-transparent px-1 py-2 shadow-none focus-visible:ring-0"
+              />
+            </div>
+
+            <Button
+              type="submit"
+              size="icon-lg"
+              className="h-12 w-12 rounded-[20px]"
+              disabled={!text.trim() || isBusy}
+            >
+              {isBusy ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <Send className="size-4" />
+              )}
+            </Button>
+          </form>
+
+          <div className="mt-3 flex flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between">
+            <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <ShieldCheck className="size-3.5 text-primary" />
+              {helperText}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {voiceNote.isRecording ? "Recording in progress. Tap the stop button to upload securely." : "Press Enter or use the send action when your message is ready."}
+            </div>
+          </div>
+
+          {error ? <p className="px-1 pt-3 text-sm text-destructive">{error}</p> : null}
         </div>
-
-        <Button
-          type="submit"
-          size="icon-lg"
-          className="h-12 w-12 rounded-full"
-          disabled={!text.trim() || isBusy}
-        >
-          {isBusy ? (
-            <LoaderCircle className="size-4 animate-spin" />
-          ) : (
-            <Send className="size-4" />
-          )}
-        </Button>
-      </form>
-
-      <div className="mx-auto w-full max-w-5xl px-4 pb-3 text-xs text-muted-foreground">
-        {helperText}
       </div>
-
-      {error ? (
-        <p className="px-4 pb-4 text-sm text-destructive">{error}</p>
-      ) : null}
     </div>
   );
 }

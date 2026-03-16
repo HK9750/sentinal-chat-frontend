@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { IBM_Plex_Mono, Space_Grotesk } from 'next/font/google';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { siteConfig } from '@/config/site';
+import { AuthBootstrapProvider } from '@/providers/auth-bootstrap-provider';
 import { AuthenticatedProviders } from '@/providers/authenticated-providers';
 import { QueryProvider } from '@/providers/query-provider';
 import { ThemeProvider } from '@/providers/theme-provider';
@@ -29,11 +30,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" suppressHydrationWarning>
       <body className={`${headingFont.variable} ${monoFont.variable} app-shell antialiased`}>
         <QueryProvider>
-          <ThemeProvider>
-            <AuthenticatedProviders>
-              <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
-            </AuthenticatedProviders>
-          </ThemeProvider>
+          <AuthBootstrapProvider>
+            <ThemeProvider>
+              <AuthenticatedProviders>
+                <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
+              </AuthenticatedProviders>
+            </ThemeProvider>
+          </AuthBootstrapProvider>
         </QueryProvider>
       </body>
     </html>

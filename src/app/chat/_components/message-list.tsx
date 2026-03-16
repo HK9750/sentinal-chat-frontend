@@ -5,7 +5,7 @@ import { Send } from 'lucide-react';
 import { MessageBubble } from '@/components/shared/message-bubble';
 import { Spinner } from '@/components/shared/spinner';
 import { useDecryptedMessages } from '@/hooks/use-decrypted-messages';
-import { getOtherParticipant } from '@/lib/utils';
+import { formatCalendarLabel, getOtherParticipant } from '@/lib/utils';
 import { useConversation } from '@/queries/use-conversation-queries';
 
 interface MessageListProps {
@@ -49,6 +49,25 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
     const participants = conversationQuery.data?.participants ?? [];
     return new Map(participants.map((participant) => [participant.user_id, participant]));
   }, [conversationQuery.data?.participants]);
+
+  const groupedMessages = useMemo(() => {
+    const groups: Array<{ label: string; items: typeof messagesQuery.items }> = [];
+    const items = messagesQuery.items;
+
+    for (const item of items) {
+      const label = formatCalendarLabel(item.message.created_at);
+      const lastGroup = groups[groups.length - 1];
+
+      if (!lastGroup || lastGroup.label !== label) {
+        groups.push({ label, items: [item] });
+        continue;
+      }
+
+      lastGroup.items.push(item);
+    }
+
+    return groups;
+  }, [messagesQuery]);
 
   if (messagesQuery.isLoading || conversationQuery.isLoading) {
     return (
@@ -99,28 +118,41 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#efeae2] px-3 py-6 lg:px-6">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
-        {messagesQuery.items.map(({ message, decrypted }, index) => {
-          const previous = messagesQuery.items[index - 1]?.message;
-          const isOwn = message.sender_id === currentUserId;
-          const showAvatar = !isOwn && previous?.sender_id !== message.sender_id;
-          const author = authorLookup.get(message.sender_id);
-
-          return (
-            <div key={message.id} ref={(element) => setMessageRef(message.id, element)}>
-              <MessageBubble
-                conversationId={conversationId}
-                message={message}
-                decrypted={decrypted}
-                isOwn={isOwn}
-                showAvatar={showAvatar}
-                authorLabel={author?.display_name ?? author?.username ?? 'Member'}
-                avatarUrl={author?.avatar_url}
-              />
+    <div className="flex-1 overflow-y-auto px-3 py-5 lg:px-6 lg:py-6">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+        {groupedMessages.map((group) => (
+          <div key={group.label} className="space-y-3">
+            <div className="sticky top-2 z-10 flex justify-center">
+              <span className="rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground shadow-sm backdrop-blur-sm">
+                {group.label}
+              </span>
             </div>
-          );
-        })}
+
+            <div className="space-y-2.5">
+              {group.items.map(({ message, decrypted }) => {
+                const globalIndex = messagesQuery.items.findIndex((entry) => entry.message.id === message.id);
+                const previous = messagesQuery.items[globalIndex - 1]?.message;
+                const isOwn = message.sender_id === currentUserId;
+                const showAvatar = !isOwn && previous?.sender_id !== message.sender_id;
+                const author = authorLookup.get(message.sender_id);
+
+                return (
+                  <div key={message.id} ref={(element) => setMessageRef(message.id, element)}>
+                    <MessageBubble
+                      conversationId={conversationId}
+                      message={message}
+                      decrypted={decrypted}
+                      isOwn={isOwn}
+                      showAvatar={showAvatar}
+                      authorLabel={author?.display_name ?? author?.username ?? 'Member'}
+                      avatarUrl={author?.avatar_url}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
         <div ref={scrollRef} />
       </div>
     </div>

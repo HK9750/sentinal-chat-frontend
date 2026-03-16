@@ -42,15 +42,17 @@ export function UserAvatar({
 
   return (
     <div className={cn('relative inline-flex shrink-0', className)}>
-      <Avatar className={cn(sizeClassMap[size], 'border border-white/20 bg-secondary/60')}>
+      <Avatar className={cn(sizeClassMap[size], 'border border-border bg-card shadow-sm')}>
         <AvatarImage src={imageSrc ?? undefined} alt={label} />
-        <AvatarFallback className="bg-primary/15 font-semibold text-primary">{initials}</AvatarFallback>
+        <AvatarFallback className="bg-primary/10 font-semibold text-primary">
+          {initials}
+        </AvatarFallback>
       </Avatar>
       {showStatus ? (
         <span
           className={cn(
             'absolute bottom-0 right-0 size-3 rounded-full border-2 border-background',
-            isOnline ? 'bg-emerald-500' : 'bg-muted-foreground'
+            isOnline ? 'bg-primary' : 'bg-muted-foreground'
           )}
         />
       ) : null}

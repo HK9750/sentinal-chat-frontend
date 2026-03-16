@@ -33,8 +33,8 @@ export default function ProfilePage() {
 
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-slate-950">
-        <header className="border-b border-slate-800 bg-slate-900/50 sticky top-0 z-10">
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur-xl">
           <div className="max-w-5xl mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -42,13 +42,13 @@ export default function ProfilePage() {
                   variant="ghost"
                   size="icon"
                   asChild
-                  className="text-slate-400 hover:text-white"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   <Link href="/chat">
                     <ArrowLeft className="h-5 w-5" />
                   </Link>
                 </Button>
-                <h1 className="text-xl font-semibold text-white">Profile</h1>
+                <h1 className="text-xl font-semibold text-foreground">Profile</h1>
               </div>
               <Button
                 variant="destructive"
@@ -73,18 +73,18 @@ export default function ProfilePage() {
         </header>
 
         <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-          <Card className="bg-slate-900 border-slate-800">
+          <Card className="border-border bg-card">
             <CardContent className="p-8">
               <div className="flex flex-col md:flex-row items-center gap-6">
                 <UserAvatar user={user} size="xl" showStatus isOnline />
                 <div className="text-center md:text-left flex-1">
-                  <h2 className="text-2xl font-bold text-white">
+                  <h2 className="text-2xl font-bold text-foreground">
                     {profile?.display_name || user?.display_name}
                   </h2>
-                  <p className="text-slate-400">
+                  <p className="text-muted-foreground">
                     @{profile?.username || user?.username}
                   </p>
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-4 text-sm text-slate-500">
+                  <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground md:justify-start">
                     {profile?.email && (
                       <div className="flex items-center gap-1">
                         <Mail className="h-4 w-4" />
@@ -100,7 +100,7 @@ export default function ProfilePage() {
                 <Button
                   asChild
                   variant="outline"
-                  className="border-slate-700 text-slate-300"
+                  className="border-border text-foreground"
                 >
                   <Link href="/settings">Edit Profile</Link>
                 </Button>

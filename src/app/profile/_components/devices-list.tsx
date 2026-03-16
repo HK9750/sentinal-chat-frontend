@@ -8,48 +8,48 @@ export function DevicesList() {
   const { data: devices, isLoading, isError } = useDevices();
 
   return (
-    <Card className="bg-slate-900 border-slate-800">
+    <Card className="border-border bg-card">
       <CardHeader>
-        <CardTitle className="text-slate-100 flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-foreground">
           <Smartphone className="h-5 w-5" />
           Devices
         </CardTitle>
-        <CardDescription className="text-slate-400">
+        <CardDescription>
           Manage your connected devices
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {isLoading && <p className="text-sm text-slate-500">Loading devices...</p>}
+          {isLoading && <p className="text-sm text-muted-foreground">Loading devices...</p>}
           {isError && <p className="text-sm text-destructive">Unable to load devices right now.</p>}
           {!isLoading && !isError && devices?.length === 0 && (
-            <p className="text-sm text-slate-500">No devices found</p>
+            <p className="text-sm text-muted-foreground">No devices found</p>
           )}
           {devices?.map((device) => (
             <div
               key={device.session_id}
-              className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50"
+              className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded bg-slate-700">
-                  <Smartphone className="h-4 w-4 text-slate-400" />
+                <div className="rounded bg-muted p-2">
+                  <Smartphone className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-200">
+                  <p className="text-sm font-medium text-foreground">
                     {device.name}
                   </p>
-                  <p className="text-xs text-slate-500 capitalize">
+                  <p className="text-xs capitalize text-muted-foreground">
                     {device.type}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 {device.is_current ? (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-500">
+                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
                     Current
                   </span>
                 ) : (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-700 text-slate-400">
+                  <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
                     Saved
                   </span>
                 )}

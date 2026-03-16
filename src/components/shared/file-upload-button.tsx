@@ -39,7 +39,7 @@ export function FileUploadButton({ onFilesSelected, className, disabled, accept 
         size="icon"
         disabled={disabled}
         onClick={() => inputRef.current?.click()}
-        className={cn('rounded-full', className)}
+        className={cn('rounded-2xl', className)}
       >
         <Paperclip className="size-4.5" />
       </Button>

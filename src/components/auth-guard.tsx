@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Spinner } from '@/components/shared/spinner';
+import { getAuthCookie } from '@/lib/cookies';
 import { useAuthStore } from '@/stores/auth-store';
 
 function FullscreenLoader() {
@@ -16,19 +17,22 @@ function FullscreenLoader() {
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const isHydrated = useAuthStore((state) => state.isHydrated);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const tokens = useAuthStore((state) => state.tokens);
   const router = useRouter();
   const pathname = usePathname();
+  const hasCookieSession = Boolean(getAuthCookie());
+  const isRestoringSession = !isHydrated || (!isAuthenticated && hasCookieSession && !tokens);
 
   useEffect(() => {
-    if (!isHydrated || isAuthenticated) {
+    if (isRestoringSession || isAuthenticated) {
       return;
     }
 
     const redirectTarget = pathname || '/chat';
     router.replace(`/login?redirect=${encodeURIComponent(redirectTarget)}`);
-  }, [isAuthenticated, isHydrated, pathname, router]);
+  }, [isAuthenticated, isRestoringSession, pathname, router]);
 
-  if (!isHydrated) {
+  if (isRestoringSession) {
     return <FullscreenLoader />;
   }
 
@@ -42,17 +46,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 export function GuestGuard({ children }: { children: React.ReactNode }) {
   const isHydrated = useAuthStore((state) => state.isHydrated);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const tokens = useAuthStore((state) => state.tokens);
   const router = useRouter();
+  const hasCookieSession = Boolean(getAuthCookie());
+  const isRestoringSession = !isHydrated || (!isAuthenticated && hasCookieSession && !tokens);
 
   useEffect(() => {
-    if (!isHydrated || !isAuthenticated) {
+    if (isRestoringSession || !isAuthenticated) {
       return;
     }
 
     router.replace('/chat');
-  }, [isAuthenticated, isHydrated, router]);
+  }, [isAuthenticated, isRestoringSession, router]);
 
-  if (!isHydrated) {
+  if (isRestoringSession) {
     return <FullscreenLoader />;
   }
 

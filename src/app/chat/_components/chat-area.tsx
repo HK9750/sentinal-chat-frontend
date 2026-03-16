@@ -55,7 +55,7 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
   }, []);
 
   return (
-    <div className="relative flex h-full flex-col bg-[#efeae2]">
+    <div className="relative flex h-full flex-col bg-transparent">
       <ChatHeader
         conversationId={conversationId}
         onBack={handleBack}

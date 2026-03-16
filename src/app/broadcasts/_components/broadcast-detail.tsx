@@ -83,7 +83,7 @@ export function BroadcastDetail({ broadcast, isLoading = false }: BroadcastDetai
 
           <Card className="surface-panel rounded-[26px] border-border/70 p-5">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="mt-0.5 size-4 text-amber-500" />
+              <AlertTriangle className="mt-0.5 size-4 text-destructive" />
               <div>
                 <h3 className="font-semibold">What is intentionally missing</h3>
                 <p className="mt-1 text-sm text-muted-foreground">

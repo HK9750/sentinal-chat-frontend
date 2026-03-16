@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { Archive, MessageSquarePlus, Settings } from 'lucide-react';
+import { MessageSquarePlus, Settings, ShieldCheck, Sparkles } from 'lucide-react';
 import { SearchInput } from '@/components/shared/search-input';
 import { UserMenu } from '@/components/shared/user-menu';
 import { NewConversationDialog } from '@/components/shared/new-conversation-dialog';
@@ -46,10 +46,14 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
 
   return (
     <div className="flex min-h-full w-full flex-col">
-      <div className="border-b border-border/70 bg-background/85 px-4 pb-3 pt-4 backdrop-blur-xl">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[22px] font-semibold tracking-[-0.04em] text-foreground">Chats</p>
+      <div className="border-b border-border bg-card/90 px-4 pb-4 pt-5 backdrop-blur-xl">
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Sentinel Inbox</p>
+            <div>
+              <p className="text-[24px] font-semibold tracking-[-0.05em] text-foreground">Secure threads</p>
+              <p className="text-sm text-muted-foreground">Encrypted conversations organized like a calm workspace.</p>
+            </div>
           </div>
           <UserMenu />
         </div>
@@ -58,27 +62,35 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
           <SearchInput
             value={query}
             onChange={setQuery}
-            placeholder="Search or start new chat"
+            placeholder="Search threads, people, or subjects"
             className="flex-1"
           />
-          <Button type="button" variant="outline" size="icon" className="rounded-full" onClick={() => setDialogOpen(true)}>
+          <Button type="button" variant="outline" size="icon" className="rounded-2xl border-border bg-background" onClick={() => setDialogOpen(true)}>
             <MessageSquarePlus className="size-4" />
           </Button>
-          <Button asChild type="button" variant="outline" size="icon" className="rounded-full">
+          <Button asChild type="button" variant="outline" size="icon" className="rounded-2xl border-border bg-background">
             <Link href="/settings">
               <Settings className="size-4" />
             </Link>
           </Button>
         </div>
 
-        <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-emerald-500/12 px-2 py-1 text-emerald-700">Encrypted</span>
-            <span>{filteredConversations.length} visible</span>
+        <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+          <div className="rounded-[20px] border border-border bg-background px-3 py-3 shadow-sm">
+            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em]">
+              <ShieldCheck className="size-3.5 text-primary" />
+              Protected
+            </div>
+            <p className="mt-2 text-lg font-semibold tracking-[-0.04em] text-foreground">{filteredConversations.length}</p>
+            <p>Visible threads</p>
           </div>
-          <div className="flex items-center gap-1">
-            <Archive className="size-3.5" />
-            Search chats instantly
+          <div className="rounded-[20px] border border-border bg-background px-3 py-3 shadow-sm">
+            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em]">
+              <Sparkles className="size-3.5 text-primary" />
+              Live filter
+            </div>
+            <p className="mt-2 text-sm font-medium text-foreground">Fast retrieval</p>
+            <p>Search titles, previews, and descriptions.</p>
           </div>
         </div>
       </div>
@@ -99,10 +111,10 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
             </p>
           </div>
         ) : (
-          <div>
-            {filteredConversations.map((conversation) => (
-              <ConversationItem
-                key={conversation.id}
+            <div className="space-y-2 p-3">
+              {filteredConversations.map((conversation) => (
+                <ConversationItem
+                  key={conversation.id}
                 conversation={conversation}
                 isSelected={selectedConversationId === conversation.id}
               />

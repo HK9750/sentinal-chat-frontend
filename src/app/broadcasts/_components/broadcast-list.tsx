@@ -77,13 +77,13 @@ export function BroadcastList() {
                   key={broadcast.id}
                   type="button"
                   onClick={() => setSelectedId(broadcast.id)}
-                  className={cn(
-                    'flex w-full flex-col gap-3 rounded-[22px] border px-4 py-4 text-left transition-colors',
-                    isSelected
-                      ? 'border-primary/40 bg-primary/8 shadow-[0_18px_40px_-28px_rgba(20,120,120,0.5)]'
-                      : 'border-border/70 bg-background/45 hover:bg-background/70'
-                  )}
-                >
+                    className={cn(
+                      'flex w-full flex-col gap-3 rounded-[22px] border px-4 py-4 text-left transition-colors',
+                      isSelected
+                        ? 'border-primary/40 bg-primary/8 shadow-sm'
+                        : 'border-border/70 bg-background/45 hover:bg-background/70'
+                    )}
+                  >
                   <div className="flex items-center justify-between gap-3">
                     <p className="font-medium">{broadcast.title}</p>
                     <Badge variant="secondary" className="capitalize">

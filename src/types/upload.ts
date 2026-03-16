@@ -70,6 +70,6 @@ export interface UploadQueueItem {
   filename: string;
   mime_type: string;
   progress: number;
-  status: 'encrypting' | 'uploading' | 'registering' | 'done' | 'error';
+  status: 'encrypting' | 'uploading' | 'registering' | 'sending' | 'done' | 'error';
   error?: string;
 }

@@ -1,24 +1,31 @@
 'use client';
 
-import { MessageSquareDashed, ShieldCheck } from 'lucide-react';
+import { Compass, MessageSquareDashed, ShieldCheck } from 'lucide-react';
 import { APP_LIMITATIONS } from '@/lib/constants';
 
 export function ChatEmptyState() {
   return (
-    <div className="flex flex-1 items-center justify-center bg-[#efeae2] bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.55),transparent_55%)] p-6">
-      <div className="max-w-xl rounded-[28px] border border-border/60 bg-background/88 px-8 py-10 text-center shadow-[0_24px_80px_-32px_rgba(18,46,55,0.18)]">
-        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+    <div className="flex flex-1 items-center justify-center bg-background p-6 lg:p-10">
+      <div className="grid w-full max-w-4xl gap-5 rounded-[34px] border border-border bg-card px-8 py-8 shadow-2xl lg:grid-cols-[1.2fr_0.8fr] lg:px-10 lg:py-10">
+        <div>
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary lg:mx-0">
           <MessageSquareDashed className="size-8" />
+          </div>
+          <p className="section-kicker text-center lg:text-left">Sentinel Web</p>
+          <h2 className="mt-2 text-center text-3xl font-semibold tracking-[-0.05em] lg:text-left lg:text-4xl">Pick a thread or open a new secure line</h2>
+          <p className="mt-3 text-center text-sm leading-6 text-muted-foreground lg:text-left">
+            The chat workspace is ready. Choose a conversation from the left or start a direct message or group to exchange encrypted text, files, and voice notes.
+          </p>
         </div>
-        <p className="section-kicker">Sentinel Web</p>
-        <h2 className="mt-2 text-3xl font-semibold tracking-[-0.05em]">Keep your secure chats in sync</h2>
-        <p className="mt-3 text-sm text-muted-foreground">
-          Select a conversation from the sidebar or start a new chat to exchange encrypted messages, files, and voice notes.
-        </p>
-        <div className="mt-6 rounded-2xl border border-border/70 bg-background/55 px-4 py-4 text-left">
-          <div className="flex items-start gap-3">
+
+        <div className="space-y-3 rounded-[28px] border border-border bg-muted/30 p-5 text-left">
+          <div className="flex items-start gap-3 rounded-[22px] border border-primary/15 bg-primary/8 px-4 py-4">
             <ShieldCheck className="mt-0.5 size-4 text-primary" />
             <p className="text-sm text-muted-foreground">{APP_LIMITATIONS.keySync}</p>
+          </div>
+          <div className="flex items-start gap-3 rounded-[22px] border border-border bg-background px-4 py-4">
+            <Compass className="mt-0.5 size-4 text-primary" />
+            <p className="text-sm text-muted-foreground">Use search to jump between threads fast, then search inside any thread from the header.</p>
           </div>
         </div>
       </div>

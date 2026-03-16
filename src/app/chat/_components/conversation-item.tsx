@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo } from 'react';
-import { CheckCheck } from 'lucide-react';
+import { CheckCheck, LockKeyhole, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserAvatar } from '@/components/shared/user-avatar';
@@ -35,10 +35,10 @@ export function ConversationItem({ conversation, isSelected }: ConversationItemP
       href={href}
       scroll={false}
       className={cn(
-        'group block rounded-none border-b border-border/60 px-3 py-3 transition-colors duration-150',
+        'group block rounded-[24px] border px-3 py-3.5 transition-all duration-200',
         isSelected
-          ? 'bg-primary/10'
-          : 'border-transparent hover:bg-muted/45'
+          ? 'border-primary/20 bg-primary/10 shadow-sm'
+          : 'border-transparent bg-background/40 hover:border-border hover:bg-background hover:shadow-sm'
       )}
     >
       <div className="flex items-start gap-3">
@@ -54,15 +54,21 @@ export function ConversationItem({ conversation, isSelected }: ConversationItemP
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="truncate text-[15px] font-medium text-foreground">{title}</p>
-              <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-[15px] font-semibold text-foreground">{title}</p>
+                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  {conversation.type === 'DM' ? <LockKeyhole className="size-3" /> : <Users className="size-3" />}
+                  {conversation.type === 'DM' ? 'Direct' : 'Group'}
+                </span>
+              </div>
+              <div className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">
                 {conversation.last_message?.sender_id === currentUserId ? <CheckCheck className="size-3.5 text-primary/80" /> : null}
                 <p className="truncate">{subtitle}</p>
               </div>
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-[11px] font-medium text-muted-foreground">
                 {conversation.last_message_at ? formatRelativeTime(conversation.last_message_at) : 'New'}
               </span>
               {conversation.unread_count > 0 ? (
@@ -80,9 +86,9 @@ export function ConversationItem({ conversation, isSelected }: ConversationItemP
 
 export function ConversationListSkeleton() {
   return (
-    <div className="space-y-0 p-0">
+    <div className="space-y-2 p-3">
       {Array.from({ length: 8 }).map((_, index) => (
-        <div key={index} className="flex items-center gap-3 border-b border-border/50 px-4 py-3">
+        <div key={index} className="flex items-center gap-3 rounded-[24px] border border-border bg-card px-4 py-3">
           <Skeleton className="size-12 rounded-full" />
           <div className="min-w-0 flex-1 space-y-2">
             <Skeleton className="h-4 w-2/3" />

@@ -116,12 +116,12 @@ export function ProfileTab() {
               type="submit"
               disabled={updateProfile.isPending}
             >
-              {updateProfile.isPending ? (
-                <>
-                  <Spinner size="sm" className="mr-2 border-white/30 border-t-white" />
-                  Saving...
-                </>
-              ) : (
+                {updateProfile.isPending ? (
+                  <>
+                  <Spinner size="sm" className="mr-2" />
+                   Saving...
+                  </>
+                ) : (
                 'Save Changes'
               )}
             </Button>

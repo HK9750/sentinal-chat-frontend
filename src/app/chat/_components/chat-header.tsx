@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { ArrowLeft, Phone, Search, Video } from 'lucide-react';
+import { ArrowLeft, Phone, Search, ShieldCheck, Video } from 'lucide-react';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
 import { APP_LIMITATIONS } from '@/lib/constants';
@@ -46,39 +46,47 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
   }, [conversation, conversationQuery.isError, otherParticipant?.is_online, typingUserIds.length]);
 
   return (
-    <div className="flex h-16 items-center justify-between border-b border-border/70 bg-[#f0f2f5] px-4">
-      <div className="flex min-w-0 items-center gap-3">
-        {onBack ? (
-          <Button type="button" variant="ghost" size="icon" className="lg:hidden" onClick={onBack}>
-            <ArrowLeft className="size-4" />
-          </Button>
-        ) : null}
+    <div className="border-b border-border bg-card/90 px-4 py-3 backdrop-blur-xl lg:px-5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          {onBack ? (
+            <Button type="button" variant="ghost" size="icon" className="rounded-2xl lg:hidden" onClick={onBack}>
+              <ArrowLeft className="size-4" />
+            </Button>
+          ) : null}
 
-        <UserAvatar
-          src={conversation?.avatar_url ?? otherParticipant?.avatar_url}
-          alt={title}
-          fallback={title[0]}
-          size="md"
-          showStatus={conversation?.type === 'DM'}
-          isOnline={otherParticipant?.is_online ?? false}
-        />
+          <UserAvatar
+            src={conversation?.avatar_url ?? otherParticipant?.avatar_url}
+            alt={title}
+            fallback={title[0]}
+            size="md"
+            showStatus={conversation?.type === 'DM'}
+            isOnline={otherParticipant?.is_online ?? false}
+          />
 
-        <div className="min-w-0">
-          <p className="truncate text-base font-medium tracking-[-0.02em]">{title}</p>
-          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="truncate text-base font-semibold tracking-[-0.03em]">{title}</p>
+              <span className="hidden items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary sm:inline-flex">
+                <ShieldCheck className="size-3" />
+                Encrypted
+              </span>
+            </div>
+            <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+          </div>
         </div>
-      </div>
 
-      <div className="flex items-center gap-1">
-        <Button type="button" variant="ghost" size="icon" onClick={onOpenSearch} disabled={actionsDisabled}>
-          <Search className="size-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" onClick={() => onStartCall('AUDIO')} disabled>
-          <Phone className="size-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" onClick={() => onStartCall('VIDEO')} disabled title={APP_LIMITATIONS.calls}>
-          <Video className="size-4" />
-        </Button>
+        <div className="flex items-center gap-1.5">
+          <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={onOpenSearch} disabled={actionsDisabled}>
+            <Search className="size-4" />
+          </Button>
+          <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={() => onStartCall('AUDIO')} disabled>
+            <Phone className="size-4" />
+          </Button>
+          <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={() => onStartCall('VIDEO')} disabled title={APP_LIMITATIONS.calls}>
+            <Video className="size-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );

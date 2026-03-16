@@ -68,32 +68,32 @@ export function ConversationKeyBanner({ conversationId }: ConversationKeyBannerP
   }, [conversationId, exportConversationAccess]);
 
   return (
-    <div className="border-b border-border/70 bg-background/45 px-4 py-3">
-      <div className="flex flex-col gap-3 rounded-[22px] border border-border/70 bg-background/65 px-4 py-3 md:flex-row md:items-center md:justify-between">
+    <div className="border-b border-border px-4 py-3">
+      <div className="flex flex-col gap-3 rounded-[24px] border border-border bg-card px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <KeyRound className="size-4" />
           </div>
           <div>
             <p className="text-sm font-semibold">{hasKey ? 'Conversation key is on this device' : 'This device is missing the conversation key'}</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
               {hasKey
                 ? 'Export the access code to trusted devices so they can decrypt the same thread.'
                 : 'Import an access code or generate a new local key for future messages.'}
             </p>
-            {message ? <p className="mt-1 text-xs text-muted-foreground">{message}</p> : null}
+            {message ? <p className="mt-2 text-xs text-muted-foreground">{message}</p> : null}
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
           {hasKey ? (
-            <Button type="button" variant="outline" size="sm" onClick={handleExport} disabled={busy}>
+            <Button type="button" variant="outline" size="sm" className="rounded-full border-border bg-background" onClick={handleExport} disabled={busy}>
               {isCopied ? <Check className="size-4" /> : <Download className="size-4" />}
               {isCopied ? 'Copied' : 'Copy access code'}
             </Button>
           ) : (
             <>
-              <Button type="button" variant="outline" size="sm" onClick={handleImport} disabled={busy}>
+              <Button type="button" variant="outline" size="sm" className="rounded-full border-border bg-background" onClick={handleImport} disabled={busy}>
                 <Upload className="size-4" />
                 Import code
               </Button>

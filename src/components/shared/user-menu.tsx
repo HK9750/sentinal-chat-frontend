@@ -22,7 +22,7 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-11 rounded-full border border-transparent hover:border-white/20">
+        <Button variant="ghost" size="icon" className="size-11 rounded-full border border-transparent hover:border-border">
           <UserAvatar user={user} size="sm" />
         </Button>
       </DropdownMenuTrigger>

@@ -34,20 +34,20 @@ export function MessageBubble({
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
   return (
-    <div className={cn('flex gap-2', isOwn ? 'justify-end' : 'justify-start')}>
+    <div className={cn('flex gap-2.5', isOwn ? 'justify-end' : 'justify-start')}>
       {!isOwn ? (
         showAvatar ? <UserAvatar src={avatarUrl} alt={authorLabel} fallback={authorLabel?.[0] ?? 'U'} size="sm" /> : <div className="size-8 shrink-0" />
       ) : null}
 
       <div
         className={cn(
-          'max-w-[78%] rounded-[12px] border px-3 py-2 shadow-sm',
+          'max-w-[82%] rounded-[24px] border px-4 py-3 shadow-sm',
           isOwn
-            ? 'border-primary/15 bg-[#d9fdd3] text-slate-900'
-            : 'border-border/40 bg-white text-slate-900'
+            ? 'border-primary/20 bg-primary/10 text-foreground'
+            : 'border-border bg-card text-foreground'
         )}
       >
-        {!isOwn && showAvatar && authorLabel ? <p className="mb-1 text-xs font-semibold text-primary">{authorLabel}</p> : null}
+        {!isOwn && showAvatar && authorLabel ? <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary/90">{authorLabel}</p> : null}
 
         <div className="space-y-3">
           <p className="whitespace-pre-wrap text-sm leading-relaxed">
@@ -73,7 +73,7 @@ export function MessageBubble({
                 const isAudio = payload.kind === 'audio';
 
                 return (
-                  <div key={manifest.file_id} className="rounded-2xl border border-border/70 bg-background/55 px-3 py-3">
+                  <div key={manifest.file_id} className="rounded-[20px] border border-border bg-background px-3 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-secondary text-secondary-foreground">
@@ -89,6 +89,7 @@ export function MessageBubble({
                         type="button"
                         variant="outline"
                         size="sm"
+                        className="rounded-full border-border bg-background"
                         onClick={async () => {
                           try {
                             setAttachmentError(null);
@@ -114,7 +115,7 @@ export function MessageBubble({
           {attachmentError ? <p className="text-xs text-destructive">{attachmentError}</p> : null}
         </div>
 
-        <div className="mt-1 flex items-center justify-end gap-2 text-[11px] text-muted-foreground">
+        <div className="mt-2 flex items-center justify-end gap-2 text-[11px] font-medium text-muted-foreground">
           {message.edited_at ? <span>Edited</span> : null}
           <span>{formatTimestamp(message.created_at)}</span>
         </div>

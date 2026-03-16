@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const AUTH_COOKIE = 'access_token';
+const ACCESS_COOKIE = 'access_token';
+const REFRESH_COOKIE = 'refresh_token';
 const PUBLIC_ROUTES = ['/', '/login', '/register'];
 const AUTH_ROUTES = ['/login', '/register'];
 
@@ -44,17 +45,19 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get(AUTH_COOKIE)?.value;
+  const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
+  const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
+  const hasSession = Boolean(accessToken || refreshToken);
   const isPublic = isPublicRoute(pathname);
   const isProtected = isProtectedRoute(pathname);
 
-  if (token && (pathname === '/' || isAuthRoute(pathname))) {
+  if (hasSession && (pathname === '/' || isAuthRoute(pathname))) {
     const redirectParam = request.nextUrl.searchParams.get('redirect');
     const target = redirectParam && redirectParam.startsWith('/') ? redirectParam : '/chat';
     return NextResponse.redirect(new URL(target, request.url));
   }
 
-  if (!token && isProtected) {
+  if (!hasSession && isProtected) {
     const loginUrl = new URL('/login', request.url);
     const redirectTarget = `${request.nextUrl.pathname}${request.nextUrl.search}`;
     loginUrl.searchParams.set('redirect', redirectTarget);

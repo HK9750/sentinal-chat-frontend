@@ -53,7 +53,13 @@ export function useCreateConversationMutation() {
   return useMutation({
     mutationFn: async (input: CreateConversationRequest) => {
       const conversation = await createConversation(input);
-      await ensureConversationKey(conversation.id);
+
+      try {
+        await ensureConversationKey(conversation.id);
+      } catch {
+        return conversation;
+      }
+
       return conversation;
     },
     onSuccess: (conversation) => {

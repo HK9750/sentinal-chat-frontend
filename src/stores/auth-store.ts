@@ -19,17 +19,22 @@ interface AuthState {
   updateTokens: (tokens: AuthTokens) => void;
   updateUser: (patch: Partial<AuthUser>) => void;
   clearAuth: () => void;
+  resetAuth: () => void;
   markHydrated: () => void;
 }
 
+const anonymousState = {
+  user: null,
+  session: null,
+  tokens: null,
+  status: 'anonymous' as AuthStatus,
+  isAuthenticated: false,
+};
+
 export const useAuthStore = create<AuthState>()(
   (set, get) => ({
-    user: null,
-    session: null,
-    tokens: null,
-    status: 'anonymous',
-    isAuthenticated: false,
-    isHydrated: true,
+    ...anonymousState,
+    isHydrated: false,
     setAuth: (payload) => {
       set({
         user: payload.user,
@@ -37,12 +42,13 @@ export const useAuthStore = create<AuthState>()(
         tokens: payload.tokens,
         status: 'authenticated',
         isAuthenticated: true,
+        isHydrated: true,
       });
 
       setAuthCookie(payload.tokens.access_token, payload.tokens.expires_at);
     },
     updateTokens: (tokens) => {
-      set({ tokens, status: 'authenticated', isAuthenticated: true });
+      set({ tokens, status: 'authenticated', isAuthenticated: true, isHydrated: true });
       setAuthCookie(tokens.access_token, tokens.expires_at);
     },
     updateUser: (patch) => {
@@ -60,19 +66,33 @@ export const useAuthStore = create<AuthState>()(
       clearDeviceState();
       clearConversationKeys();
       set({
-        user: null,
-        session: null,
-        tokens: null,
-        status: 'anonymous',
-        isAuthenticated: false,
+        ...anonymousState,
+        isHydrated: true,
+      });
+    },
+    resetAuth: () => {
+      clearAuthCookie();
+      clearDeviceState();
+      set({
+        ...anonymousState,
+        isHydrated: true,
       });
     },
     markHydrated: () => {
       const hasValidToken = Boolean(get().tokens?.access_token && get().tokens?.expires_at && new Date(get().tokens!.expires_at).getTime() > Date.now());
+
+      if (!hasValidToken) {
+        set({
+          ...anonymousState,
+          isHydrated: true,
+        });
+        return;
+      }
+
       set({
         isHydrated: true,
-        status: hasValidToken ? 'authenticated' : 'anonymous',
-        isAuthenticated: hasValidToken,
+        status: 'authenticated',
+        isAuthenticated: true,
       });
     },
   })

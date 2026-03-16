@@ -40,36 +40,36 @@ export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigate
   }
 
   return (
-    <div className="absolute inset-y-0 right-0 z-20 flex w-full max-w-sm flex-col border-l border-border/70 bg-[#f8fafb]/96 backdrop-blur-xl">
-      <div className="border-b border-border/70 bg-[#f0f2f5] p-4">
+    <div className="absolute inset-y-0 right-0 z-20 flex w-full max-w-sm flex-col border-l border-border bg-card backdrop-blur-2xl">
+      <div className="border-b border-border p-4">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setSelectedIndex(0);
-              }}
-              placeholder="Search this chat"
-              className="h-11 rounded-full border-border/70 bg-background pl-10 pr-10 shadow-none"
-            />
-            {query ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                className="absolute right-3 top-1/2 -translate-y-1/2"
-                onClick={() => {
-                  setQuery('');
-                  setSelectedIndex(0);
+               onChange={(event) => {
+                 setQuery(event.target.value);
+                 setSelectedIndex(0);
+               }}
+                placeholder="Search this chat"
+                className="h-12 rounded-[20px] border-border bg-background pl-10 pr-10 shadow-none"
+              />
+              {query ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full"
+                  onClick={() => {
+                    setQuery('');
+                    setSelectedIndex(0);
                 }}
               >
                 <X className="size-3.5" />
               </Button>
-            ) : null}
+              ) : null}
           </div>
-          <Button type="button" variant="ghost" size="icon" onClick={onClose}>
+          <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={onClose}>
             <X className="size-4" />
           </Button>
         </div>
@@ -84,6 +84,7 @@ export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigate
                 type="button"
                 variant="outline"
                 size="icon-xs"
+                className="rounded-full border-border bg-background"
                 disabled={clampedSelectedIndex === 0}
                 onClick={() => {
                   const nextIndex = Math.max(clampedSelectedIndex - 1, 0);
@@ -97,6 +98,7 @@ export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigate
                 type="button"
                 variant="outline"
                 size="icon-xs"
+                className="rounded-full border-border bg-background"
                 disabled={clampedSelectedIndex === results.length - 1}
                 onClick={() => {
                   const nextIndex = Math.min(clampedSelectedIndex + 1, results.length - 1);
@@ -111,7 +113,7 @@ export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigate
         ) : null}
       </div>
 
-      <ScrollArea className="flex-1 p-2">
+      <ScrollArea className="flex-1 p-3">
         {messages.isLoading ? (
           <div className="px-4 py-10 text-center text-sm text-muted-foreground">Loading available message history...</div>
         ) : messages.isError ? (
@@ -132,12 +134,14 @@ export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigate
                   setSelectedIndex(index);
                   onNavigateToMessage(result.message.id);
                 }}
-                className={`w-full rounded-[18px] border px-3 py-3 text-left transition-colors ${
-                  index === clampedSelectedIndex ? 'border-primary/35 bg-primary/8' : 'border-border/60 bg-background/80 hover:bg-background'
+                className={`w-full rounded-[20px] border px-3 py-3 text-left transition-colors ${
+                  index === clampedSelectedIndex
+                    ? 'border-primary/25 bg-primary/8 shadow-sm'
+                    : 'border-border bg-background hover:bg-muted/40'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium">{getMessagePrimaryText(result.decrypted)}</p>
+                  <p className="line-clamp-2 text-sm font-medium">{getMessagePrimaryText(result.decrypted)}</p>
                   <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
                     {formatRelativeTime(result.message.created_at)}
                   </span>

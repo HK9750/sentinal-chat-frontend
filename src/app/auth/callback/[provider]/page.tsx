@@ -7,8 +7,9 @@ import { AlertTriangle, ArrowLeftRight } from 'lucide-react';
 import { Spinner } from '@/components/shared/spinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { clearOAuthFlow, consumeOAuthFlow, readOAuthFlow } from '@/lib/oauth';
+import { clearOAuthFlow, readOAuthFlow } from '@/lib/oauth';
 import { useOAuthExchangeMutation } from '@/queries/use-auth-queries';
+import { useAuthStore } from '@/stores/auth-store';
 import type { OAuthProvider } from '@/types';
 
 function isOAuthProvider(value: string): value is OAuthProvider {
@@ -20,6 +21,8 @@ export default function OAuthCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const exchangeMutation = useOAuthExchangeMutation();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isHydrated = useAuthStore((state) => state.isHydrated);
   const [error, setError] = useState<string | null>(null);
   const attemptRef = useRef<string | null>(null);
 
@@ -43,8 +46,20 @@ export default function OAuthCallbackPage() {
         return;
       }
 
+      const flow = readOAuthFlow(provider);
+
       if (providerError) {
         setError(providerErrorDescription ?? 'The provider did not complete the sign-in flow.');
+        return;
+      }
+
+      if (isHydrated && isAuthenticated) {
+        clearOAuthFlow(provider);
+        router.replace(flow?.post_auth_redirect || '/chat');
+        return;
+      }
+
+      if (!isHydrated) {
         return;
       }
 
@@ -56,8 +71,6 @@ export default function OAuthCallbackPage() {
       if (attemptKey && attemptRef.current === attemptKey) {
         return;
       }
-
-      const flow = readOAuthFlow(provider);
 
       if (!flow) {
         setError('This sign-in session expired. Start the OAuth flow again.');
@@ -74,25 +87,20 @@ export default function OAuthCallbackPage() {
         attemptRef.current = attemptKey;
       }
 
-      const consumedFlow = consumeOAuthFlow(provider);
-
-      if (!consumedFlow) {
-        setError('This sign-in session has already been used. Start the OAuth flow again.');
-        return;
-      }
-
       try {
         await exchangeMutation.mutateAsync({
           provider,
           input: {
             code,
-            code_verifier: consumedFlow.code_verifier,
-            redirect_uri: consumedFlow.redirect_uri,
+            code_verifier: flow.code_verifier,
+            redirect_uri: flow.redirect_uri,
           },
         });
 
+        clearOAuthFlow(provider);
+
         if (active) {
-          router.replace(consumedFlow.post_auth_redirect || '/chat');
+          router.replace(flow.post_auth_redirect || '/chat');
         }
       } catch (exchangeError) {
         if (active) {
@@ -106,11 +114,11 @@ export default function OAuthCallbackPage() {
     return () => {
       active = false;
     };
-  }, [attemptKey, code, exchangeMutation, provider, providerError, providerErrorDescription, router, state]);
+  }, [attemptKey, code, exchangeMutation, isAuthenticated, isHydrated, provider, providerError, providerErrorDescription, router, state]);
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="surface-panel w-full max-w-md border-border/60 shadow-[0_24px_80px_-32px_rgba(18,46,55,0.4)]">
+      <Card className="surface-panel w-full max-w-md border-border/60 shadow-xl">
         <CardHeader className="text-center">
           <CardTitle className="flex items-center justify-center gap-2 text-xl tracking-[-0.04em]">
             {error ? <AlertTriangle className="size-5 text-destructive" /> : <ArrowLeftRight className="size-5 text-primary" />}

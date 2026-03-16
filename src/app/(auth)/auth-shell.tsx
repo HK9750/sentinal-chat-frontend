@@ -29,7 +29,6 @@ export function AuthShell({
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-8">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_top,rgba(72,177,165,0.16),transparent_58%)]" />
         <div className="absolute -right-28 top-24 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
         <div className="absolute -left-24 bottom-12 h-64 w-64 rounded-full bg-accent/20 blur-3xl" />
         <div className="absolute inset-0 grid-noise opacity-35" />
@@ -37,7 +36,7 @@ export function AuthShell({
 
       <div className="relative w-full max-w-md space-y-8">
         <div className="space-y-3 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary text-primary-foreground shadow-[0_20px_45px_-24px_color-mix(in_oklch,var(--primary)_70%,transparent)]">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary text-primary-foreground shadow-lg">
             <ShieldCheck className="size-7" />
           </div>
           <div className="space-y-1.5">
@@ -47,7 +46,7 @@ export function AuthShell({
           </div>
         </div>
 
-        <Card className="surface-panel border-border/60 shadow-[0_24px_80px_-32px_rgba(18,46,55,0.4)]">
+        <Card className="surface-panel border-border/60 shadow-xl">
           <CardHeader className="space-y-2 text-center">
             <CardTitle className="text-xl font-semibold tracking-[-0.04em]">{cardTitle}</CardTitle>
             <CardDescription>{cardDescription}</CardDescription>

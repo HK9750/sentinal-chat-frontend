@@ -10,43 +10,43 @@ export function SessionsList() {
   const sessions = sessionsPayload?.items ?? [];
 
   return (
-    <Card className="bg-slate-900 border-slate-800">
+    <Card className="border-border bg-card">
       <CardHeader>
-        <CardTitle className="text-slate-100 flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-foreground">
           <Shield className="h-5 w-5" />
           Active Sessions
         </CardTitle>
-        <CardDescription className="text-slate-400">
+        <CardDescription>
           View and manage your login sessions
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {isLoading && <p className="text-sm text-slate-500">Loading sessions...</p>}
+          {isLoading && <p className="text-sm text-muted-foreground">Loading sessions...</p>}
           {isError && <p className="text-sm text-destructive">Unable to load sessions right now.</p>}
           {!isLoading && !isError && sessions?.length === 0 && (
-            <p className="text-sm text-slate-500">No active sessions</p>
+            <p className="text-sm text-muted-foreground">No active sessions</p>
           )}
           {sessions?.map((session: AuthSession) => (
             <div
               key={session.id}
-              className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50"
+              className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded bg-slate-700">
-                  <Activity className="h-4 w-4 text-slate-400" />
+                <div className="rounded bg-muted p-2">
+                  <Activity className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-200">
+                  <p className="text-sm font-medium text-foreground">
                     {session.device.device_name || 'Unknown device'}
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-muted-foreground">
                     {session.device.device_type || 'Unknown type'}
                   </p>
                 </div>
               </div>
               {session.is_current ? (
-                <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-500">
+                <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
                   Current
                 </span>
               ) : null}
