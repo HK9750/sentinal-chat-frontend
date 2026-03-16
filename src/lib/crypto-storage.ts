@@ -1,10 +1,18 @@
 import { STORAGE_KEYS } from '@/lib/constants';
-import { createConversationKeyRecord, parseConversationAccessCode } from '@/lib/crypto';
-import type { ConversationAccessCode, ConversationKeyRecord, CryptoVaultState } from '@/types';
+import { createConversationKeyRecord, createConversationKeyRecordFromSecret, parseConversationAccessCode } from '@/lib/crypto';
+import type { ConversationAccessCode, ConversationKeyRecord, CryptoVaultState, StoredDeviceKeyPair } from '@/types';
+
+export const CONVERSATION_KEYS_UPDATED_EVENT = 'sentinel:conversation-keys-updated';
+
+interface ConversationKeysUpdatedDetail {
+  action: 'saved' | 'removed' | 'cleared';
+  conversationId?: string;
+}
 
 interface StoredVault {
   version: 1;
   device_fingerprint: string;
+  device_keys: StoredDeviceKeyPair | null;
   keys: ConversationKeyRecord[];
 }
 
@@ -12,12 +20,21 @@ function createEmptyVault(): StoredVault {
   return {
     version: 1,
     device_fingerprint: crypto.randomUUID().slice(0, 12).toUpperCase(),
+    device_keys: null,
     keys: [],
   };
 }
 
 function canUseStorage(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+}
+
+function emitConversationKeysUpdated(detail: ConversationKeysUpdatedDetail): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.dispatchEvent(new CustomEvent(CONVERSATION_KEYS_UPDATED_EVENT, { detail }));
 }
 
 function readVault(): StoredVault {
@@ -35,11 +52,12 @@ function readVault(): StoredVault {
 
   try {
     const parsed = JSON.parse(value) as StoredVault;
-    return {
-      version: 1,
-      device_fingerprint: parsed.device_fingerprint || createEmptyVault().device_fingerprint,
-      keys: parsed.keys ?? [],
-    };
+      return {
+        version: 1,
+        device_fingerprint: parsed.device_fingerprint || createEmptyVault().device_fingerprint,
+        device_keys: parsed.device_keys ?? null,
+        keys: parsed.keys ?? [],
+      };
   } catch {
     const emptyVault = createEmptyVault();
     writeVault(emptyVault);
@@ -65,6 +83,23 @@ export function getCryptoVaultState(): CryptoVaultState {
   };
 }
 
+export function getStoredDeviceKeyPair(): StoredDeviceKeyPair | null {
+  return readVault().device_keys;
+}
+
+export function saveStoredDeviceKeyPair(pair: StoredDeviceKeyPair): StoredDeviceKeyPair {
+  const vault = readVault();
+  writeVault({
+    ...vault,
+    device_keys: {
+      ...pair,
+      updated_at: new Date().toISOString(),
+    },
+  });
+  emitConversationKeysUpdated({ action: 'saved' });
+  return pair;
+}
+
 export function listConversationKeys(): ConversationKeyRecord[] {
   return readVault().keys;
 }
@@ -79,6 +114,7 @@ export function saveConversationKey(record: ConversationKeyRecord): Conversation
   const nextKeys = vault.keys.filter((entry) => entry.conversation_id !== record.conversation_id);
   nextKeys.unshift({ ...record, updated_at: new Date().toISOString() });
   writeVault({ ...vault, keys: nextKeys });
+  emitConversationKeysUpdated({ action: 'saved', conversationId: record.conversation_id });
   return record;
 }
 
@@ -91,6 +127,15 @@ export async function ensureConversationKey(conversationId: string): Promise<Con
 
   const created = await createConversationKeyRecord(conversationId);
   return saveConversationKey(created);
+}
+
+export async function saveConversationSecret(
+  conversationId: string,
+  secret: string,
+  source: ConversationKeyRecord['source'] = 'synced'
+): Promise<ConversationKeyRecord> {
+  const record = await createConversationKeyRecordFromSecret(conversationId, secret, source);
+  return saveConversationKey(record);
 }
 
 export function requireConversationKeyRecord(conversationId: string): ConversationKeyRecord {
@@ -109,10 +154,12 @@ export function removeConversationKey(conversationId: string): void {
     ...vault,
     keys: vault.keys.filter((entry) => entry.conversation_id !== conversationId),
   });
+  emitConversationKeysUpdated({ action: 'removed', conversationId });
 }
 
 export function clearConversationKeys(): void {
   writeVault(createEmptyVault());
+  emitConversationKeysUpdated({ action: 'cleared' });
 }
 
 export async function importConversationAccessCode(code: string): Promise<ConversationAccessCode> {

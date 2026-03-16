@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { readDecryptedMessage, writeDecryptedMessage } from '@/lib/decrypted-message-cache';
+import { clearConversationDecryptedCache, readDecryptedMessage, writeDecryptedMessage } from '@/lib/decrypted-message-cache';
+import { CONVERSATION_KEYS_UPDATED_EVENT } from '@/lib/crypto-storage';
 import { useEncryption } from '@/hooks/use-encryption';
 import { useMessages } from '@/queries/use-message-queries';
 import type { DecryptedMessageState, Message } from '@/types';
@@ -96,6 +97,31 @@ export function useDecryptedMessages(conversationId?: string | null) {
       cancelled = true;
     };
   }, [conversationId, decryptForConversation, messagesQuery.data, states]);
+
+  useEffect(() => {
+    if (!conversationId || typeof window === 'undefined') {
+      return;
+    }
+
+    const handleKeysUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ action?: string; conversationId?: string }>).detail;
+
+      if (detail?.action !== 'cleared' && detail?.conversationId && detail.conversationId !== conversationId) {
+        return;
+      }
+
+      clearConversationDecryptedCache((messagesQuery.data ?? []).map((message) => message.id));
+      inflightRef.current.clear();
+      setStates({});
+      void messagesQuery.refetch();
+    };
+
+    window.addEventListener(CONVERSATION_KEYS_UPDATED_EVENT, handleKeysUpdated as EventListener);
+
+    return () => {
+      window.removeEventListener(CONVERSATION_KEYS_UPDATED_EVENT, handleKeysUpdated as EventListener);
+    };
+  }, [conversationId, messagesQuery]);
 
   const items = useMemo<DecryptedMessageEntry[]>(() => {
     return (messagesQuery.data ?? []).map((message) => {

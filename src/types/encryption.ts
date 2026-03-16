@@ -5,6 +5,12 @@ export interface CipherEnvelope {
   ciphertext: string;
 }
 
+export interface SealedKeyEnvelope {
+  v: 1;
+  alg: string;
+  ciphertext: string;
+}
+
 export type SecurePayloadKind = 'text' | 'file' | 'audio' | 'system' | 'url';
 
 export interface SecureTextPayload {
@@ -60,7 +66,54 @@ export interface ConversationKeyRecord {
   fingerprint: string;
   created_at: string;
   updated_at: string;
-  source: 'generated' | 'imported';
+  source: 'generated' | 'imported' | 'synced';
+}
+
+export interface StoredDeviceKeyPair {
+  algorithm: string;
+  fingerprint: string;
+  public_key: string;
+  private_key: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeviceKeyBundle {
+  device_id: string;
+  external_device_id: string;
+  device_name?: string | null;
+  device_type?: string | null;
+  public_key: string;
+  algorithm: string;
+  fingerprint: string;
+}
+
+export interface ConversationDeviceGroup {
+  user_id: string;
+  display_name: string;
+  devices: DeviceKeyBundle[];
+}
+
+export interface ConversationKeyShare {
+  id: string;
+  conversation_id: string;
+  target_device_id: string;
+  target_user_id: string;
+  sender_device_id?: string | null;
+  fingerprint: string;
+  algorithm: string;
+  ciphertext: string;
+  created_at: string;
+  delivered_at?: string | null;
+  acked_at?: string | null;
+}
+
+export interface ShareConversationKeyItemRequest {
+  target_device_id: string;
+  target_user_id: string;
+  ciphertext: string;
+  fingerprint: string;
+  algorithm?: string;
 }
 
 export interface CryptoVaultState {

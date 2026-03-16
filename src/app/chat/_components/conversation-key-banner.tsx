@@ -1,11 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Download, KeyRound, Upload } from 'lucide-react';
 import { parseConversationAccessCode } from '@/lib/crypto';
-import { getConversationKey, saveConversationKey } from '@/lib/crypto-storage';
+import { saveConversationKey } from '@/lib/crypto-storage';
 import { Button } from '@/components/ui/button';
 import { useEncryption } from '@/hooks/use-encryption';
+import { useEncryptionContext } from '@/providers/encryption-provider';
+import { ensureConversationKeyShared } from '@/services/key-exchange-service';
 
 interface ConversationKeyBannerProps {
   conversationId: string;
@@ -13,13 +15,16 @@ interface ConversationKeyBannerProps {
 
 export function ConversationKeyBanner({ conversationId }: ConversationKeyBannerProps) {
   const { exportConversationAccess } = useEncryption();
-  const [hasKey, setHasKey] = useState(() => Boolean(getConversationKey(conversationId)));
+  const { keys } = useEncryptionContext();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
+  const hasKey = useMemo(
+    () => keys.some((record) => record.conversation_id === conversationId),
+    [conversationId, keys]
+  );
 
   useEffect(() => {
-    setHasKey(Boolean(getConversationKey(conversationId)));
     setMessage(null);
     setIsCopied(false);
   }, [conversationId]);
@@ -34,16 +39,16 @@ export function ConversationKeyBanner({ conversationId }: ConversationKeyBannerP
     setBusy(true);
     setMessage(null);
 
-    try {
-      const record = await parseConversationAccessCode(rawCode);
+      try {
+        const record = await parseConversationAccessCode(rawCode);
 
       if (record.conversation_id !== conversationId) {
         throw new Error('That access code belongs to a different conversation.');
       }
 
-      saveConversationKey(record);
-      setHasKey(true);
-      setMessage('Access code imported. This device can now decrypt the conversation.');
+        saveConversationKey(record);
+        await ensureConversationKeyShared(conversationId, record).catch(() => undefined);
+        setMessage('Access code imported. This device can now decrypt the conversation.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to import that access code.');
     } finally {

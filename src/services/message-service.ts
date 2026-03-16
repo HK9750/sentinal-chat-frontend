@@ -78,6 +78,7 @@ export function createOptimisticMessage(input: {
   clientMessageId: string;
   type: MessageType;
   encryptedContent: string;
+  keyFingerprint?: string;
   attachments?: Attachment[];
   replyToMessageId?: string;
 }): Message {
@@ -91,6 +92,7 @@ export function createOptimisticMessage(input: {
     seq_id: Date.now(),
     type: input.type,
     encrypted_content: input.encryptedContent,
+    key_fingerprint: input.keyFingerprint ?? null,
     is_forwarded: false,
     reply_to_msg_id: input.replyToMessageId ?? null,
     mention_count: 0,

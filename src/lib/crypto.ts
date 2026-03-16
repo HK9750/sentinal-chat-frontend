@@ -9,9 +9,12 @@ import {
 import type {
   CipherEnvelope,
   ConversationAccessCode,
+  DeviceKeyBundle,
   ConversationKeyRecord,
   FileEncryptionResult,
+  SealedKeyEnvelope,
   SecureAssetManifest,
+  StoredDeviceKeyPair,
 } from '@/types';
 
 const encoder = new TextEncoder();
@@ -38,6 +41,41 @@ async function importSecretKey(secret: string): Promise<CryptoKey> {
     'encrypt',
     'decrypt',
   ]);
+}
+
+async function importPublicKey(publicKey: string, algorithm = 'RSA-OAEP-256'): Promise<CryptoKey> {
+  const normalized = normalizeKeyAlgorithm(algorithm);
+
+  return getWebCrypto().subtle.importKey(
+    'spki',
+    toArrayBuffer(base64ToBytes(publicKey)),
+    normalized,
+    true,
+    ['encrypt']
+  );
+}
+
+async function importPrivateKey(privateKey: string, algorithm = 'RSA-OAEP-256'): Promise<CryptoKey> {
+  const normalized = normalizeKeyAlgorithm(algorithm);
+
+  return getWebCrypto().subtle.importKey(
+    'pkcs8',
+    toArrayBuffer(base64ToBytes(privateKey)),
+    normalized,
+    true,
+    ['decrypt']
+  );
+}
+
+function normalizeKeyAlgorithm(algorithm: string): RsaHashedImportParams {
+  if (algorithm === 'RSA-OAEP-256') {
+    return {
+      name: 'RSA-OAEP',
+      hash: 'SHA-256',
+    };
+  }
+
+  throw new Error(`Unsupported key algorithm: ${algorithm}`);
 }
 
 async function sha256Base64(value: Uint8Array | string): Promise<string> {
@@ -80,6 +118,24 @@ export async function createConversationKeyRecord(
     conversation_id: conversationId,
     secret: resolvedSecret,
     fingerprint: await fingerprintSecret(resolvedSecret),
+    created_at: now,
+    updated_at: now,
+    source,
+  };
+}
+
+export async function createConversationKeyRecordFromSecret(
+  conversationId: string,
+  secret: string,
+  source: ConversationKeyRecord['source'] = 'synced',
+  createdAt?: string
+): Promise<ConversationKeyRecord> {
+  const now = createdAt ?? new Date().toISOString();
+
+  return {
+    conversation_id: conversationId,
+    secret,
+    fingerprint: await fingerprintSecret(secret),
     created_at: now,
     updated_at: now,
     source,
@@ -134,6 +190,59 @@ export async function decryptPayload<T>(serialized: string, secret: string): Pro
 
   const plaintext = await decryptText(parsed, secret);
   return JSON.parse(plaintext) as T;
+}
+
+export async function generateDeviceKeyPair(): Promise<StoredDeviceKeyPair> {
+  const normalized = normalizeKeyAlgorithm('RSA-OAEP-256');
+  const pair = await getWebCrypto().subtle.generateKey(
+    {
+      name: normalized.name,
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: normalized.hash,
+    },
+    true,
+    ['encrypt', 'decrypt']
+  );
+
+  const publicKey = bytesToBase64(new Uint8Array(await getWebCrypto().subtle.exportKey('spki', pair.publicKey)));
+  const privateKey = bytesToBase64(new Uint8Array(await getWebCrypto().subtle.exportKey('pkcs8', pair.privateKey)));
+  const now = new Date().toISOString();
+
+  return {
+    algorithm: 'RSA-OAEP-256',
+    fingerprint: await fingerprintSecret(publicKey),
+    public_key: publicKey,
+    private_key: privateKey,
+    created_at: now,
+    updated_at: now,
+  };
+}
+
+export async function sealConversationKey(secret: string, bundle: Pick<DeviceKeyBundle, 'public_key' | 'algorithm'>): Promise<SealedKeyEnvelope> {
+  const publicKey = await importPublicKey(bundle.public_key, bundle.algorithm);
+  const ciphertext = await getWebCrypto().subtle.encrypt(
+    { name: 'RSA-OAEP' },
+    publicKey,
+    encoder.encode(secret)
+  );
+
+  return {
+    v: 1,
+    alg: bundle.algorithm,
+    ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
+  };
+}
+
+export async function openSealedConversationKey(envelope: SealedKeyEnvelope, pair: Pick<StoredDeviceKeyPair, 'private_key'>): Promise<string> {
+  const privateKey = await importPrivateKey(pair.private_key, envelope.alg);
+  const decrypted = await getWebCrypto().subtle.decrypt(
+    { name: 'RSA-OAEP' },
+    privateKey,
+    toArrayBuffer(base64ToBytes(envelope.ciphertext))
+  );
+
+  return decoder.decode(decrypted);
 }
 
 export async function encryptBinaryAsset(

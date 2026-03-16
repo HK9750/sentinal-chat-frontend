@@ -12,6 +12,7 @@ import {
 } from '@/services/conversation-service';
 import { ensureConversationKey } from '@/lib/crypto-storage';
 import { queryKeys } from '@/queries/query-keys';
+import { ensureConversationKeyShared } from '@/services/key-exchange-service';
 import type { CreateConversationRequest } from '@/types';
 
 export function useConversationsQuery() {
@@ -55,7 +56,8 @@ export function useCreateConversationMutation() {
       const conversation = await createConversation(input);
 
       try {
-        await ensureConversationKey(conversation.id);
+        const record = await ensureConversationKey(conversation.id);
+        await ensureConversationKeyShared(conversation.id, record);
       } catch {
         return conversation;
       }
@@ -73,8 +75,18 @@ export const useCreateConversation = useCreateConversationMutation;
 
 export function useGetOrCreateDM() {
   return useMutation({
-    mutationFn: async ({ targetUserId }: { currentUserId: string; targetUserId: string }) =>
-      createConversation({ type: 'DM', participant_ids: [targetUserId] }),
+    mutationFn: async ({ targetUserId }: { currentUserId: string; targetUserId: string }) => {
+      const conversation = await createConversation({ type: 'DM', participant_ids: [targetUserId] });
+
+      try {
+        const record = await ensureConversationKey(conversation.id);
+        await ensureConversationKeyShared(conversation.id, record);
+      } catch {
+        return conversation;
+      }
+
+      return conversation;
+    },
   });
 }
 

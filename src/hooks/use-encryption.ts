@@ -18,7 +18,7 @@ export function useEncryption() {
   );
 
   const decryptForConversation = useCallback(
-    (conversationId: string, message: Pick<Message, 'conversation_id' | 'encrypted_content' | 'deleted_at'>) =>
+    (conversationId: string, message: Pick<Message, 'conversation_id' | 'encrypted_content' | 'deleted_at' | 'key_fingerprint'>) =>
       decryptConversationPayload(conversationId, message),
     []
   );

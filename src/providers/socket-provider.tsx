@@ -7,10 +7,11 @@ import { SOCKET_EVENT } from '@/lib/constants';
 import { setServerDeviceId } from '@/lib/device';
 import { queryKeys } from '@/queries/query-keys';
 import { normalizeMessage } from '@/services/message-service';
+import { consumeConversationKeyShare } from '@/services/key-exchange-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { useCallStore } from '@/stores/call-store';
 import { useChatStore } from '@/stores/chat-store';
-import type { ConnectionReadyPayload, IncomingCall, Message, SocketEnvelope } from '@/types';
+import type { ConnectionReadyPayload, ConversationKeyShare, IncomingCall, Message, SocketEnvelope } from '@/types';
 
 type SocketContextValue = ReturnType<typeof useSocketConnection>;
 
@@ -35,6 +36,20 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           if (payload?.device_id) {
             setServerDeviceId(payload.device_id);
           }
+          break;
+        }
+        case SOCKET_EVENT.conversationKeyShare: {
+          const share = (envelope.data as { share?: ConversationKeyShare } | undefined)?.share;
+
+          if (!share) {
+            break;
+          }
+
+          void consumeConversationKeyShare(share)
+            .then(() => {
+              queryClient.invalidateQueries({ queryKey: queryKeys.messages(share.conversation_id) });
+            })
+            .catch(() => undefined);
           break;
         }
         case SOCKET_EVENT.typingStarted:

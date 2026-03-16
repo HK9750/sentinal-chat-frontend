@@ -59,6 +59,7 @@ export interface BackendMessage {
   seq_id: number;
   type: MessageType;
   encrypted_content?: string | null;
+  key_fingerprint?: string | null;
   is_forwarded: boolean;
   reply_to_msg_id?: string | null;
   mention_count: number;
@@ -98,6 +99,7 @@ export interface SendMessageFrameData {
   client_message_id: string;
   type: MessageType;
   encrypted_content: string;
+  key_fingerprint?: string;
   attachment_ids?: string[];
   reply_to_msg_id?: string;
   expires_at?: string;
@@ -106,6 +108,7 @@ export interface SendMessageFrameData {
 export interface EditMessageFrameData {
   message_id: string;
   encrypted_content: string;
+  key_fingerprint?: string;
   expires_at?: string;
 }
 

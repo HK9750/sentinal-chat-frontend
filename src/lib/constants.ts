@@ -77,6 +77,15 @@ export const API_ROUTES = {
     attachment: (attachmentId: string) => `/v1/attachments/${attachmentId}`,
     viewed: (attachmentId: string) => `/v1/attachments/${attachmentId}/viewed`,
   },
+  devices: {
+    myKeys: '/v1/devices/me/keys',
+    pendingKeyShares: '/v1/me/key-shares/pending',
+    ackKeyShare: (shareId: string) => `/v1/key-shares/${shareId}/ack`,
+  },
+  keyExchange: {
+    conversationDevices: (conversationId: string) => `/v1/conversations/${conversationId}/devices`,
+    shareConversationKeys: (conversationId: string) => `/v1/conversations/${conversationId}/key-shares`,
+  },
   websocket: '/v1/ws',
 } as const;
 
@@ -120,6 +129,9 @@ export const SOCKET_EVENT = {
   callIce: 'call:ice',
   callEnd: 'call:end',
   callEnded: 'call:ended',
+  conversationKeyShare: 'conversation:key_share',
+  conversationKeyAck: 'conversation:key_ack',
+  conversationKeyRequest: 'conversation:key_request',
 } as const;
 
 export const DEFAULT_PREFERENCES: LocalUserPreferences = {
@@ -135,6 +147,6 @@ export const APP_LIMITATIONS = {
   userSearch: 'Search results come from the backend and are optimized for starting chats and managing contacts.',
   broadcasts: 'Broadcast routes are not available in the current backend build.',
   serverSearch: 'Encrypted message search is local-only. Only loaded messages can be searched.',
-  keySync: 'Conversation keys stay on this device unless you export them and import them elsewhere.',
+  keySync: 'New device key sync is rolling out. Some older threads may still need a manual key import.',
   calls: 'Call transport exists, but the new encrypted calling experience is still being rebuilt.',
 } as const;

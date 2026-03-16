@@ -27,7 +27,7 @@ export function ConversationItem({ conversation, isSelected }: ConversationItemP
   const currentUserId = useAuthStore((state) => state.user?.id);
   const otherParticipant = useMemo(() => getOtherParticipant(conversation, currentUserId), [conversation, currentUserId]);
   const title = getConversationTitle(conversation, currentUserId);
-  const subtitle = conversation.last_message ? getMessagePreview(conversation.last_message as never) : getConversationSubtitle(conversation, currentUserId);
+  const subtitle = conversation.last_message ? getMessagePreview(conversation.last_message) : getConversationSubtitle(conversation, currentUserId);
   const href = `/chat?conversation=${conversation.id}`;
 
   return (

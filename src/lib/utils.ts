@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from 'clsx';
 import { formatDistanceToNowStrict, isToday, isYesterday } from 'date-fns';
 import { twMerge } from 'tailwind-merge';
-import type { Conversation, Message, Participant } from '@/types';
+import type { Conversation, ConversationMessageSummary, Message, Participant } from '@/types';
 
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
@@ -126,7 +126,7 @@ export function getConversationAvatar(conversation: Conversation, currentUserId?
   return getOtherParticipant(conversation, currentUserId)?.avatar_url ?? null;
 }
 
-export function getMessagePreview(message?: Message | null): string {
+export function getMessagePreview(message?: Message | ConversationMessageSummary | null): string {
   if (!message) {
     return 'No messages yet';
   }
@@ -135,19 +135,29 @@ export function getMessagePreview(message?: Message | null): string {
     return 'Message removed';
   }
 
-  if (message.type === 'AUDIO') {
+  const kind = 'type' in message ? message.type : message.kind;
+
+  if (kind === 'AUDIO') {
     return 'Encrypted voice note';
   }
 
-  if (message.type === 'FILE') {
-    return `${message.attachments.length || 1} encrypted file${message.attachments.length === 1 ? '' : 's'}`;
+  if (kind === 'FILE') {
+    if ('attachments' in message) {
+      return `${message.attachments.length || 1} encrypted file${message.attachments.length === 1 ? '' : 's'}`;
+    }
+
+    return 'Encrypted file';
   }
 
-  if (message.type === 'POLL') {
-    return message.poll?.question ?? 'Encrypted poll';
+  if (kind === 'POLL') {
+    return 'Encrypted poll';
   }
 
-  return message.encrypted_content ? 'Encrypted message' : 'Empty message';
+  if ('encrypted_content' in message) {
+    return message.encrypted_content ? 'Encrypted message' : 'Empty message';
+  }
+
+  return 'Encrypted message';
 }
 
 export function groupMessagesByDay(messages: Message[]): Array<{ label: string; items: Message[] }> {

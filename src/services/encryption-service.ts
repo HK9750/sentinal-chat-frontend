@@ -42,6 +42,11 @@ async function requireConversationKey(conversationId: string): Promise<Conversat
   return requireConversationKeyRecord(conversationId);
 }
 
+export interface EncryptedConversationPayload {
+  encryptedContent: string;
+  keyFingerprint: string;
+}
+
 export function hasConversationKey(conversationId: string): boolean {
   return Boolean(getConversationKey(conversationId));
 }
@@ -76,14 +81,17 @@ export function clearVault(): void {
 export async function encryptConversationPayload(
   conversationId: string,
   payload: SecureMessagePayload
-): Promise<string> {
+): Promise<EncryptedConversationPayload> {
   const record = await requireConversationKey(conversationId);
-  return encryptPayload(payload, record.secret);
+  return {
+    encryptedContent: await encryptPayload(payload, record.secret),
+    keyFingerprint: record.fingerprint,
+  };
 }
 
 export async function decryptConversationPayload(
   conversationId: string,
-  message: Pick<Message, 'conversation_id' | 'encrypted_content' | 'deleted_at'>
+  message: Pick<Message, 'conversation_id' | 'encrypted_content' | 'deleted_at' | 'key_fingerprint'>
 ): Promise<DecryptedMessageState> {
   if (message.deleted_at) {
     return {
@@ -102,6 +110,13 @@ export async function decryptConversationPayload(
     return {
       status: 'missing-key',
       error: 'This device does not have the conversation key yet.',
+    };
+  }
+
+  if (message.key_fingerprint && record.fingerprint !== message.key_fingerprint) {
+    return {
+      status: 'missing-key',
+      error: 'This device has a different conversation key version and cannot decrypt this message yet.',
     };
   }
 

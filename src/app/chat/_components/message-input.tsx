@@ -11,6 +11,7 @@ import { useTypingChannel } from "@/hooks/use-typing-channel";
 import { useVoiceNote } from "@/hooks/use-voice-note";
 import { useEncryptedVoiceUploadMutation } from "@/queries/use-upload-queries";
 import { useAuthStore } from "@/stores/auth-store";
+import { useUiStore } from "@/stores/ui-store";
 import { useUploadStore } from "@/stores/upload-store";
 import { createClientMessageId } from "@/lib/crypto";
 import { hasConversationKey } from "@/services/encryption-service";
@@ -24,6 +25,7 @@ interface MessageInputProps {
 
 export function MessageInput({ conversationId }: MessageInputProps) {
   const currentUserId = useAuthStore((state) => state.user?.id);
+  const enterToSend = useUiStore((state) => state.preferences.enter_to_send);
   const { encryptForConversation } = useEncryption();
   const { sendMessage } = useMessageChannel(conversationId);
   const { sendTyping } = useTypingChannel(conversationId);
@@ -47,7 +49,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
 
   const submitPayload = useCallback(
     async (payload: SecureMessagePayload, attachmentIds: string[] = []) => {
-      const encryptedContent = await encryptForConversation(
+      const { encryptedContent, keyFingerprint } = await encryptForConversation(
         conversationId,
         payload,
       );
@@ -61,6 +63,8 @@ export function MessageInput({ conversationId }: MessageInputProps) {
               ? "SYSTEM"
               : "TEXT",
         attachmentIds,
+        undefined,
+        keyFingerprint,
       );
     },
     [conversationId, encryptForConversation, sendMessage],
@@ -305,7 +309,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
       <div className="mx-auto w-full max-w-5xl px-3 pb-4 pt-3 lg:px-4">
         <div className="rounded-[30px] border border-border bg-card p-3 shadow-lg">
           <form onSubmit={handleSubmit} className="flex items-end gap-3">
-            <div className="flex flex-1 items-end gap-2 rounded-[24px] border border-border bg-background px-2 py-2">
+            <div className="flex flex-1 items-end gap-2 rounded-3xl border border-border bg-background px-2 py-2">
               <FileUploadButton
                 onFilesSelected={handleFilesSelected}
                 disabled={isBusy}
@@ -332,8 +336,20 @@ export function MessageInput({ conversationId }: MessageInputProps) {
                   setText(nextValue);
                   sendTyping(nextValue.trim().length > 0);
                 }}
+                onKeyDown={(event) => {
+                  if (!enterToSend) {
+                    return;
+                  }
+
+                  if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) {
+                    return;
+                  }
+
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }}
                 placeholder="Write a message, attach a file, or record a voice note"
-                className="min-h-[52px] border-0 bg-transparent px-1 py-2 shadow-none focus-visible:ring-0"
+                className="min-h-11 border-0 bg-transparent px-1 py-2 shadow-none focus-visible:ring-0"
               />
             </div>
 
@@ -357,7 +373,11 @@ export function MessageInput({ conversationId }: MessageInputProps) {
               {helperText}
             </div>
             <div className="text-xs text-muted-foreground">
-              {voiceNote.isRecording ? "Recording in progress. Tap the stop button to upload securely." : "Press Enter or use the send action when your message is ready."}
+              {voiceNote.isRecording
+                ? "Recording in progress. Tap the stop button to upload securely."
+                : enterToSend
+                  ? "Press Enter to send. Use Shift+Enter for a new line."
+                  : "Use the send button to send your message."}
             </div>
           </div>
 

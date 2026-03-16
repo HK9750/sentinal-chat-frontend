@@ -4,11 +4,12 @@ import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { SOCKET_EVENT } from '@/lib/constants';
 import { createClientMessageId, createRequestId } from '@/lib/crypto';
-import { buildDeleteMessageFrame, buildEditMessageFrame, buildReactionFrame, buildSendMessageFrame, normalizeMessage } from '@/services/message-service';
+import { buildDeleteMessageFrame, buildEditMessageFrame, buildReactionFrame, buildSendMessageFrame, createOptimisticMessage, normalizeMessage } from '@/services/message-service';
 import { queryKeys } from '@/queries/query-keys';
 import { useSocketEvents } from '@/hooks/use-socket-events';
 import { useSocket } from '@/providers/socket-provider';
-import type { Message, MessageType, SocketEnvelope } from '@/types';
+import { useAuthStore } from '@/stores/auth-store';
+import type { ConversationListPayload, ConversationMessageSummary, Message, MessageType, SocketEnvelope } from '@/types';
 
 function appendMessage(messages: Message[] | undefined, message: Message): Message[] {
   const current = messages ?? [];
@@ -16,9 +17,55 @@ function appendMessage(messages: Message[] | undefined, message: Message): Messa
   return [...withoutDuplicate, message].sort((left, right) => left.seq_id - right.seq_id);
 }
 
+function toConversationSummary(message: Message): ConversationMessageSummary {
+  return {
+    id: message.id,
+    sender_id: message.sender_id,
+    kind: message.type,
+    created_at: message.created_at,
+    seq_id: message.seq_id,
+    deleted_at: message.deleted_at,
+  };
+}
+
+function updateConversationPreview(
+  payload: ConversationListPayload | undefined,
+  conversationId: string,
+  message: Message,
+): ConversationListPayload | undefined {
+  if (!payload) {
+    return payload;
+  }
+
+  const nextItems = payload.items.map((conversation) => {
+    if (conversation.id !== conversationId) {
+      return conversation;
+    }
+
+    return {
+      ...conversation,
+      updated_at: message.created_at,
+      last_message_at: message.created_at,
+      last_message: toConversationSummary(message),
+    };
+  });
+
+  nextItems.sort((left, right) => {
+    const leftTime = left.last_message_at ?? left.updated_at;
+    const rightTime = right.last_message_at ?? right.updated_at;
+    return new Date(rightTime).getTime() - new Date(leftTime).getTime();
+  });
+
+  return {
+    ...payload,
+    items: nextItems,
+  };
+}
+
 export function useMessageChannel(conversationId?: string | null) {
   const socket = useSocket();
   const queryClient = useQueryClient();
+  const currentUserId = useAuthStore((state) => state.user?.id);
 
   useSocketEvents(
     useCallback(
@@ -51,12 +98,37 @@ export function useMessageChannel(conversationId?: string | null) {
   );
 
   const sendMessage = useCallback(
-    (encryptedContent: string, type: MessageType, attachmentIds: string[] = [], replyToMessageId?: string) => {
+    (
+      encryptedContent: string,
+      type: MessageType,
+      attachmentIds: string[] = [],
+      replyToMessageId?: string,
+      keyFingerprint?: string
+    ) => {
       if (!conversationId) {
         return null;
       }
 
       const clientMessageId = createClientMessageId();
+
+      if (currentUserId) {
+        const optimisticMessage = createOptimisticMessage({
+          conversationId,
+            senderId: currentUserId,
+            clientMessageId,
+            type,
+            encryptedContent,
+            keyFingerprint,
+            replyToMessageId,
+          });
+
+        queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (messages) => appendMessage(messages, optimisticMessage));
+        queryClient.setQueryData<ConversationListPayload>(
+          queryKeys.conversations,
+          (payload) => updateConversationPreview(payload, conversationId, optimisticMessage),
+        );
+      }
+
       socket.send(
         buildSendMessageFrame(
           conversationId,
@@ -64,6 +136,7 @@ export function useMessageChannel(conversationId?: string | null) {
             client_message_id: clientMessageId,
             type,
             encrypted_content: encryptedContent,
+            key_fingerprint: keyFingerprint,
             attachment_ids: attachmentIds.length > 0 ? attachmentIds : undefined,
             reply_to_msg_id: replyToMessageId,
           },
@@ -73,7 +146,7 @@ export function useMessageChannel(conversationId?: string | null) {
 
       return clientMessageId;
     },
-    [conversationId, socket]
+    [conversationId, currentUserId, queryClient, socket]
   );
 
   const editMessage = useCallback(
