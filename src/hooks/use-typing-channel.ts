@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { SOCKET_EVENT, TYPING_DEBOUNCE_DELAY } from '@/lib/constants';
-import { createRequestId } from '@/lib/crypto';
+import { createRequestId } from '@/lib/request-id';
 import { useSocket } from '@/providers/socket-provider';
 import { useChatStore } from '@/stores/chat-store';
 

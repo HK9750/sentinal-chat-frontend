@@ -8,6 +8,7 @@ export interface ConversationMessageSummary {
   kind: string;
   created_at: string;
   seq_id: number;
+  receipt_status?: 'SENT' | 'DELIVERED' | 'READ' | 'PLAYED' | null;
   deleted_at?: string | null;
 }
 

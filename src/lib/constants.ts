@@ -24,10 +24,8 @@ export const STORAGE_KEYS = {
   auth: 'sentinel.auth',
   ui: 'sentinel.ui',
   uploads: 'sentinel.uploads',
-  conversationKeys: 'sentinel.crypto.vault',
   deviceId: 'sentinel.device.id',
   serverDeviceId: 'sentinel.device.server-id',
-  decryptedCache: 'sentinel.crypto.cache',
 } as const;
 
 export const ROUTES = {
@@ -37,7 +35,6 @@ export const ROUTES = {
   chat: '/chat',
   profile: '/profile',
   settings: '/settings',
-  broadcasts: '/broadcasts',
 } as const;
 
 export const API_ROUTES = {
@@ -76,15 +73,6 @@ export const API_ROUTES = {
     attachments: '/v1/attachments',
     attachment: (attachmentId: string) => `/v1/attachments/${attachmentId}`,
     viewed: (attachmentId: string) => `/v1/attachments/${attachmentId}/viewed`,
-  },
-  devices: {
-    myKeys: '/v1/devices/me/keys',
-    pendingKeyShares: '/v1/me/key-shares/pending',
-    ackKeyShare: (shareId: string) => `/v1/key-shares/${shareId}/ack`,
-  },
-  keyExchange: {
-    conversationDevices: (conversationId: string) => `/v1/conversations/${conversationId}/devices`,
-    shareConversationKeys: (conversationId: string) => `/v1/conversations/${conversationId}/key-shares`,
   },
   websocket: '/v1/ws',
 } as const;
@@ -129,9 +117,6 @@ export const SOCKET_EVENT = {
   callIce: 'call:ice',
   callEnd: 'call:end',
   callEnded: 'call:ended',
-  conversationKeyShare: 'conversation:key_share',
-  conversationKeyAck: 'conversation:key_ack',
-  conversationKeyRequest: 'conversation:key_request',
 } as const;
 
 export const DEFAULT_PREFERENCES: LocalUserPreferences = {
@@ -145,8 +130,6 @@ export const DEFAULT_PREFERENCES: LocalUserPreferences = {
 
 export const APP_LIMITATIONS = {
   userSearch: 'Search results come from the backend and are optimized for starting chats and managing contacts.',
-  broadcasts: 'Broadcast routes are not available in the current backend build.',
-  serverSearch: 'Encrypted message search is local-only. Only loaded messages can be searched.',
-  keySync: 'New device key sync is rolling out. Some older threads may still need a manual key import.',
-  calls: 'Call transport exists, but the new encrypted calling experience is still being rebuilt.',
+  serverSearch: 'Message search currently works across the messages already loaded in the chat view.',
+  calls: 'Call transport exists, but the calling experience is still being rebuilt.',
 } as const;

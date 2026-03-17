@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { MessageSquarePlus, Settings, ShieldCheck, Sparkles } from 'lucide-react';
+import { MessageSquarePlus, Settings, Sparkles } from 'lucide-react';
 import { SearchInput } from '@/components/shared/search-input';
 import { UserMenu } from '@/components/shared/user-menu';
 import { NewConversationDialog } from '@/components/shared/new-conversation-dialog';
@@ -51,8 +51,8 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
           <div className="space-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Sentinel Inbox</p>
             <div>
-              <p className="text-[24px] font-semibold tracking-[-0.05em] text-foreground">Secure threads</p>
-              <p className="text-sm text-muted-foreground">Encrypted conversations organized like a calm workspace.</p>
+              <p className="text-[24px] font-semibold tracking-[-0.05em] text-foreground">Chat threads</p>
+              <p className="text-sm text-muted-foreground">Conversations organized like a calm workspace.</p>
             </div>
           </div>
           <UserMenu />
@@ -77,10 +77,7 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
 
         <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
           <div className="rounded-[20px] border border-border bg-background px-3 py-3 shadow-sm">
-            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em]">
-              <ShieldCheck className="size-3.5 text-primary" />
-              Protected
-            </div>
+            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em]">Visible</div>
             <p className="mt-2 text-lg font-semibold tracking-[-0.04em] text-foreground">{filteredConversations.length}</p>
             <p>Visible threads</p>
           </div>

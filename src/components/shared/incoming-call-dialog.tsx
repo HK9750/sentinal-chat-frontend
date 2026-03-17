@@ -48,7 +48,7 @@ export function IncomingCallDialog() {
             <UserAvatar size="xl" className="relative" user={{ display_name: 'Incoming caller' }} />
           </div>
           <div className="text-center">
-            <DialogTitle className="text-xl text-foreground">Incoming encrypted call</DialogTitle>
+            <DialogTitle className="text-xl text-foreground">Incoming call</DialogTitle>
             <DialogDescription className="text-muted-foreground">
               {incomingCall ? `A ${incomingCall.type === 'VIDEO' ? 'video' : 'voice'} call is waiting.` : 'No active incoming call.'}
             </DialogDescription>

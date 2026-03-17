@@ -104,7 +104,6 @@ export interface ProfileMetrics {
   conversation_count: number;
   unread_count: number;
   session_count: number;
-  secure_conversation_count: number;
 }
 
 export interface Contact {

@@ -6,6 +6,4 @@ export const queryKeys = {
   conversation: (conversationId: string) => ['conversations', conversationId] as const,
   messages: (conversationId: string) => ['conversations', conversationId, 'messages'] as const,
   profileMetrics: ['profile', 'metrics'] as const,
-  broadcasts: ['broadcasts'] as const,
-  broadcast: (broadcastId: string) => ['broadcasts', broadcastId] as const,
 };

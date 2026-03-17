@@ -7,22 +7,6 @@ import { queryKeys } from '@/queries/query-keys';
 export const useMessages = useMessagesQuery;
 export const useMessage = useMessageQuery;
 
-export function useSendMessage() {
-  return {
-    mutateAsync: async () => undefined,
-    isPending: false,
-  };
-}
-
-export function useSearchMessages(conversationId: string, query: string) {
-  return useQuery({
-    queryKey: ['messages', conversationId, 'search', query],
-    queryFn: async () => [],
-    enabled: query.trim().length >= 2,
-    initialData: [],
-  });
-}
-
 export function useMessagesQuery(conversationId?: string | null) {
   return useQuery({
     queryKey: conversationId ? queryKeys.messages(conversationId) : ['messages', 'empty'],

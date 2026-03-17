@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import { useDecryptedMessages } from '@/hooks/use-decrypted-messages';
+import { useConversationMessages } from '@/hooks/use-conversation-messages';
 import { getMessageSearchText, getMessagePrimaryText } from '@/lib/message-payload';
 import { formatRelativeTime } from '@/lib/utils';
 
@@ -20,7 +20,7 @@ interface MessageSearchPanelProps {
 export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigateToMessage }: MessageSearchPanelProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const messages = useDecryptedMessages(conversationId);
+  const messages = useConversationMessages(conversationId);
   const debouncedQuery = useDebouncedValue(query, 180);
 
   const results = useMemo(() => {
@@ -30,7 +30,7 @@ export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigate
       return [];
     }
 
-    return messages.items.filter((item) => getMessageSearchText(item.decrypted).includes(normalized));
+    return messages.items.filter((message) => getMessageSearchText(message).includes(normalized));
   }, [debouncedQuery, messages.items]);
 
   const clampedSelectedIndex = results.length === 0 ? 0 : Math.min(selectedIndex, results.length - 1);
@@ -89,7 +89,7 @@ export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigate
                 onClick={() => {
                   const nextIndex = Math.max(clampedSelectedIndex - 1, 0);
                   setSelectedIndex(nextIndex);
-                  onNavigateToMessage(results[nextIndex].message.id);
+                   onNavigateToMessage(results[nextIndex].id);
                 }}
               >
                 <ArrowUp className="size-3.5" />
@@ -103,7 +103,7 @@ export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigate
                 onClick={() => {
                   const nextIndex = Math.min(clampedSelectedIndex + 1, results.length - 1);
                   setSelectedIndex(nextIndex);
-                  onNavigateToMessage(results[nextIndex].message.id);
+                   onNavigateToMessage(results[nextIndex].id);
                 }}
               >
                 <ArrowDown className="size-3.5" />
@@ -128,11 +128,11 @@ export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigate
           <div className="space-y-2">
             {results.map((result, index) => (
               <button
-                key={result.message.id}
+                key={result.id}
                 type="button"
                 onClick={() => {
                   setSelectedIndex(index);
-                  onNavigateToMessage(result.message.id);
+                  onNavigateToMessage(result.id);
                 }}
                 className={`w-full rounded-[20px] border px-3 py-3 text-left transition-colors ${
                   index === clampedSelectedIndex
@@ -141,9 +141,9 @@ export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigate
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <p className="line-clamp-2 text-sm font-medium">{getMessagePrimaryText(result.decrypted)}</p>
+                  <p className="line-clamp-2 text-sm font-medium">{getMessagePrimaryText(result)}</p>
                   <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                    {formatRelativeTime(result.message.created_at)}
+                    {formatRelativeTime(result.created_at)}
                   </span>
                 </div>
               </button>

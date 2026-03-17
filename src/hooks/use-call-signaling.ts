@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { createRequestId } from '@/lib/crypto';
+import { createRequestId } from '@/lib/request-id';
 import { buildCallAnswerFrame, buildCallEndFrame, buildCallIceFrame, buildCallOfferFrame, buildCallStartFrame } from '@/services/call-service';
 import { useSocket } from '@/providers/socket-provider';
 import type { CallSignalPayload, CallType } from '@/types';

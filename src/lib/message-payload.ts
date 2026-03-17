@@ -1,64 +1,38 @@
-import type { DecryptedMessageState, SecureAssetManifest, SecureMessagePayload } from '@/types';
+import type { Message } from '@/types';
 
-function summarizePayload(payload: SecureMessagePayload): string {
-  switch (payload.kind) {
-    case 'text':
-      return payload.text;
-    case 'system':
-      return payload.text;
-    case 'file': {
-      const names = payload.files.map((file) => file.filename).filter(Boolean);
-      return [payload.caption ?? '', ...names].join(' ').trim() || 'Encrypted file';
-    }
-    case 'audio': {
-      const names = payload.clips.map((clip) => clip.filename).filter(Boolean);
-      return [payload.transcript ?? '', ...names, 'voice note'].join(' ').trim();
-    }
-    default:
-      return 'Encrypted message';
+export function getMessageSearchText(message: Message): string {
+  const text = message.content?.trim();
+
+  if (text) {
+    return text.toLowerCase();
   }
+
+  const names = message.attachments.map((attachment) => attachment.filename).filter(Boolean);
+  return names.join(' ').toLowerCase();
 }
 
-export function getMessageSearchText(state: DecryptedMessageState): string {
-  if (state.status !== 'ready' || !state.payload) {
-    return '';
+export function getMessagePrimaryText(message: Message): string {
+  if (message.deleted_at) {
+    return 'This message was removed.';
   }
 
-  return summarizePayload(state.payload).toLowerCase();
-}
+  const text = message.content?.trim();
 
-export function getMessagePrimaryText(state: DecryptedMessageState): string {
-  if (state.status === 'missing-key') {
-    return state.error ?? 'Conversation key missing on this device.';
+  if (text) {
+    return text;
   }
 
-  if (state.status === 'error') {
-    return state.error ?? 'Unable to decrypt this message.';
+  if (message.type === 'AUDIO') {
+    return 'Voice note';
   }
 
-  if (state.status !== 'ready' || !state.payload) {
-    return 'Encrypted message';
+  if (message.type === 'FILE') {
+    return message.attachments[0]?.filename ?? 'File attachment';
   }
 
-  return summarizePayload(state.payload) || 'Encrypted message';
-}
-
-export function getMessageAssetManifests(payload?: SecureMessagePayload): SecureAssetManifest[] {
-  if (!payload) {
-    return [];
+  if (message.type === 'POLL') {
+    return message.poll?.question ?? 'Poll';
   }
 
-  if (payload.kind === 'file') {
-    return payload.files;
-  }
-
-  if (payload.kind === 'audio') {
-    return payload.clips;
-  }
-
-  return [];
-}
-
-export function isRenderableTextPayload(payload?: SecureMessagePayload): boolean {
-  return payload?.kind === 'text' || payload?.kind === 'system';
+  return 'Message';
 }

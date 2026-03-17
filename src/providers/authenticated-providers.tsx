@@ -1,6 +1,5 @@
 'use client';
 
-import { EncryptionProvider } from '@/providers/encryption-provider';
 import { SocketProvider } from '@/providers/socket-provider';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -13,8 +12,6 @@ export function AuthenticatedProviders({ children }: { children: React.ReactNode
   }
 
   return (
-    <EncryptionProvider>
-      <SocketProvider>{children}</SocketProvider>
-    </EncryptionProvider>
+    <SocketProvider>{children}</SocketProvider>
   );
 }

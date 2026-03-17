@@ -40,7 +40,7 @@ export function AuthShell({
             <ShieldCheck className="size-7" />
           </div>
           <div className="space-y-1.5">
-            <p className="section-kicker">Private By Design</p>
+            <p className="section-kicker">Realtime By Design</p>
             <h1 className="text-3xl font-semibold tracking-[-0.05em] text-foreground">{title}</h1>
             <p className="mx-auto max-w-sm text-sm text-muted-foreground">{description}</p>
           </div>
@@ -65,7 +65,7 @@ export function AuthShell({
         </Card>
 
         <p className="text-center font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">
-          End-to-end encryption lives on your device
+          Plaintext chat, files, and sessions synced in real time
         </p>
       </div>
     </div>

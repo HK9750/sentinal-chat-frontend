@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LogOut, Shield, Sparkles, User2 } from 'lucide-react';
+import { LogOut, Shield, User2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -47,12 +47,6 @@ export function UserMenu() {
           <Link href="/settings">
             <Shield className="size-4" />
             Settings
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/broadcasts">
-            <Sparkles className="size-4" />
-            Broadcasts
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

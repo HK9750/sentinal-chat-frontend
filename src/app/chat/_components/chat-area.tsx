@@ -9,7 +9,6 @@ import { useConversation } from '@/queries/use-conversation-queries';
 import { useAuthStore } from '@/stores/auth-store';
 import type { CallType } from '@/types';
 import { ChatHeader } from './chat-header';
-import { ConversationKeyBanner } from './conversation-key-banner';
 import { MessageInput } from './message-input';
 import { MessageList } from './message-list';
 
@@ -62,7 +61,6 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
         onStartCall={handleStartCall}
         onOpenSearch={() => setSearchOpen(true)}
       />
-      <ConversationKeyBanner conversationId={conversationId} />
       <MessageList conversationId={conversationId} currentUserId={currentUserId} scrollRef={scrollRef} messageRefs={messageRefs} />
       <MessageInput conversationId={conversationId} />
 

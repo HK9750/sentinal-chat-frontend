@@ -1,7 +1,6 @@
 'use client';
 
-import { Compass, MessageSquareDashed, ShieldCheck } from 'lucide-react';
-import { APP_LIMITATIONS } from '@/lib/constants';
+import { Compass, MessageSquareDashed } from 'lucide-react';
 
 export function ChatEmptyState() {
   return (
@@ -12,17 +11,13 @@ export function ChatEmptyState() {
           <MessageSquareDashed className="size-8" />
           </div>
           <p className="section-kicker text-center lg:text-left">Sentinel Web</p>
-          <h2 className="mt-2 text-center text-3xl font-semibold tracking-[-0.05em] lg:text-left lg:text-4xl">Pick a thread or open a new secure line</h2>
+          <h2 className="mt-2 text-center text-3xl font-semibold tracking-[-0.05em] lg:text-left lg:text-4xl">Pick a thread or open a new chat</h2>
           <p className="mt-3 text-center text-sm leading-6 text-muted-foreground lg:text-left">
-            The chat workspace is ready. Choose a conversation from the left or start a direct message or group to exchange encrypted text, files, and voice notes.
+            The chat workspace is ready. Choose a conversation from the left or start a direct message or group to exchange messages, files, and voice notes.
           </p>
         </div>
 
         <div className="space-y-3 rounded-[28px] border border-border bg-muted/30 p-5 text-left">
-          <div className="flex items-start gap-3 rounded-[22px] border border-primary/15 bg-primary/8 px-4 py-4">
-            <ShieldCheck className="mt-0.5 size-4 text-primary" />
-            <p className="text-sm text-muted-foreground">{APP_LIMITATIONS.keySync}</p>
-          </div>
           <div className="flex items-start gap-3 rounded-[22px] border border-border bg-background px-4 py-4">
             <Compass className="mt-0.5 size-4 text-primary" />
             <p className="text-sm text-muted-foreground">Use search to jump between threads fast, then search inside any thread from the header.</p>

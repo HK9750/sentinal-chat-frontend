@@ -44,7 +44,3 @@ export const conversationSchema = z.object({
 export const messageComposerSchema = z.object({
   text: z.string().max(MAX_MESSAGE_BYTES, 'Message is too large.'),
 });
-
-export const accessCodeSchema = z.object({
-  code: z.string().trim().min(10, 'Paste a valid conversation access code.'),
-});

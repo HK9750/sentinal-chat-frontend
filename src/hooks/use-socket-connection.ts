@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { env } from '@/config/env';
 import { SOCKET_EVENT, WS_HEARTBEAT_INTERVAL, WS_RECONNECT_BASE_DELAY, WS_RECONNECT_MAX_DELAY } from '@/lib/constants';
+import { createRequestId } from '@/lib/request-id';
 import { buildSocketUrl, parseSocketEnvelope, serializeSocketFrame } from '@/services/socket-service';
-import { createRequestId } from '@/lib/crypto';
 import { useAuthStore } from '@/stores/auth-store';
 import type { ClientSocketFrame, SocketEnvelope } from '@/types';
 

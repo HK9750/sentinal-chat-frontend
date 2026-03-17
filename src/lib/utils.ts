@@ -105,12 +105,12 @@ export function getConversationSubtitle(conversation: Conversation, currentUserI
     return conversation.description;
   }
 
-  if (conversation.type === 'DM') {
-    const otherParticipant = getOtherParticipant(conversation, currentUserId);
+	if (conversation.type === 'DM') {
+		const otherParticipant = getOtherParticipant(conversation, currentUserId);
 
-    if (!otherParticipant) {
-      return 'Encrypted direct message';
-    }
+		if (!otherParticipant) {
+			return 'Direct message';
+		}
 
     return otherParticipant.is_online ? 'Online now' : `@${otherParticipant.username || 'member'}`;
   }
@@ -135,29 +135,29 @@ export function getMessagePreview(message?: Message | ConversationMessageSummary
     return 'Message removed';
   }
 
-  const kind = 'type' in message ? message.type : message.kind;
+	const kind = 'type' in message ? message.type : message.kind;
 
-  if (kind === 'AUDIO') {
-    return 'Encrypted voice note';
-  }
+	if (kind === 'AUDIO') {
+		return 'Voice note';
+	}
 
-  if (kind === 'FILE') {
-    if ('attachments' in message) {
-      return `${message.attachments.length || 1} encrypted file${message.attachments.length === 1 ? '' : 's'}`;
-    }
+	if (kind === 'FILE') {
+		if ('attachments' in message) {
+			return `${message.attachments.length || 1} file${message.attachments.length === 1 ? '' : 's'}`;
+		}
 
-    return 'Encrypted file';
-  }
+		return 'File';
+	}
 
-  if (kind === 'POLL') {
-    return 'Encrypted poll';
-  }
+	if (kind === 'POLL') {
+		return 'Poll';
+	}
 
-  if ('encrypted_content' in message) {
-    return message.encrypted_content ? 'Encrypted message' : 'Empty message';
-  }
+	if ('content' in message) {
+		return message.content ? message.content : 'Empty message';
+	}
 
-  return 'Encrypted message';
+	return 'Message';
 }
 
 export function groupMessagesByDay(messages: Message[]): Array<{ label: string; items: Message[] }> {

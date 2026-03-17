@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { ArrowLeft, Phone, Search, ShieldCheck, Video } from 'lucide-react';
+import { ArrowLeft, Phone, Search, Video } from 'lucide-react';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
 import { APP_LIMITATIONS } from '@/lib/constants';
@@ -39,7 +39,7 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
     }
 
     if (conversation.type === 'DM') {
-      return otherParticipant?.is_online ? 'Online now' : 'Encrypted direct message';
+      return otherParticipant?.is_online ? 'Online now' : 'Direct message';
     }
 
     return `${conversation.participants.length} participant${conversation.participants.length === 1 ? '' : 's'}`;
@@ -65,13 +65,7 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
           />
 
           <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-2">
-              <p className="truncate text-base font-semibold tracking-[-0.03em]">{title}</p>
-              <span className="hidden items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary sm:inline-flex">
-                <ShieldCheck className="size-3" />
-                Encrypted
-              </span>
-            </div>
+            <p className="truncate text-base font-semibold tracking-[-0.03em]">{title}</p>
             <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
           </div>
         </div>

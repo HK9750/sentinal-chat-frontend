@@ -22,7 +22,7 @@ function normalizeAttachment(attachment: Attachment): Attachment {
   };
 }
 
-export async function uploadEncryptedBlob(
+export async function uploadFileBlob(
   blob: Blob,
   filename: string,
   onProgress?: (progress: number) => void
@@ -40,7 +40,7 @@ export async function uploadEncryptedBlob(
   );
 }
 
-export async function uploadEncryptedBlobs(
+export async function uploadFileBlobs(
   files: Array<{ blob: Blob; filename: string }>,
   onProgress?: (progress: number) => void
 ): Promise<UploadedFilesPayload> {
@@ -79,11 +79,11 @@ export async function listMessageAttachments(messageId: string): Promise<Attachm
   return payload.attachments.map(normalizeAttachment);
 }
 
-export async function downloadEncryptedAttachment(url: string): Promise<Blob> {
+export async function downloadAttachment(url: string): Promise<Blob> {
   const response = await fetch(url);
 
   if (!response.ok) {
-    throw new Error('Unable to download encrypted attachment.');
+    throw new Error('Unable to download attachment.');
   }
 
   return response.blob();

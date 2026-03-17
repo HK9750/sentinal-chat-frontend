@@ -4,8 +4,8 @@ import type {
   Attachment,
   BackendMessage,
   ClientSocketFrame,
-  DecryptedMessageState,
   Message,
+  MessageReceipt,
   MessageType,
   ReceiptFrameData,
   ReactionFrameData,
@@ -20,7 +20,6 @@ interface MessageItemsPayload {
 function normalizeAttachment(attachment: {
   id: string;
   file_url?: string;
-  encrypted_url?: string;
   filename?: string | null;
   mime_type: string;
   size_bytes: number;
@@ -33,7 +32,7 @@ function normalizeAttachment(attachment: {
 }): Attachment {
   return {
     id: attachment.id,
-    encrypted_url: attachment.encrypted_url ?? attachment.file_url ?? '',
+    file_url: attachment.file_url ?? '',
     filename: attachment.filename ?? null,
     mime_type: attachment.mime_type,
     size_bytes: attachment.size_bytes,
@@ -50,6 +49,61 @@ export function normalizeMessage(message: BackendMessage): Message {
   return {
     ...message,
     attachments: (message.attachments ?? []).map(normalizeAttachment),
+  };
+}
+
+function deliveryRank(status: MessageReceipt['status']): number {
+  switch (status) {
+    case 'PLAYED':
+      return 3;
+    case 'READ':
+      return 2;
+    case 'DELIVERED':
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function mergeReceipt(current: MessageReceipt | undefined, incoming: MessageReceipt): MessageReceipt {
+  if (!current) {
+    return incoming;
+  }
+
+  const next = deliveryRank(incoming.status) >= deliveryRank(current.status) ? incoming.status : current.status;
+
+  return {
+    user_id: incoming.user_id,
+    status: next,
+    delivered_at: incoming.delivered_at ?? current.delivered_at ?? null,
+    read_at: incoming.read_at ?? current.read_at ?? null,
+    played_at: incoming.played_at ?? current.played_at ?? null,
+    updated_at: incoming.updated_at ?? current.updated_at,
+  };
+}
+
+export function mergeMessage(existing: Message | undefined, incoming: BackendMessage | Message): Message {
+  const normalized = normalizeMessage(incoming as BackendMessage);
+
+  if (!existing) {
+    return normalized;
+  }
+
+  const receipts = new Map<string, MessageReceipt>();
+  for (const receipt of existing.receipts ?? []) {
+    receipts.set(receipt.user_id, receipt);
+  }
+  for (const receipt of normalized.receipts ?? []) {
+    receipts.set(receipt.user_id, mergeReceipt(receipts.get(receipt.user_id), receipt));
+  }
+
+  return {
+    ...existing,
+    ...normalized,
+    attachments: normalized.attachments.length > 0 ? normalized.attachments : existing.attachments,
+    reactions: normalized.reactions ?? existing.reactions,
+    receipts: Array.from(receipts.values()),
+    poll: normalized.poll ?? existing.poll,
   };
 }
 
@@ -77,8 +131,7 @@ export function createOptimisticMessage(input: {
   senderId: string;
   clientMessageId: string;
   type: MessageType;
-  encryptedContent: string;
-  keyFingerprint?: string;
+  content: string;
   attachments?: Attachment[];
   replyToMessageId?: string;
 }): Message {
@@ -91,8 +144,7 @@ export function createOptimisticMessage(input: {
     client_message_id: input.clientMessageId,
     seq_id: Date.now(),
     type: input.type,
-    encrypted_content: input.encryptedContent,
-    key_fingerprint: input.keyFingerprint ?? null,
+    content: input.content,
     is_forwarded: false,
     reply_to_msg_id: input.replyToMessageId ?? null,
     mention_count: 0,
@@ -197,6 +249,53 @@ export function buildReceiptFrame(
   };
 }
 
+export function upsertReceiptState(
+  messages: Message[] | undefined,
+  userId: string,
+  status: string,
+  messageIds: string[]
+): Message[] {
+  if (!messages || messageIds.length === 0) {
+    return messages ?? [];
+  }
+
+  const normalizedStatus = status.toUpperCase() as MessageReceipt['status'];
+  const now = new Date().toISOString();
+
+  return messages.map((message) => {
+    if (!messageIds.includes(message.id)) {
+      return message;
+    }
+
+    const receipts = [...(message.receipts ?? [])];
+    const existingIndex = receipts.findIndex((receipt) => receipt.user_id === userId);
+    const current = existingIndex >= 0 ? receipts[existingIndex] : null;
+    const nextReceipt: MessageReceipt = {
+      user_id: userId,
+      status: current && deliveryRank(current.status) > deliveryRank(normalizedStatus) ? current.status : normalizedStatus,
+      delivered_at:
+        normalizedStatus === 'DELIVERED' || normalizedStatus === 'READ' || normalizedStatus === 'PLAYED'
+          ? current?.delivered_at ?? now
+          : current?.delivered_at,
+      read_at:
+        normalizedStatus === 'READ' || normalizedStatus === 'PLAYED' ? current?.read_at ?? now : current?.read_at,
+      played_at: normalizedStatus === 'PLAYED' ? current?.played_at ?? now : current?.played_at,
+      updated_at: now,
+    };
+
+    if (existingIndex >= 0) {
+      receipts[existingIndex] = nextReceipt;
+    } else {
+      receipts.push(nextReceipt);
+    }
+
+    return {
+      ...message,
+      receipts,
+    };
+  });
+}
+
 export function buildUndoFrame(conversationId?: string, requestId?: string): ClientSocketFrame {
   return {
     type: SOCKET_EVENT.commandUndo,
@@ -211,19 +310,4 @@ export function buildRedoFrame(commandId: string, requestId?: string): ClientSoc
     request_id: requestId,
     data: { command_id: commandId },
   };
-}
-
-export function isDecryptableMessage(message: Message): boolean {
-  return Boolean(message.encrypted_content) && !message.deleted_at;
-}
-
-export function toMessageDeletionState(message: Message): DecryptedMessageState {
-  if (message.deleted_at) {
-    return {
-      status: 'ready',
-      payload: { kind: 'system', text: 'This message was removed.' },
-    };
-  }
-
-  return { status: 'empty' };
 }

@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Send } from 'lucide-react';
 import { MessageBubble } from '@/components/shared/message-bubble';
 import { Spinner } from '@/components/shared/spinner';
-import { useDecryptedMessages } from '@/hooks/use-decrypted-messages';
+import { useConversationMessages } from '@/hooks/use-conversation-messages';
+import { useReceiptChannel } from '@/hooks/use-receipt-channel';
 import { formatCalendarLabel, getOtherParticipant } from '@/lib/utils';
 import { useConversation } from '@/queries/use-conversation-queries';
 
@@ -17,7 +18,15 @@ interface MessageListProps {
 
 export function MessageList({ conversationId, currentUserId, scrollRef, messageRefs }: MessageListProps) {
   const conversationQuery = useConversation(conversationId);
-  const messagesQuery = useDecryptedMessages(conversationId);
+  const messagesQuery = useConversationMessages(conversationId);
+  const { sendDeliveredReceipt, sendReadReceipt, sendPlayedReceipt } = useReceiptChannel(conversationId);
+  const deliveredSetRef = useRef(new Set<string>());
+  const readSetRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    deliveredSetRef.current.clear();
+    readSetRef.current.clear();
+  }, [conversationId]);
 
   useEffect(() => {
     if (scrollRef.current && messagesQuery.items.length > 0) {
@@ -33,6 +42,29 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
       scrollRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }, [messagesQuery.items.length, scrollRef]);
+
+  useEffect(() => {
+    const receivable = messagesQuery.items
+      .filter((message) => message.sender_id !== currentUserId && !message.deleted_at);
+
+    const deliverableIds = receivable
+      .map((message) => message.id)
+      .filter((messageId) => !deliveredSetRef.current.has(messageId));
+
+    if (deliverableIds.length > 0) {
+      deliverableIds.forEach((messageId) => deliveredSetRef.current.add(messageId));
+      sendDeliveredReceipt(deliverableIds);
+    }
+
+    const latestReadable = [...receivable].reverse().find((message) => !readSetRef.current.has(message.id));
+
+    if (latestReadable) {
+      const readableIds = receivable.map((message) => message.id).filter((messageId) => !readSetRef.current.has(messageId));
+
+      readableIds.forEach((messageId) => readSetRef.current.add(messageId));
+      sendReadReceipt(readableIds, latestReadable.seq_id);
+    }
+  }, [currentUserId, messagesQuery.items, sendDeliveredReceipt, sendReadReceipt]);
 
   const setMessageRef = useCallback(
     (messageId: string, element: HTMLDivElement | null) => {
@@ -55,7 +87,7 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
     const items = messagesQuery.items;
 
     for (const item of items) {
-      const label = formatCalendarLabel(item.message.created_at);
+      const label = formatCalendarLabel(item.created_at);
       const lastGroup = groups[groups.length - 1];
 
       if (!lastGroup || lastGroup.label !== label) {
@@ -110,7 +142,7 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
           </div>
           <p className="text-base font-semibold">No messages yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {otherParticipant ? `Start your encrypted chat with ${otherParticipant.display_name}.` : 'Send the first encrypted message in this conversation.'}
+            {otherParticipant ? `Start chatting with ${otherParticipant.display_name}.` : 'Send the first message in this conversation.'}
           </p>
         </div>
       </div>
@@ -129,9 +161,9 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
             </div>
 
             <div className="space-y-2.5">
-              {group.items.map(({ message, decrypted }) => {
-                const globalIndex = messagesQuery.items.findIndex((entry) => entry.message.id === message.id);
-                const previous = messagesQuery.items[globalIndex - 1]?.message;
+              {group.items.map((message) => {
+                const globalIndex = messagesQuery.items.findIndex((entry) => entry.id === message.id);
+                const previous = messagesQuery.items[globalIndex - 1];
                 const isOwn = message.sender_id === currentUserId;
                 const showAvatar = !isOwn && previous?.sender_id !== message.sender_id;
                 const author = authorLookup.get(message.sender_id);
@@ -139,13 +171,12 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
                 return (
                   <div key={message.id} ref={(element) => setMessageRef(message.id, element)}>
                     <MessageBubble
-                      conversationId={conversationId}
                       message={message}
-                      decrypted={decrypted}
                       isOwn={isOwn}
                       showAvatar={showAvatar}
                       authorLabel={author?.display_name ?? author?.username ?? 'Member'}
                       avatarUrl={author?.avatar_url}
+                      onPlayed={sendPlayedReceipt}
                     />
                   </div>
                 );

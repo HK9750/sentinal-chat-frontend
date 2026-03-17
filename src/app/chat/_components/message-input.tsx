@@ -1,21 +1,17 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { LoaderCircle, Mic, Send, ShieldCheck, StopCircle } from "lucide-react";
+import { LoaderCircle, Mic, Send, StopCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { useEncryption } from "@/hooks/use-encryption";
-import { useFileEncryption } from "@/hooks/use-file-encryption";
 import { useMessageChannel } from "@/hooks/use-message-channel";
 import { useTypingChannel } from "@/hooks/use-typing-channel";
 import { useVoiceNote } from "@/hooks/use-voice-note";
-import { useEncryptedVoiceUploadMutation } from "@/queries/use-upload-queries";
+import { useFileUploadMutation, useVoiceUploadMutation } from "@/queries/use-upload-queries";
 import { useAuthStore } from "@/stores/auth-store";
 import { useUiStore } from "@/stores/ui-store";
 import { useUploadStore } from "@/stores/upload-store";
-import { createClientMessageId } from "@/lib/crypto";
-import { hasConversationKey } from "@/services/encryption-service";
-import type { SecureMessagePayload } from "@/types";
+import { createClientMessageId } from "@/lib/request-id";
 import { FileUploadButton } from "@/components/shared/file-upload-button";
 import { UploadProgressList } from "@/components/shared/upload-progress-list";
 
@@ -26,11 +22,10 @@ interface MessageInputProps {
 export function MessageInput({ conversationId }: MessageInputProps) {
   const currentUserId = useAuthStore((state) => state.user?.id);
   const enterToSend = useUiStore((state) => state.preferences.enter_to_send);
-  const { encryptForConversation } = useEncryption();
   const { sendMessage } = useMessageChannel(conversationId);
   const { sendTyping } = useTypingChannel(conversationId);
-  const fileEncryption = useFileEncryption(conversationId);
-  const voiceUpload = useEncryptedVoiceUploadMutation(conversationId);
+  const fileUpload = useFileUploadMutation();
+  const voiceUpload = useVoiceUploadMutation();
   const voiceNote = useVoiceNote();
   const addUpload = useUploadStore((state) => state.addUpload);
   const updateUpload = useUploadStore((state) => state.updateUpload);
@@ -45,29 +40,13 @@ export function MessageInput({ conversationId }: MessageInputProps) {
   );
 
   const isBusy =
-    fileEncryption.isPending || voiceUpload.isPending || voiceNote.isRecording;
+    fileUpload.isPending || voiceUpload.isPending || voiceNote.isRecording;
 
   const submitPayload = useCallback(
-    async (payload: SecureMessagePayload, attachmentIds: string[] = []) => {
-      const { encryptedContent, keyFingerprint } = await encryptForConversation(
-        conversationId,
-        payload,
-      );
-      return sendMessage(
-        encryptedContent,
-        payload.kind === "audio"
-          ? "AUDIO"
-          : payload.kind === "file"
-            ? "FILE"
-            : payload.kind === "system"
-              ? "SYSTEM"
-              : "TEXT",
-        attachmentIds,
-        undefined,
-        keyFingerprint,
-      );
+    async (content: string, type: "TEXT" | "AUDIO" | "FILE" | "SYSTEM", attachmentIds: string[] = []) => {
+      return sendMessage(content, type, attachmentIds);
     },
-    [conversationId, encryptForConversation, sendMessage],
+    [sendMessage],
   );
 
   const handleSubmit = useCallback(
@@ -79,17 +58,10 @@ export function MessageInput({ conversationId }: MessageInputProps) {
         return;
       }
 
-      if (!hasConversationKey(conversationId)) {
-        setError(
-          "Import this conversation access code before sending messages from this device.",
-        );
-        return;
-      }
-
       setError(null);
 
       try {
-        await submitPayload({ kind: "text", text: trimmed });
+        await submitPayload(trimmed, "TEXT");
         setText("");
         sendTyping(false);
       } catch (submitError) {
@@ -100,19 +72,12 @@ export function MessageInput({ conversationId }: MessageInputProps) {
         );
       }
     },
-    [conversationId, sendTyping, submitPayload, text],
+    [sendTyping, submitPayload, text],
   );
 
   const handleFilesSelected = useCallback(
     async (files: File[]) => {
       setError(null);
-
-      if (!hasConversationKey(conversationId)) {
-        setError(
-          "Import this conversation access code before uploading attachments from this device.",
-        );
-        return;
-      }
 
       const uploadIds = files.map(
         (file) => `${conversationId}:${file.name}:${crypto.randomUUID()}`,
@@ -126,7 +91,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
           filename: file.name,
           mime_type: file.type || "application/octet-stream",
           progress: 0,
-          status: "encrypting",
+          status: "uploading",
         });
       });
 
@@ -136,7 +101,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
           updateUpload(id, { status: "uploading", progress: 5 });
         });
 
-        const result = await fileEncryption.mutateAsync({
+        const result = await fileUpload.mutateAsync({
           files,
           onProgress: (progress) => {
             uploadIds.forEach((id) =>
@@ -154,14 +119,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
             updateUpload(id, { status: "sending", progress: 100 }),
           );
 
-          await submitPayload(
-            {
-              kind: "file",
-              files: result.manifests,
-              caption: "",
-            },
-            result.attachments.map((attachment) => attachment.id),
-          );
+          await submitPayload("", "FILE", result.attachments.map((attachment) => attachment.id));
         } catch (sendError) {
           const message =
             sendError instanceof Error
@@ -183,24 +141,17 @@ export function MessageInput({ conversationId }: MessageInputProps) {
         const message =
           uploadError instanceof Error
             ? uploadError.message
-            : "Unable to upload encrypted files.";
+            : "Unable to upload files.";
         markUploadsError(uploadIds, message);
         setError(message);
       }
     },
-    [addUpload, conversationId, fileEncryption, markUploadsError, submitPayload, updateUpload],
+    [addUpload, conversationId, fileUpload, markUploadsError, submitPayload, updateUpload],
   );
 
   const handleVoiceToggle = useCallback(async () => {
     setError(null);
     let uploadId: string | null = null;
-
-    if (!voiceNote.isRecording && !hasConversationKey(conversationId)) {
-      setError(
-        "Import this conversation access code before recording a voice note from this device.",
-      );
-      return;
-    }
 
     if (!voiceNote.isRecording) {
       try {
@@ -224,7 +175,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
         filename: "voice-note.webm",
         mime_type: recording.mime_type,
         progress: 0,
-        status: "encrypting",
+        status: "uploading",
       });
 
       const result = await voiceUpload.mutateAsync({
@@ -245,15 +196,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
           updateUpload(uploadId, { status: "sending", progress: 100 });
         }
 
-        await submitPayload(
-          {
-            kind: "audio",
-            transcript: "",
-            duration_ms: recording.duration_ms,
-            clips: [result.manifest],
-          },
-          [result.attachment.id],
-        );
+        await submitPayload("", "AUDIO", [result.attachment.id]);
       } catch (sendError) {
         const message =
           sendError instanceof Error
@@ -276,10 +219,10 @@ export function MessageInput({ conversationId }: MessageInputProps) {
         }
       }, 2500);
     } catch (voiceError) {
-      const message =
-        voiceError instanceof Error
-          ? voiceError.message
-          : "Unable to send the encrypted voice note.";
+        const message =
+          voiceError instanceof Error
+            ? voiceError.message
+            : "Unable to send the voice note.";
       if (uploadId) {
         updateUpload(uploadId, { status: "error", error: message });
       }
@@ -299,7 +242,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
       return "Sign in again if sending stops working.";
     }
 
-    return "Messages, files, and voice notes are encrypted before they leave this browser.";
+    return "Send messages, files, and voice notes in real time.";
   }, [currentUserId]);
 
   return (
@@ -368,13 +311,10 @@ export function MessageInput({ conversationId }: MessageInputProps) {
           </form>
 
           <div className="mt-3 flex flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between">
-            <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-              <ShieldCheck className="size-3.5 text-primary" />
-              {helperText}
-            </div>
+            <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">{helperText}</div>
             <div className="text-xs text-muted-foreground">
               {voiceNote.isRecording
-                ? "Recording in progress. Tap the stop button to upload securely."
+                ? "Recording in progress. Tap the stop button to upload."
                 : enterToSend
                   ? "Press Enter to send. Use Shift+Enter for a new line."
                   : "Use the send button to send your message."}

@@ -32,12 +32,12 @@ export default function LandingPage() {
         <section className="py-20 lg:py-32">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground mb-6 tracking-tight">
-              Secure Messaging for
+              Messaging for
               <span className="text-primary"> Everyone</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
-              End-to-end encrypted conversations with zero compromise on privacy.
-              Your messages, your control.
+              Real-time conversations with files, voice notes, and delivery updates.
+              Fast, focused, and easy to use.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/register">
@@ -61,9 +61,9 @@ export default function LandingPage() {
                 <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
                   <Lock className="w-6 h-6 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold text-card-foreground mb-2">End-to-End Encryption</h3>
+                <h3 className="text-xl font-semibold text-card-foreground mb-2">Realtime Chat</h3>
                 <p className="text-muted-foreground">
-                  Your messages are encrypted with Signal Protocol. Only you and the recipient can read them.
+                  Send messages instantly with live delivery, read, and playback updates.
                 </p>
               </div>
 
@@ -92,9 +92,9 @@ export default function LandingPage() {
 
         <section className="py-20 border-t">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-3xl font-bold text-foreground mb-4 tracking-tight">Ready to chat securely?</h2>
+            <h2 className="text-3xl font-bold text-foreground mb-4 tracking-tight">Ready to start chatting?</h2>
             <p className="text-muted-foreground mb-8 max-w-xl mx-auto text-lg">
-              Join thousands of users who trust Sentinel Chat for their private conversations.
+              Join Sentinel Chat for fast conversations, shared files, and voice notes.
             </p>
             <Link href="/register">
               <Button size="lg" className="px-8 font-medium">
@@ -114,7 +114,7 @@ export default function LandingPage() {
             <span className="text-muted-foreground font-medium text-sm">Sentinel Chat</span>
           </div>
           <p className="text-muted-foreground text-sm">
-            Secure messaging platform. All rights reserved.
+            Messaging platform. All rights reserved.
           </p>
         </div>
       </footer>

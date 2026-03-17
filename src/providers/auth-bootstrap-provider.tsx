@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from 'react';
 import { refreshAccessToken } from '@/services/api-client';
-import { bootstrapConversationKeySync } from '@/services/key-exchange-service';
 import { useAuthStore } from '@/stores/auth-store';
 
 export function AuthBootstrapProvider({ children }: { children: React.ReactNode }) {
@@ -19,11 +18,7 @@ export function AuthBootstrapProvider({ children }: { children: React.ReactNode 
 
     async function bootstrapAuth() {
       try {
-        const payload = await refreshAccessToken();
-
-        if (payload) {
-          await bootstrapConversationKeySync().catch(() => 0);
-        }
+        await refreshAccessToken();
       } finally {
         if (active) {
           markHydrated();

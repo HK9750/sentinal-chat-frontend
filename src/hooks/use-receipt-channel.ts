@@ -1,12 +1,25 @@
 'use client';
 
 import { useCallback } from 'react';
-import { createRequestId } from '@/lib/crypto';
+import { createRequestId } from '@/lib/request-id';
 import { buildReceiptFrame } from '@/services/message-service';
 import { useSocket } from '@/providers/socket-provider';
 
 export function useReceiptChannel(conversationId?: string | null) {
   const socket = useSocket();
+
+  const sendDeliveredReceipt = useCallback(
+    (messageIds: string[]) => {
+      if (!conversationId || messageIds.length === 0) {
+        return;
+      }
+
+      socket.send(
+        buildReceiptFrame(conversationId, 'delivered', { message_ids: messageIds }, createRequestId('delivered'))
+      );
+    },
+    [conversationId, socket]
+  );
 
   const sendReadReceipt = useCallback(
     (messageIds: string[], upToSeqId?: number) => {
@@ -35,6 +48,7 @@ export function useReceiptChannel(conversationId?: string | null) {
   );
 
   return {
+    sendDeliveredReceipt,
     sendReadReceipt,
     sendPlayedReceipt,
   };

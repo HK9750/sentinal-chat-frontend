@@ -10,9 +10,7 @@ import {
   listParticipants,
   removeParticipant,
 } from '@/services/conversation-service';
-import { ensureConversationKey } from '@/lib/crypto-storage';
 import { queryKeys } from '@/queries/query-keys';
-import { ensureConversationKeyShared } from '@/services/key-exchange-service';
 import type { CreateConversationRequest } from '@/types';
 
 export function useConversationsQuery() {
@@ -52,18 +50,7 @@ export function useCreateConversationMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: CreateConversationRequest) => {
-      const conversation = await createConversation(input);
-
-      try {
-        const record = await ensureConversationKey(conversation.id);
-        await ensureConversationKeyShared(conversation.id, record);
-      } catch {
-        return conversation;
-      }
-
-      return conversation;
-    },
+    mutationFn: async (input: CreateConversationRequest) => createConversation(input),
     onSuccess: (conversation) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
       queryClient.setQueryData(queryKeys.conversation(conversation.id), conversation);
@@ -75,18 +62,8 @@ export const useCreateConversation = useCreateConversationMutation;
 
 export function useGetOrCreateDM() {
   return useMutation({
-    mutationFn: async ({ targetUserId }: { currentUserId: string; targetUserId: string }) => {
-      const conversation = await createConversation({ type: 'DM', participant_ids: [targetUserId] });
-
-      try {
-        const record = await ensureConversationKey(conversation.id);
-        await ensureConversationKeyShared(conversation.id, record);
-      } catch {
-        return conversation;
-      }
-
-      return conversation;
-    },
+    mutationFn: async ({ targetUserId }: { currentUserId: string; targetUserId: string }) =>
+      createConversation({ type: 'DM', participant_ids: [targetUserId] }),
   });
 }
 

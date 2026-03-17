@@ -5,17 +5,90 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSocketConnection } from '@/hooks/use-socket-connection';
 import { SOCKET_EVENT } from '@/lib/constants';
 import { setServerDeviceId } from '@/lib/device';
+import { parseMessageRequestId } from '@/lib/request-id';
 import { queryKeys } from '@/queries/query-keys';
-import { normalizeMessage } from '@/services/message-service';
-import { consumeConversationKeyShare } from '@/services/key-exchange-service';
+import { mergeMessage, normalizeMessage, upsertReceiptState } from '@/services/message-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { useCallStore } from '@/stores/call-store';
 import { useChatStore } from '@/stores/chat-store';
-import type { ConnectionReadyPayload, ConversationKeyShare, IncomingCall, Message, SocketEnvelope } from '@/types';
+import type { ConnectionReadyPayload, ConversationListPayload, ConversationMessageSummary, IncomingCall, Message, SocketEnvelope } from '@/types';
 
 type SocketContextValue = ReturnType<typeof useSocketConnection>;
 
 const SocketContext = createContext<SocketContextValue | null>(null);
+
+function toConversationSummary(message: Message): ConversationMessageSummary {
+  const receiptStatus = (message.receipts ?? [])
+    .filter((receipt) => receipt.user_id !== message.sender_id)
+    .reduce<ConversationMessageSummary['receipt_status']>((state, receipt) => {
+      if (receipt.status === 'PLAYED') {
+        return 'PLAYED';
+      }
+      if (receipt.status === 'READ' && state !== 'PLAYED') {
+        return 'READ';
+      }
+      if (receipt.status === 'DELIVERED' && state === 'SENT') {
+        return 'DELIVERED';
+      }
+      return state;
+    }, 'SENT');
+
+  return {
+    id: message.id,
+    sender_id: message.sender_id,
+    kind: message.type,
+    created_at: message.created_at,
+    seq_id: message.seq_id,
+    receipt_status: receiptStatus,
+    deleted_at: message.deleted_at,
+  };
+}
+
+function upsertMessage(current: Message[] | undefined, incoming: Message): Message[] {
+  const existing = (current ?? []).find(
+    (item) => item.id === incoming.id || item.client_message_id === incoming.client_message_id
+  );
+  const merged = mergeMessage(existing, incoming);
+  const next = (current ?? []).filter(
+    (item) => item.id !== incoming.id && item.client_message_id !== incoming.client_message_id
+  );
+  next.push(merged);
+  return next.sort((left, right) => left.seq_id - right.seq_id);
+}
+
+function updateConversationPreview(
+  payload: ConversationListPayload | undefined,
+  conversationId: string,
+  message: Message
+): ConversationListPayload | undefined {
+  if (!payload) {
+    return payload;
+  }
+
+  const items = payload.items.map((conversation) => {
+    if (conversation.id !== conversationId) {
+      return conversation;
+    }
+
+    return {
+      ...conversation,
+      updated_at: message.created_at,
+      last_message_at: message.created_at,
+      last_message: toConversationSummary(message),
+    };
+  });
+
+  items.sort((left, right) => {
+    const leftTime = left.last_message_at ?? left.updated_at;
+    const rightTime = right.last_message_at ?? right.updated_at;
+    return new Date(rightTime).getTime() - new Date(leftTime).getTime();
+  });
+
+  return {
+    ...payload,
+    items,
+  };
+}
 
 function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
   const queryClient = useQueryClient();
@@ -38,20 +111,6 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           }
           break;
         }
-        case SOCKET_EVENT.conversationKeyShare: {
-          const share = (envelope.data as { share?: ConversationKeyShare } | undefined)?.share;
-
-          if (!share) {
-            break;
-          }
-
-          void consumeConversationKeyShare(share)
-            .then(() => {
-              queryClient.invalidateQueries({ queryKey: queryKeys.messages(share.conversation_id) });
-            })
-            .catch(() => undefined);
-          break;
-        }
         case SOCKET_EVENT.typingStarted:
         case SOCKET_EVENT.typingStopped: {
           const conversationId = envelope.conversation_id;
@@ -72,26 +131,59 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           }
 
           const normalized = normalizeMessage(message as never);
-          queryClient.setQueryData<Message[]>(queryKeys.messages(normalized.conversation_id), (current) => {
-            const existing = current ?? [];
-            const next = existing.filter(
-              (item) => item.id !== normalized.id && item.client_message_id !== normalized.client_message_id
-            );
-            next.push(normalized);
-            return next.sort((left, right) => left.seq_id - right.seq_id);
-          });
-          queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+          queryClient.setQueryData<Message[]>(queryKeys.messages(normalized.conversation_id), (current) =>
+            upsertMessage(current, normalized)
+          );
+          queryClient.setQueryData<ConversationListPayload>(queryKeys.conversations, (payload) =>
+            updateConversationPreview(payload, normalized.conversation_id, normalized)
+          );
           break;
         }
         case SOCKET_EVENT.messageReaction:
         case SOCKET_EVENT.messagePinned:
         case SOCKET_EVENT.messageUnpinned:
-        case SOCKET_EVENT.receiptUpdate:
         case SOCKET_EVENT.pollUpdate: {
           if (envelope.conversation_id) {
             queryClient.invalidateQueries({ queryKey: queryKeys.messages(envelope.conversation_id) });
             queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
           }
+          break;
+        }
+        case SOCKET_EVENT.receiptUpdate: {
+          const conversationId = envelope.conversation_id;
+          const payload = envelope.data as
+            | { message_ids?: string[]; user_id?: string; status?: string; up_to_seq_id?: number }
+            | undefined;
+
+          if (!conversationId || !payload?.user_id || !payload.status) {
+            break;
+          }
+
+          queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (current) => {
+            const next = upsertReceiptState(current, payload.user_id ?? '', payload.status ?? 'DELIVERED', payload.message_ids ?? []);
+            const latest = [...next].sort((left, right) => right.seq_id - left.seq_id)[0];
+
+            if (latest) {
+              queryClient.setQueryData<ConversationListPayload>(queryKeys.conversations, (conversations) =>
+                updateConversationPreview(conversations, conversationId, latest)
+              );
+            }
+
+            return next;
+          });
+          break;
+        }
+        case SOCKET_EVENT.error: {
+          const request = parseMessageRequestId(envelope.request_id);
+
+          if (!request || request.action !== 'send') {
+            break;
+          }
+
+          queryClient.setQueryData<Message[]>(queryKeys.messages(request.conversationId), (current) =>
+            (current ?? []).filter((message) => message.client_message_id !== request.clientMessageId)
+          );
+          queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
           break;
         }
         case 'conversation:created':

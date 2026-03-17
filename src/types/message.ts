@@ -1,10 +1,3 @@
-import type {
-  SecureMessagePayload,
-  SecureTextPayload,
-  SecureFilePayload,
-  SecureAudioPayload,
-  SecureSystemPayload,
-} from '@/types/encryption';
 import type { Attachment, BackendMessageAttachment } from '@/types/upload';
 
 export type MessageType = 'TEXT' | 'AUDIO' | 'FILE' | 'POLL' | 'SYSTEM';
@@ -58,8 +51,7 @@ export interface BackendMessage {
   client_message_id?: string | null;
   seq_id: number;
   type: MessageType;
-  encrypted_content?: string | null;
-  key_fingerprint?: string | null;
+  content?: string | null;
   is_forwarded: boolean;
   reply_to_msg_id?: string | null;
   mention_count: number;
@@ -83,12 +75,6 @@ export interface MessagesPayload {
   items: Message[];
 }
 
-export interface DecryptedMessageState {
-  status: 'ready' | 'missing-key' | 'error' | 'empty';
-  payload?: SecureMessagePayload;
-  error?: string;
-}
-
 export interface MessageDraft {
   text: string;
   files: File[];
@@ -98,8 +84,7 @@ export interface MessageDraft {
 export interface SendMessageFrameData {
   client_message_id: string;
   type: MessageType;
-  encrypted_content: string;
-  key_fingerprint?: string;
+  content: string;
   attachment_ids?: string[];
   reply_to_msg_id?: string;
   expires_at?: string;
@@ -107,8 +92,7 @@ export interface SendMessageFrameData {
 
 export interface EditMessageFrameData {
   message_id: string;
-  encrypted_content: string;
-  key_fingerprint?: string;
+  content: string;
   expires_at?: string;
 }
 
@@ -127,7 +111,7 @@ export interface ReactionFrameData {
 }
 
 export type MessagePayloadByKind =
-  | SecureTextPayload
-  | SecureFilePayload
-  | SecureAudioPayload
-  | SecureSystemPayload;
+  | { kind: 'text'; text: string }
+  | { kind: 'file'; caption?: string; files: Attachment[] }
+  | { kind: 'audio'; transcript?: string; duration_ms?: number; clips: Attachment[] }
+  | { kind: 'system'; text: string };

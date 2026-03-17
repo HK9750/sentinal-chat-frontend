@@ -2,19 +2,19 @@
 
 import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { SOCKET_EVENT } from '@/lib/constants';
-import { createClientMessageId, createRequestId } from '@/lib/crypto';
-import { buildDeleteMessageFrame, buildEditMessageFrame, buildReactionFrame, buildSendMessageFrame, createOptimisticMessage, normalizeMessage } from '@/services/message-service';
+import { createClientMessageId, createMessageRequestId, createRequestId } from '@/lib/request-id';
+import { buildDeleteMessageFrame, buildEditMessageFrame, buildReactionFrame, buildSendMessageFrame, createOptimisticMessage, mergeMessage } from '@/services/message-service';
 import { queryKeys } from '@/queries/query-keys';
-import { useSocketEvents } from '@/hooks/use-socket-events';
 import { useSocket } from '@/providers/socket-provider';
 import { useAuthStore } from '@/stores/auth-store';
-import type { ConversationListPayload, ConversationMessageSummary, Message, MessageType, SocketEnvelope } from '@/types';
+import type { ConversationListPayload, ConversationMessageSummary, Message, MessageType } from '@/types';
 
 function appendMessage(messages: Message[] | undefined, message: Message): Message[] {
   const current = messages ?? [];
+  const existing = current.find((item) => item.id === message.id || item.client_message_id === message.client_message_id);
+  const merged = mergeMessage(existing, message);
   const withoutDuplicate = current.filter((item) => item.id !== message.id && item.client_message_id !== message.client_message_id);
-  return [...withoutDuplicate, message].sort((left, right) => left.seq_id - right.seq_id);
+  return [...withoutDuplicate, merged].sort((left, right) => left.seq_id - right.seq_id);
 }
 
 function toConversationSummary(message: Message): ConversationMessageSummary {
@@ -24,6 +24,20 @@ function toConversationSummary(message: Message): ConversationMessageSummary {
     kind: message.type,
     created_at: message.created_at,
     seq_id: message.seq_id,
+    receipt_status: message.receipts
+      ?.filter((receipt) => receipt.user_id !== message.sender_id)
+      .reduce<ConversationMessageSummary['receipt_status']>((state, receipt) => {
+        if (receipt.status === 'PLAYED') {
+          return 'PLAYED';
+        }
+        if (receipt.status === 'READ' && state !== 'PLAYED') {
+          return 'READ';
+        }
+        if (receipt.status === 'DELIVERED' && state === 'SENT') {
+          return 'DELIVERED';
+        }
+        return state;
+      }, 'SENT') ?? 'SENT',
     deleted_at: message.deleted_at,
   };
 }
@@ -67,43 +81,12 @@ export function useMessageChannel(conversationId?: string | null) {
   const queryClient = useQueryClient();
   const currentUserId = useAuthStore((state) => state.user?.id);
 
-  useSocketEvents(
-    useCallback(
-      (envelope: SocketEnvelope) => {
-        if (!conversationId || envelope.conversation_id !== conversationId) {
-          return;
-        }
-
-        if (
-          envelope.type === SOCKET_EVENT.messageNew ||
-          envelope.type === SOCKET_EVENT.messageEdited ||
-          envelope.type === SOCKET_EVENT.messageDeleted
-        ) {
-          const incoming = (envelope.data as { message?: Message } | undefined)?.message;
-
-          if (!incoming) {
-            return;
-          }
-
-          const normalized = normalizeMessage(incoming as never);
-          queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (messages) => appendMessage(messages, normalized));
-        }
-
-        if (envelope.type === SOCKET_EVENT.receiptUpdate) {
-          queryClient.invalidateQueries({ queryKey: queryKeys.messages(conversationId) });
-        }
-      },
-      [conversationId, queryClient]
-    )
-  );
-
   const sendMessage = useCallback(
     (
-      encryptedContent: string,
+      content: string,
       type: MessageType,
       attachmentIds: string[] = [],
-      replyToMessageId?: string,
-      keyFingerprint?: string
+      replyToMessageId?: string
     ) => {
       if (!conversationId) {
         return null;
@@ -117,8 +100,7 @@ export function useMessageChannel(conversationId?: string | null) {
             senderId: currentUserId,
             clientMessageId,
             type,
-            encryptedContent,
-            keyFingerprint,
+            content,
             replyToMessageId,
           });
 
@@ -135,12 +117,11 @@ export function useMessageChannel(conversationId?: string | null) {
           {
             client_message_id: clientMessageId,
             type,
-            encrypted_content: encryptedContent,
-            key_fingerprint: keyFingerprint,
+            content,
             attachment_ids: attachmentIds.length > 0 ? attachmentIds : undefined,
             reply_to_msg_id: replyToMessageId,
           },
-          createRequestId('send')
+          createMessageRequestId('send', conversationId, clientMessageId)
         )
       );
 
@@ -150,7 +131,7 @@ export function useMessageChannel(conversationId?: string | null) {
   );
 
   const editMessage = useCallback(
-    (messageId: string, encryptedContent: string) => {
+    (messageId: string, content: string) => {
       if (!conversationId) {
         return;
       }
@@ -158,7 +139,7 @@ export function useMessageChannel(conversationId?: string | null) {
       socket.send(
         buildEditMessageFrame(
           conversationId,
-          { message_id: messageId, encrypted_content: encryptedContent },
+          { message_id: messageId, content },
           createRequestId('edit')
         )
       );

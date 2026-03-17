@@ -1,5 +1,4 @@
 import { DEFAULT_PREFERENCES, STORAGE_KEYS } from '@/lib/constants';
-import { getCryptoVaultState } from '@/lib/crypto-storage';
 import { listSessions } from '@/services/auth-service';
 import { listConversations } from '@/services/conversation-service';
 import type { AuthSession, LocalUserPreferences, ProfileMetrics } from '@/types';
@@ -71,14 +70,10 @@ export async function getProfileMetrics(): Promise<ProfileMetrics> {
     listSessions().catch(() => ({ items: [] })),
     listConversations().catch(() => ({ items: [], total: 0 })),
   ]);
-
-  const cryptoVault = getCryptoVaultState();
-
   return {
     conversation_count: conversationPayload.total,
     unread_count: conversationPayload.items.reduce((total, conversation) => total + conversation.unread_count, 0),
     session_count: sessionsPayload.items.length,
-    secure_conversation_count: cryptoVault.stored_keys,
   };
 }
 

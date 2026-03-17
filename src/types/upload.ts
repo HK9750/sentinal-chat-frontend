@@ -13,7 +13,7 @@ export interface UploadedFilesPayload {
 export interface Attachment {
   id: string;
   uploader_id?: string | null;
-  encrypted_url: string;
+  file_url: string;
   filename?: string | null;
   mime_type: string;
   size_bytes: number;
@@ -70,6 +70,12 @@ export interface UploadQueueItem {
   filename: string;
   mime_type: string;
   progress: number;
-  status: 'encrypting' | 'uploading' | 'registering' | 'sending' | 'done' | 'error';
+  status: 'uploading' | 'registering' | 'sending' | 'done' | 'error';
   error?: string;
+}
+
+export interface VoiceRecordingResult {
+  blob: Blob;
+  duration_ms: number;
+  mime_type: string;
 }

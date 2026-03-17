@@ -2,7 +2,6 @@
 
 import { create } from 'zustand';
 import { clearAuthCookie, setAuthCookie } from '@/lib/cookies';
-import { clearConversationKeys } from '@/lib/crypto-storage';
 import { clearDeviceState } from '@/lib/device';
 import type { AuthPayload, AuthSession, AuthTokens, AuthUser } from '@/types';
 
@@ -64,7 +63,6 @@ export const useAuthStore = create<AuthState>()(
     clearAuth: () => {
       clearAuthCookie();
       clearDeviceState();
-      clearConversationKeys();
       set({
         ...anonymousState,
         isHydrated: true,

@@ -92,8 +92,8 @@ export function RegisterForm() {
 
   return (
     <AuthShell
-      title="Create your secure account"
-      description="Start with a local-first identity, then keep message keys and voice notes encrypted on the client."
+      title="Create your account"
+      description="Start with a local-first identity and jump into messaging, file sharing, and voice notes."
       cardTitle="Join Sentinel"
       cardDescription="Create an account with at least one unique identifier."
       footerText="Already have an account?"

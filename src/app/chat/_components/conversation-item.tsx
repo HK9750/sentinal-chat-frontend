@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo } from 'react';
-import { CheckCheck, LockKeyhole, Users } from 'lucide-react';
+import { Check, CheckCheck, LockKeyhole, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserAvatar } from '@/components/shared/user-avatar';
@@ -29,6 +29,27 @@ export function ConversationItem({ conversation, isSelected }: ConversationItemP
   const title = getConversationTitle(conversation, currentUserId);
   const subtitle = conversation.last_message ? getMessagePreview(conversation.last_message) : getConversationSubtitle(conversation, currentUserId);
   const href = `/chat?conversation=${conversation.id}`;
+  const lastMessage = conversation.last_message ?? null;
+  const lastMessageReceiptIcon = useMemo(() => {
+    if (!lastMessage || lastMessage.sender_id !== currentUserId) {
+      return null;
+    }
+
+    if (!lastMessage.receipt_status || lastMessage.receipt_status === 'SENT') {
+      return <Check className="size-3.5 text-muted-foreground" />;
+    }
+
+    return (
+      <CheckCheck
+        className={cn(
+          'size-3.5',
+          lastMessage.receipt_status === 'READ' || lastMessage.receipt_status === 'PLAYED'
+            ? 'text-sky-500'
+            : 'text-muted-foreground'
+        )}
+      />
+    );
+  }, [currentUserId, lastMessage]);
 
   return (
     <Link
@@ -62,7 +83,7 @@ export function ConversationItem({ conversation, isSelected }: ConversationItemP
                 </span>
               </div>
               <div className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">
-                {conversation.last_message?.sender_id === currentUserId ? <CheckCheck className="size-3.5 text-primary/80" /> : null}
+                {lastMessageReceiptIcon}
                 <p className="truncate">{subtitle}</p>
               </div>
             </div>

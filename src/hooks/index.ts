@@ -1,4 +1,3 @@
-export { useEncryption } from '@/hooks/use-encryption';
 export { useMessageChannel } from '@/hooks/use-message-channel';
 export { useReceiptChannel } from '@/hooks/use-receipt-channel';
 export { useSocketConnection } from '@/hooks/use-socket-connection';
