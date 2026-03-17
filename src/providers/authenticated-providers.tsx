@@ -1,5 +1,6 @@
 'use client';
 
+import { CallController } from '@/components/shared/call-controller';
 import { SocketProvider } from '@/providers/socket-provider';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -12,6 +13,9 @@ export function AuthenticatedProviders({ children }: { children: React.ReactNode
   }
 
   return (
-    <SocketProvider>{children}</SocketProvider>
+    <SocketProvider>
+      <CallController />
+      {children}
+    </SocketProvider>
   );
 }

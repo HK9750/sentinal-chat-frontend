@@ -1,8 +1,12 @@
-export function createRequestId(prefix = 'req'): string {
+export function createRequestId(prefix = "req"): string {
   return `${prefix}_${crypto.randomUUID()}`;
 }
 
-export function createMessageRequestId(action: 'send', conversationId: string, clientMessageId: string): string {
+export function createMessageRequestId(
+  action: "send",
+  conversationId: string,
+  clientMessageId: string,
+): string {
   return createRequestId(`${action}:${conversationId}:${clientMessageId}`);
 }
 
@@ -15,8 +19,8 @@ export function parseMessageRequestId(requestId?: string | null): {
     return null;
   }
 
-  const prefix = requestId.split('_', 1)[0] ?? '';
-  const [action, conversationId, clientMessageId] = prefix.split(':');
+  const prefix = requestId.split("_", 1)[0] ?? "";
+  const [action, conversationId, clientMessageId] = prefix.split(":");
 
   if (!action || !conversationId || !clientMessageId) {
     return null;

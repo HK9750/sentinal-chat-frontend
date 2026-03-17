@@ -1,12 +1,12 @@
-export type CallType = 'AUDIO' | 'VIDEO';
+export type CallType = "AUDIO" | "VIDEO";
 export type CallStatus =
-  | 'idle'
-  | 'incoming'
-  | 'outgoing'
-  | 'connecting'
-  | 'connected'
-  | 'ended'
-  | 'failed';
+  | "idle"
+  | "incoming"
+  | "outgoing"
+  | "connecting"
+  | "connected"
+  | "ended"
+  | "failed";
 
 export interface IncomingCall {
   call_id: string;
@@ -14,6 +14,7 @@ export interface IncomingCall {
   initiated_by: string;
   type: CallType;
   started_at?: string;
+  participant_ids?: string[];
 }
 
 export interface ActiveCall {
@@ -25,6 +26,7 @@ export interface ActiveCall {
   status: CallStatus;
   started_at?: string;
   ended_reason?: string;
+  participant_ids?: string[];
 }
 
 export interface CallSignalPayload {

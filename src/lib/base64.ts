@@ -2,23 +2,23 @@ const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
 function encodeBinary(binary: string): string {
-  if (typeof btoa === 'function') {
+  if (typeof btoa === "function") {
     return btoa(binary);
   }
 
-  return Buffer.from(binary, 'binary').toString('base64');
+  return Buffer.from(binary, "binary").toString("base64");
 }
 
 function decodeBinary(base64: string): string {
-  if (typeof atob === 'function') {
+  if (typeof atob === "function") {
     return atob(base64);
   }
 
-  return Buffer.from(base64, 'base64').toString('binary');
+  return Buffer.from(base64, "base64").toString("binary");
 }
 
 export function bytesToBase64(bytes: Uint8Array): string {
-  let binary = '';
+  let binary = "";
 
   for (const byte of bytes) {
     binary += String.fromCharCode(byte);

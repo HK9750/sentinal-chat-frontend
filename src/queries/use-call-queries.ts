@@ -11,7 +11,7 @@ export function useRtcConfiguration() {
 export function useCallLimitations() {
   return useMemo(
     () => [
-      'Calls use WebRTC peer-to-peer media with websocket signaling.',
+      'Direct chats use WebRTC peer-to-peer media with websocket signaling.',
       APP_LIMITATIONS.calls,
       'TURN is not configured in the current environment, so some networks may fail to connect.',
     ],

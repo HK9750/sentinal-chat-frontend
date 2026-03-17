@@ -203,14 +203,18 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
             break;
           }
 
+          const peerUserId = payload.participant_ids?.find((participantId) => participantId !== currentUserId);
+
           if (payload.initiated_by === currentUserId) {
             setActiveCall({
               call_id: payload.call_id,
               conversation_id: envelope.conversation_id,
               type: payload.type,
+              peer_user_id: peerUserId,
               initiator_id: payload.initiated_by,
               started_at: payload.started_at,
               status: 'outgoing',
+              participant_ids: payload.participant_ids,
             });
           } else {
             setIncomingCall({
@@ -219,6 +223,7 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
               initiated_by: payload.initiated_by,
               type: payload.type,
               started_at: payload.started_at,
+              participant_ids: payload.participant_ids,
             });
           }
           break;
@@ -244,7 +249,7 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           setCallStatus('ended', reason);
           window.setTimeout(() => {
             resetCall();
-          }, 500);
+          }, 1500);
           break;
         }
         default:

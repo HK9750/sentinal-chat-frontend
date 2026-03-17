@@ -6,16 +6,54 @@ import { buildCallAnswerFrame, buildCallEndFrame, buildCallIceFrame, buildCallOf
 import { useSocket } from '@/providers/socket-provider';
 import type { CallSignalPayload, CallType } from '@/types';
 
+interface CallStartResponse {
+  call_id: string;
+  type: CallType;
+  initiated_by: string;
+  started_at?: string;
+  participant_ids?: string[];
+}
+
 export function useCallSignaling(conversationId?: string | null) {
   const socket = useSocket();
 
   const startCall = useCallback(
-    (type: CallType) => {
+    async (type: CallType): Promise<CallStartResponse | null> => {
       if (!conversationId) {
-        return;
+        return null;
       }
 
-      socket.send(buildCallStartFrame(conversationId, type, createRequestId('call-start')));
+      const requestId = createRequestId('call-start');
+
+      return new Promise((resolve, reject) => {
+        const timeout = window.setTimeout(() => {
+          unsubscribe();
+          reject(new Error('Call start timed out.'));
+        }, 10000);
+
+        const unsubscribe = socket.subscribe((envelope) => {
+          if (envelope.request_id !== requestId) {
+            return;
+          }
+
+          if (envelope.type === 'error') {
+            window.clearTimeout(timeout);
+            unsubscribe();
+            reject(new Error((envelope.data as { message?: string } | undefined)?.message ?? 'Call could not be started.'));
+            return;
+          }
+
+          if (envelope.type !== 'call:incoming') {
+            return;
+          }
+
+          window.clearTimeout(timeout);
+          unsubscribe();
+          resolve(envelope.data as CallStartResponse);
+        });
+
+        socket.send(buildCallStartFrame(conversationId, type, requestId));
+      });
     },
     [conversationId, socket]
   );

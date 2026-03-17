@@ -1,11 +1,11 @@
-const AUTH_COOKIE_NAME = 'access_token';
+const AUTH_COOKIE_NAME = "access_token";
 
 function canUseDocument(): boolean {
-  return typeof document !== 'undefined';
+  return typeof document !== "undefined";
 }
 
 function shouldUseSecureCookies(): boolean {
-  return typeof window !== 'undefined' && window.location.protocol === 'https:';
+  return typeof window !== "undefined" && window.location.protocol === "https:";
 }
 
 export function setAuthCookie(token: string, expiresAt?: string): void {
@@ -15,8 +15,8 @@ export function setAuthCookie(token: string, expiresAt?: string): void {
 
   const segments = [
     `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}`,
-    'Path=/',
-    'SameSite=Lax',
+    "Path=/",
+    "SameSite=Lax",
   ];
 
   if (expiresAt) {
@@ -28,10 +28,10 @@ export function setAuthCookie(token: string, expiresAt?: string): void {
   }
 
   if (shouldUseSecureCookies()) {
-    segments.push('Secure');
+    segments.push("Secure");
   }
 
-  document.cookie = segments.join('; ');
+  document.cookie = segments.join("; ");
 }
 
 export function clearAuthCookie(): void {
@@ -41,16 +41,16 @@ export function clearAuthCookie(): void {
 
   const segments = [
     `${AUTH_COOKIE_NAME}=`,
-    'Path=/',
-    'Max-Age=0',
-    'SameSite=Lax',
+    "Path=/",
+    "Max-Age=0",
+    "SameSite=Lax",
   ];
 
   if (shouldUseSecureCookies()) {
-    segments.push('Secure');
+    segments.push("Secure");
   }
 
-  document.cookie = segments.join('; ');
+  document.cookie = segments.join("; ");
 }
 
 export function getAuthCookie(): string | null {
@@ -58,7 +58,7 @@ export function getAuthCookie(): string | null {
     return null;
   }
 
-  const cookies = document.cookie.split('; ');
+  const cookies = document.cookie.split("; ");
 
   for (const cookie of cookies) {
     if (!cookie.startsWith(`${AUTH_COOKIE_NAME}=`)) {

@@ -4,7 +4,6 @@ import { useMemo } from 'react';
 import { ArrowLeft, Phone, Search, Video } from 'lucide-react';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
-import { APP_LIMITATIONS } from '@/lib/constants';
 import { getConversationTitle, getOtherParticipant } from '@/lib/utils';
 import { useConversation } from '@/queries/use-conversation-queries';
 import { useAuthStore } from '@/stores/auth-store';
@@ -28,6 +27,7 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
   const otherParticipant = conversation ? getOtherParticipant(conversation, currentUserId) : null;
   const title = conversation ? getConversationTitle(conversation, currentUserId) : 'Conversation';
   const actionsDisabled = conversationQuery.isLoading || conversationQuery.isError || !conversation;
+  const callsEnabled = !actionsDisabled && conversation?.type === 'DM';
 
   const subtitle = useMemo(() => {
     if (!conversation) {
@@ -74,12 +74,16 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
           <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={onOpenSearch} disabled={actionsDisabled}>
             <Search className="size-4" />
           </Button>
-          <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={() => onStartCall('AUDIO')} disabled>
-            <Phone className="size-4" />
-          </Button>
-          <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={() => onStartCall('VIDEO')} disabled title={APP_LIMITATIONS.calls}>
-            <Video className="size-4" />
-          </Button>
+          {conversation?.type === 'DM' ? (
+            <>
+              <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={() => onStartCall('AUDIO')} disabled={!callsEnabled}>
+                <Phone className="size-4" />
+              </Button>
+              <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={() => onStartCall('VIDEO')} disabled={!callsEnabled}>
+                <Video className="size-4" />
+              </Button>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

@@ -22,6 +22,7 @@ interface CallState {
   cameraMuted: boolean;
   setIncomingCall: (call: IncomingCall | null) => void;
   setActiveCall: (call: ActiveCall | null) => void;
+  updateActiveCall: (patch: Partial<ActiveCall>) => void;
   setStreams: (localStream: MediaStream | null, remoteStream: MediaStream | null) => void;
   setPeerConnection: (connection: RTCPeerConnection | null) => void;
   enqueueSignal: (signal: PendingCallSignal) => void;
@@ -43,6 +44,10 @@ export const useCallStore = create<CallState>((set, get) => ({
   cameraMuted: false,
   setIncomingCall: (incomingCall) => set({ incomingCall }),
   setActiveCall: (activeCall) => set({ activeCall }),
+  updateActiveCall: (patch) =>
+    set((state) => ({
+      activeCall: state.activeCall ? { ...state.activeCall, ...patch } : state.activeCall,
+    })),
   setStreams: (localStream, remoteStream) => set({ localStream, remoteStream }),
   setPeerConnection: (peerConnection) => set({ peerConnection }),
   enqueueSignal: (signal) => set((state) => ({ pendingSignals: [...state.pendingSignals, signal] })),

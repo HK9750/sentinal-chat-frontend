@@ -4,8 +4,11 @@ import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { Mic, MicOff, PhoneOff, Video, VideoOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { UserAvatar } from '@/components/shared/user-avatar';
+import { useCallSignaling } from '@/hooks/use-call-signaling';
 import { useCallStore } from '@/stores/call-store';
-import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/auth-store';
+import { getOtherParticipant, cn } from '@/lib/utils';
+import { useConversation } from '@/queries/use-conversation-queries';
 
 function formatDuration(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
@@ -34,6 +37,14 @@ export function ActiveCallOverlay() {
   const toggleMicrophone = useCallStore((state) => state.toggleMicrophone);
   const toggleCamera = useCallStore((state) => state.toggleCamera);
   const resetCall = useCallStore((state) => state.resetCall);
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const conversationQuery = useConversation(activeCall?.conversation_id);
+  const { endCall } = useCallSignaling(activeCall?.conversation_id);
+
+  const otherParticipant = useMemo(
+    () => (conversationQuery.data ? getOtherParticipant(conversationQuery.data, currentUserId) : null),
+    [conversationQuery.data, currentUserId]
+  );
 
   useEffect(() => {
     if (localVideoRef.current) {
@@ -53,7 +64,7 @@ export function ActiveCallOverlay() {
     }
 
     if (activeCall.status === 'connecting' || activeCall.status === 'outgoing') {
-      return 'Connecting secure call';
+		return activeCall.type === 'VIDEO' ? 'Connecting video call' : 'Connecting voice call';
     }
 
     if (activeCall.status === 'ended') {
@@ -76,6 +87,13 @@ export function ActiveCallOverlay() {
   }
 
   const showVideoLayout = activeCall.type === 'VIDEO';
+  const participantName = otherParticipant?.display_name ?? otherParticipant?.username ?? 'Contact';
+  const handleEnd = () => {
+    if (activeCall.status !== 'ended') {
+      endCall(activeCall.call_id, 'hangup');
+    }
+    resetCall();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background/96 backdrop-blur-xl">
@@ -84,10 +102,12 @@ export function ActiveCallOverlay() {
           <p className="section-kicker">Call</p>
           <h2 className="mt-1 text-xl font-semibold tracking-[-0.04em]">{title}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {activeCall.status === 'connected' ? formatDuration(elapsedTime) : activeCall.status}
+            {activeCall.status === 'connected'
+              ? `${participantName} · ${formatDuration(elapsedTime)}`
+              : activeCall.ended_reason ?? participantName}
           </p>
         </div>
-        <Button type="button" variant="destructive" size="icon-lg" onClick={resetCall} className="rounded-full">
+        <Button type="button" variant="destructive" size="icon-lg" onClick={handleEnd} className="rounded-full">
           <PhoneOff className="h-5 w-5" />
         </Button>
       </div>
@@ -100,8 +120,8 @@ export function ActiveCallOverlay() {
                 <video ref={remoteVideoRef} autoPlay playsInline className="h-full w-full object-cover" />
               ) : (
                 <div className="flex flex-col items-center gap-4 text-center">
-                  <UserAvatar size="xl" user={{ display_name: 'Remote participant' }} />
-                  <p className="text-sm text-muted-foreground">Waiting for the other participant&apos;s video stream.</p>
+                  <UserAvatar size="xl" src={otherParticipant?.avatar_url} alt={participantName} fallback={participantName[0] ?? 'C'} />
+                  <p className="text-sm text-muted-foreground">Waiting for {participantName}&apos;s video stream.</p>
                 </div>
               )}
             </div>
@@ -119,11 +139,11 @@ export function ActiveCallOverlay() {
           </div>
         ) : (
           <div className="flex flex-col items-center gap-5 text-center">
-            <UserAvatar size="xl" user={{ display_name: 'Secure voice call' }} />
+            <UserAvatar size="xl" src={otherParticipant?.avatar_url} alt={participantName} fallback={participantName[0] ?? 'C'} />
             <div>
-              <p className="text-lg font-semibold">Secure voice call in progress</p>
+              <p className="text-lg font-semibold">Voice call with {participantName}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {activeCall.status === 'connected' ? formatDuration(elapsedTime) : 'Waiting for media negotiation to finish.'}
+                {activeCall.status === 'connected' ? formatDuration(elapsedTime) : 'Waiting for the other person to join.'}
               </p>
             </div>
           </div>
@@ -147,7 +167,7 @@ export function ActiveCallOverlay() {
           </Button>
         ) : null}
 
-        <Button type="button" variant="destructive" size="icon-lg" onClick={resetCall} className="rounded-full">
+        <Button type="button" variant="destructive" size="icon-lg" onClick={handleEnd} className="rounded-full">
           <PhoneOff className="h-5 w-5" />
         </Button>
       </div>

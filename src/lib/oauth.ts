@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import type { OAuthProvider } from '@/types';
+import type { OAuthProvider } from "@/types";
 
-const OAUTH_STORAGE_PREFIX = 'sentinel.oauth';
+const OAUTH_STORAGE_PREFIX = "sentinel.oauth";
 const OAUTH_FLOW_TTL_MS = 15 * 60 * 1000;
 const encoder = new TextEncoder();
 
@@ -17,9 +17,9 @@ interface StoredOAuthFlow {
 
 function toBase64Url(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 }
 
 function getStorageKey(provider: OAuthProvider): string {
@@ -54,7 +54,10 @@ function isOAuthFlowExpired(flow: StoredOAuthFlow): boolean {
   return !flow.created_at || Date.now() - flow.created_at > OAUTH_FLOW_TTL_MS;
 }
 
-function parseStoredOAuthFlow(provider: OAuthProvider, rawValue: string | null): StoredOAuthFlow | null {
+function parseStoredOAuthFlow(
+  provider: OAuthProvider,
+  rawValue: string | null,
+): StoredOAuthFlow | null {
   if (!rawValue) {
     return null;
   }
@@ -62,7 +65,11 @@ function parseStoredOAuthFlow(provider: OAuthProvider, rawValue: string | null):
   try {
     const parsed = JSON.parse(rawValue) as StoredOAuthFlow;
 
-    if (parsed.provider !== provider || !parsed.created_at || isOAuthFlowExpired(parsed)) {
+    if (
+      parsed.provider !== provider ||
+      !parsed.created_at ||
+      isOAuthFlowExpired(parsed)
+    ) {
       return null;
     }
 
@@ -73,8 +80,8 @@ function parseStoredOAuthFlow(provider: OAuthProvider, rawValue: string | null):
 }
 
 function assertBrowser(): void {
-  if (typeof window === 'undefined') {
-    throw new Error('OAuth must be started in the browser.');
+  if (typeof window === "undefined") {
+    throw new Error("OAuth must be started in the browser.");
   }
 }
 
@@ -93,7 +100,10 @@ export function createCodeVerifier(length = 64): string {
 }
 
 export async function createCodeChallenge(verifier: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(verifier));
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    encoder.encode(verifier),
+  );
   return toBase64Url(new Uint8Array(digest));
 }
 
@@ -105,7 +115,11 @@ export function saveOAuthFlow(flow: StoredOAuthFlow): void {
     created_at: Date.now(),
   });
 
-  writeStorageValue(window.sessionStorage, getStorageKey(flow.provider), payload);
+  writeStorageValue(
+    window.sessionStorage,
+    getStorageKey(flow.provider),
+    payload,
+  );
   writeStorageValue(window.localStorage, getStorageKey(flow.provider), payload);
 }
 
@@ -113,13 +127,19 @@ export function readOAuthFlow(provider: OAuthProvider): StoredOAuthFlow | null {
   assertBrowser();
 
   const key = getStorageKey(provider);
-  const fromSession = parseStoredOAuthFlow(provider, readStorageValue(window.sessionStorage, key));
+  const fromSession = parseStoredOAuthFlow(
+    provider,
+    readStorageValue(window.sessionStorage, key),
+  );
 
   if (fromSession) {
     return fromSession;
   }
 
-  const fromLocal = parseStoredOAuthFlow(provider, readStorageValue(window.localStorage, key));
+  const fromLocal = parseStoredOAuthFlow(
+    provider,
+    readStorageValue(window.localStorage, key),
+  );
 
   if (fromLocal) {
     writeStorageValue(window.sessionStorage, key, JSON.stringify(fromLocal));
@@ -137,7 +157,9 @@ export function clearOAuthFlow(provider: OAuthProvider): void {
   removeStorageValue(window.localStorage, key);
 }
 
-export function consumeOAuthFlow(provider: OAuthProvider): StoredOAuthFlow | null {
+export function consumeOAuthFlow(
+  provider: OAuthProvider,
+): StoredOAuthFlow | null {
   const flow = readOAuthFlow(provider);
 
   if (!flow) {

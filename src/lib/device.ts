@@ -1,9 +1,9 @@
-import { STORAGE_KEYS } from '@/lib/constants';
-import type { ClientDeviceInput } from '@/types';
+import { STORAGE_KEYS } from "@/lib/constants";
+import type { ClientDeviceInput } from "@/types";
 
 export function getOrCreateClientDeviceId(): string {
-  if (typeof window === 'undefined') {
-    return 'server-render';
+  if (typeof window === "undefined") {
+    return "server-render";
   }
 
   const existing = window.localStorage.getItem(STORAGE_KEYS.deviceId);
@@ -18,36 +18,36 @@ export function getOrCreateClientDeviceId(): string {
 }
 
 export function getDeviceName(): string {
-  if (typeof navigator === 'undefined') {
-    return 'Server Render';
+  if (typeof navigator === "undefined") {
+    return "Server Render";
   }
 
   const userAgent = navigator.userAgent;
-  const browser = userAgent.includes('Firefox')
-    ? 'Firefox'
-    : userAgent.includes('Edg')
-      ? 'Edge'
-      : userAgent.includes('Chrome')
-        ? 'Chrome'
-        : userAgent.includes('Safari')
-          ? 'Safari'
-          : 'Browser';
+  const browser = userAgent.includes("Firefox")
+    ? "Firefox"
+    : userAgent.includes("Edg")
+      ? "Edge"
+      : userAgent.includes("Chrome")
+        ? "Chrome"
+        : userAgent.includes("Safari")
+          ? "Safari"
+          : "Browser";
 
-  const platform = userAgent.includes('Windows')
-    ? 'Windows'
-    : userAgent.includes('Mac OS X')
-      ? 'macOS'
-      : userAgent.includes('Android')
-        ? 'Android'
-        : userAgent.includes('iPhone') || userAgent.includes('iPad')
-          ? 'iOS'
-          : 'Linux';
+  const platform = userAgent.includes("Windows")
+    ? "Windows"
+    : userAgent.includes("Mac OS X")
+      ? "macOS"
+      : userAgent.includes("Android")
+        ? "Android"
+        : userAgent.includes("iPhone") || userAgent.includes("iPad")
+          ? "iOS"
+          : "Linux";
 
   return `${browser} on ${platform}`;
 }
 
 export function getDeviceType(): string {
-  return 'web';
+  return "web";
 }
 
 export function getClientDeviceInput(): ClientDeviceInput {
@@ -59,7 +59,7 @@ export function getClientDeviceInput(): ClientDeviceInput {
 }
 
 export function setServerDeviceId(deviceId: string): void {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return;
   }
 
@@ -67,7 +67,7 @@ export function setServerDeviceId(deviceId: string): void {
 }
 
 export function getServerDeviceId(): string | null {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return null;
   }
 
@@ -75,7 +75,7 @@ export function getServerDeviceId(): string | null {
 }
 
 export function clearDeviceState(): void {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return;
   }
 
