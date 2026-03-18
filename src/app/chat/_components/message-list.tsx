@@ -3,25 +3,57 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Send } from 'lucide-react';
 import { MessageBubble } from '@/components/shared/message-bubble';
+import { MessageListSkeleton } from '@/components/shared/message-skeleton';
 import { Spinner } from '@/components/shared/spinner';
+import { TypingBubble } from '@/components/shared/typing-indicator';
 import { useConversationMessages } from '@/hooks/use-conversation-messages';
 import { useReceiptChannel } from '@/hooks/use-receipt-channel';
+import { useMessageChannel } from '@/hooks/use-message-channel';
 import { formatCalendarLabel, getOtherParticipant } from '@/lib/utils';
 import { useConversation } from '@/queries/use-conversation-queries';
+import { useChatStore } from '@/stores/chat-store';
+import type { Message } from '@/types';
 
 interface MessageListProps {
   conversationId: string;
   currentUserId: string | undefined;
   scrollRef: React.RefObject<HTMLDivElement | null>;
   messageRefs: React.RefObject<Map<string, HTMLDivElement>>;
+  onReply?: (message: Message) => void;
+  onEdit?: (message: Message) => void;
 }
 
-export function MessageList({ conversationId, currentUserId, scrollRef, messageRefs }: MessageListProps) {
+export function MessageList({
+  conversationId,
+  currentUserId,
+  scrollRef,
+  messageRefs,
+  onReply,
+  onEdit,
+}: MessageListProps) {
   const conversationQuery = useConversation(conversationId);
   const messagesQuery = useConversationMessages(conversationId);
   const { sendDeliveredReceipt, sendReadReceipt, sendPlayedReceipt } = useReceiptChannel(conversationId);
+  const { deleteMessage, reactToMessage } = useMessageChannel(conversationId);
+  const typingByConversation = useChatStore((state) => state.typingByConversation);
   const deliveredSetRef = useRef(new Set<string>());
   const readSetRef = useRef(new Set<string>());
+
+  // Get typing users for this conversation (excluding current user)
+  const typingUserIds = useMemo(() => {
+    const typingUsers = typingByConversation[conversationId] ?? {};
+    return Object.keys(typingUsers).filter((userId) => userId !== currentUserId);
+  }, [conversationId, currentUserId, typingByConversation]);
+
+  // Map typing user IDs to display names
+  const typingUserNames = useMemo(() => {
+    const participants = conversationQuery.data?.participants ?? [];
+    const participantMap = new Map(participants.map((p) => [p.user_id, p]));
+    return typingUserIds.map((userId) => {
+      const participant = participantMap.get(userId);
+      return participant?.display_name ?? participant?.username ?? 'Someone';
+    });
+  }, [conversationQuery.data?.participants, typingUserIds]);
 
   useEffect(() => {
     deliveredSetRef.current.clear();
@@ -105,12 +137,22 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
     return groups;
   }, [messagesQuery]);
 
+  const handleDelete = useCallback(
+    (message: Message) => {
+      deleteMessage(message.id);
+    },
+    [deleteMessage]
+  );
+
+  const handleReact = useCallback(
+    (messageId: string, emoji: string, mode: 'add' | 'remove') => {
+      reactToMessage(messageId, emoji, mode);
+    },
+    [reactToMessage]
+  );
+
   if (messagesQuery.isLoading || conversationQuery.isLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <Spinner size="lg" />
-      </div>
-    );
+    return <MessageListSkeleton />;
   }
 
   if (conversationQuery.isError) {
@@ -180,7 +222,12 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
                       showAvatar={showAvatar}
                       authorLabel={author?.display_name ?? author?.username ?? 'Member'}
                       avatarUrl={author?.avatar_url}
+                      currentUserId={currentUserId}
                       onPlayed={sendPlayedReceipt}
+                      onReply={onReply}
+                      onEdit={onEdit}
+                      onDelete={handleDelete}
+                      onReact={handleReact}
                     />
                   </div>
                 );
@@ -188,6 +235,12 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
             </div>
           </div>
         ))}
+
+        {/* Typing indicator */}
+        {typingUserIds.length > 0 && (
+          <TypingBubble userNames={typingUserNames} />
+        )}
+
         <div ref={scrollRef} />
       </div>
     </div>

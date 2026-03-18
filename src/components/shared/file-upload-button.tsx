@@ -3,6 +3,7 @@
 import { useRef } from 'react';
 import { Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 interface FileUploadButtonProps {
@@ -33,16 +34,21 @@ export function FileUploadButton({ onFilesSelected, className, disabled, accept 
           event.currentTarget.value = '';
         }}
       />
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        disabled={disabled}
-        onClick={() => inputRef.current?.click()}
-        className={cn('rounded-2xl', className)}
-      >
-        <Paperclip className="size-4.5" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={disabled}
+            onClick={() => inputRef.current?.click()}
+            className={cn('rounded-2xl', className)}
+          >
+            <Paperclip className="size-4.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Attach files</TooltipContent>
+      </Tooltip>
     </>
   );
 }

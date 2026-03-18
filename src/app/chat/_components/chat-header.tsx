@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { ArrowLeft, Phone, Search, Video } from 'lucide-react';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { getConversationTitle, getOtherParticipant } from '@/lib/utils';
 import { useSocket } from '@/providers/socket-provider';
 import { useConversation } from '@/queries/use-conversation-queries';
@@ -56,9 +57,14 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           {onBack ? (
-            <Button type="button" variant="ghost" size="icon" className="rounded-2xl lg:hidden" onClick={onBack}>
-              <ArrowLeft className="size-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button type="button" variant="ghost" size="icon" className="rounded-2xl lg:hidden" onClick={onBack}>
+                  <ArrowLeft className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Back</TooltipContent>
+            </Tooltip>
           ) : null}
 
           <UserAvatar
@@ -77,17 +83,34 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
         </div>
 
         <div className="flex items-center gap-1.5">
-          <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={onOpenSearch} disabled={actionsDisabled}>
-            <Search className="size-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={onOpenSearch} disabled={actionsDisabled}>
+                <Search className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Search messages</TooltipContent>
+          </Tooltip>
+
           {conversation?.type === 'DM' ? (
             <>
-              <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={() => onStartCall('AUDIO')} disabled={!callsEnabled}>
-                <Phone className="size-4" />
-              </Button>
-              <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={() => onStartCall('VIDEO')} disabled={!callsEnabled}>
-                <Video className="size-4" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={() => onStartCall('AUDIO')} disabled={!callsEnabled}>
+                    <Phone className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Voice call</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={() => onStartCall('VIDEO')} disabled={!callsEnabled}>
+                    <Video className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Video call</TooltipContent>
+              </Tooltip>
             </>
           ) : null}
         </div>

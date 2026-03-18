@@ -94,7 +94,7 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/40;
+    @apply border-border;
   }
 
   html {
@@ -119,6 +119,16 @@
   ::selection {
     background: var(--primary);
     color: var(--primary-foreground);
+  }
+
+  /* Improved focus-visible styles for keyboard navigation */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+
+  /* Remove default focus outline (will show focus-visible instead) */
+  :focus:not(:focus-visible) {
+    outline: none;
   }
 }
 
@@ -152,5 +162,15 @@
 
   .section-kicker {
     @apply text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground;
+  }
+
+  /* Custom focus ring for interactive elements */
+  .focus-ring {
+    @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring;
+  }
+
+  /* Skip to main content link for accessibility */
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground;
   }
 }

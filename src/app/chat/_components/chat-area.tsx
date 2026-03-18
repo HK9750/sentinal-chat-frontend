@@ -9,7 +9,7 @@ import { getConversationTitle, getOtherParticipant } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useConversation } from '@/queries/use-conversation-queries';
 import { useAuthStore } from '@/stores/auth-store';
-import type { CallType } from '@/types';
+import type { CallType, Message } from '@/types';
 import { ChatHeader } from './chat-header';
 import { MessageInput } from './message-input';
 import { MessageList } from './message-list';
@@ -27,6 +27,10 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
   const [callModalOpen, setCallModalOpen] = useState(false);
   const [callType, setCallType] = useState<CallType>('AUDIO');
   const [searchOpen, setSearchOpen] = useState(false);
+  
+  // Reply and edit state
+  const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
 
   const conversation = conversationQuery.data;
   const otherParticipant = useMemo(() => (conversation ? getOtherParticipant(conversation, currentUserId) : null), [conversation, currentUserId]);
@@ -54,6 +58,24 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
     window.setTimeout(() => {
       element.classList.remove('ring-2', 'ring-primary/60');
     }, 1800);
+  }, []);
+
+  const handleReply = useCallback((message: Message) => {
+    setEditingMessage(null);
+    setReplyToMessage(message);
+  }, []);
+
+  const handleEdit = useCallback((message: Message) => {
+    setReplyToMessage(null);
+    setEditingMessage(message);
+  }, []);
+
+  const handleCancelReply = useCallback(() => {
+    setReplyToMessage(null);
+  }, []);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingMessage(null);
   }, []);
 
   return (
@@ -94,8 +116,21 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
           </Button>
         </div>
       </div>
-      <MessageList conversationId={conversationId} currentUserId={currentUserId} scrollRef={scrollRef} messageRefs={messageRefs} />
-      <MessageInput conversationId={conversationId} />
+      <MessageList
+        conversationId={conversationId}
+        currentUserId={currentUserId}
+        scrollRef={scrollRef}
+        messageRefs={messageRefs}
+        onReply={handleReply}
+        onEdit={handleEdit}
+      />
+      <MessageInput
+        conversationId={conversationId}
+        replyToMessage={replyToMessage}
+        editingMessage={editingMessage}
+        onCancelReply={handleCancelReply}
+        onCancelEdit={handleCancelEdit}
+      />
 
       <MessageSearchPanel
         conversationId={conversationId}
