@@ -11,7 +11,15 @@ import { mergeMessage, normalizeMessage, upsertReceiptState } from '@/services/m
 import { useAuthStore } from '@/stores/auth-store';
 import { useCallStore } from '@/stores/call-store';
 import { useChatStore } from '@/stores/chat-store';
-import type { ConnectionReadyPayload, ConversationListPayload, ConversationMessageSummary, IncomingCall, Message, SocketEnvelope } from '@/types';
+import type {
+  ConnectionReadyPayload,
+  Contact,
+  ConversationListPayload,
+  ConversationMessageSummary,
+  IncomingCall,
+  Message,
+  SocketEnvelope,
+} from '@/types';
 
 type SocketContextValue = ReturnType<typeof useSocketConnection>;
 
@@ -56,6 +64,47 @@ function upsertMessage(current: Message[] | undefined, incoming: Message): Messa
   return next.sort((left, right) => left.seq_id - right.seq_id);
 }
 
+function removeCommandPreview(
+  payload: ConversationListPayload | undefined,
+  conversationId: string,
+  messageType: string,
+  messageId?: string
+): ConversationListPayload | undefined {
+  if (!payload) {
+    return payload;
+  }
+
+  const normalizedType = messageType.toUpperCase();
+  const items = payload.items.map((conversation) => {
+    if (conversation.id !== conversationId) {
+      return conversation;
+    }
+
+    if (!conversation.last_message || conversation.last_message.kind.toUpperCase() !== normalizedType) {
+      return conversation;
+    }
+
+    if (messageId && conversation.last_message.id !== messageId) {
+      return conversation;
+    }
+
+    return {
+      ...conversation,
+      last_message: null,
+    };
+  });
+
+  return {
+    ...payload,
+    items,
+  };
+}
+
+function parseCommandMessageId(envelope: SocketEnvelope): string | undefined {
+  const data = envelope.data as { command?: { payload?: { message_id?: string }; undo_payload?: { message_id?: string } } } | undefined;
+  return data?.command?.payload?.message_id ?? data?.command?.undo_payload?.message_id;
+}
+
 function updateConversationPreview(
   payload: ConversationListPayload | undefined,
   conversationId: string,
@@ -94,6 +143,8 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
   const queryClient = useQueryClient();
   const currentUserId = useAuthStore((state) => state.user?.id);
   const markTyping = useChatStore((state) => state.markTyping);
+  const setLastUndoneCommand = useChatStore((state) => state.setLastUndoneCommand);
+  const clearLastUndoneCommand = useChatStore((state) => state.clearLastUndoneCommand);
   const setIncomingCall = useCallStore((state) => state.setIncomingCall);
   const setActiveCall = useCallStore((state) => state.setActiveCall);
   const enqueueSignal = useCallStore((state) => state.enqueueSignal);
@@ -119,6 +170,56 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           if (conversationId && userId) {
             markTyping(conversationId, userId, envelope.type === SOCKET_EVENT.typingStarted);
           }
+          break;
+        }
+        case SOCKET_EVENT.presenceUpdate: {
+          const payload = envelope.data as { user_id?: string; is_online?: boolean; last_seen_at?: string } | undefined;
+          const targetUserId = payload?.user_id;
+          const isOnline = payload?.is_online;
+
+          if (!targetUserId || typeof isOnline !== 'boolean') {
+            break;
+          }
+
+          queryClient.setQueryData<ConversationListPayload>(queryKeys.conversations, (current) => {
+            if (!current) {
+              return current;
+            }
+
+            return {
+              ...current,
+              items: current.items.map((conversation) => ({
+                ...conversation,
+                participants: conversation.participants.map((participant) => {
+                  if (participant.user_id !== targetUserId) {
+                    return participant;
+                  }
+
+                  return {
+                    ...participant,
+                    is_online: isOnline,
+                  };
+                }),
+              })),
+            };
+          });
+
+          queryClient.setQueryData<Contact[]>(queryKeys.contacts, (current) => {
+            if (!current) {
+              return current;
+            }
+
+            return current.map((contact) =>
+              contact.id === targetUserId
+                ? {
+                    ...contact,
+                    is_online: isOnline,
+                    ...(payload.last_seen_at ? { last_seen_at: payload.last_seen_at } : {}),
+                  }
+                : contact
+            );
+          });
+
           break;
         }
         case SOCKET_EVENT.messageNew:
@@ -160,7 +261,13 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           }
 
           queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (current) => {
-            const next = upsertReceiptState(current, payload.user_id ?? '', payload.status ?? 'DELIVERED', payload.message_ids ?? []);
+            const next = upsertReceiptState(
+              current,
+              payload.user_id ?? '',
+              payload.status ?? 'DELIVERED',
+              payload.message_ids ?? [],
+              payload.up_to_seq_id
+            );
             const latest = [...next].sort((left, right) => right.seq_id - left.seq_id)[0];
 
             if (latest) {
@@ -191,8 +298,57 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
         case 'conversation:participant_removed':
         case 'conversation:cleared': {
           queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
-          if (envelope.conversation_id) {
-            queryClient.invalidateQueries({ queryKey: queryKeys.conversation(envelope.conversation_id) });
+          const payloadConversationId = (envelope.data as { conversation_id?: string } | undefined)?.conversation_id;
+          const targetConversationId = envelope.conversation_id ?? payloadConversationId;
+          if (targetConversationId) {
+            queryClient.invalidateQueries({ queryKey: queryKeys.conversation(targetConversationId) });
+            if (envelope.type === 'conversation:cleared') {
+              queryClient.removeQueries({ queryKey: queryKeys.messages(targetConversationId) });
+            }
+          }
+          break;
+        }
+        case SOCKET_EVENT.commandUndone:
+        case SOCKET_EVENT.commandRedone: {
+          const commandConversationId = (envelope.data as { command?: { conversation_id?: string } } | undefined)?.command?.conversation_id;
+          const commandId = (envelope.data as { command?: { command_id?: string } } | undefined)?.command?.command_id;
+          const commandStatus = (envelope.data as { command?: { status?: string } } | undefined)?.command?.status;
+          const commandType = (envelope.data as { command?: { type?: string } } | undefined)?.command?.type;
+          const commandMessageId = parseCommandMessageId(envelope);
+          queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+          if (commandConversationId) {
+            queryClient.invalidateQueries({ queryKey: queryKeys.conversation(commandConversationId) });
+            queryClient.invalidateQueries({ queryKey: queryKeys.messages(commandConversationId) });
+
+            if (envelope.type === SOCKET_EVENT.commandUndone && commandType) {
+              const normalizedType = commandType.toUpperCase();
+              if (normalizedType === 'DELETE_MESSAGE') {
+                queryClient.setQueryData<ConversationListPayload>(queryKeys.conversations, (conversations) =>
+                  removeCommandPreview(conversations, commandConversationId, 'TEXT', commandMessageId)
+                );
+                queryClient.setQueryData<Message[]>(queryKeys.messages(commandConversationId), (current) => {
+                  if (!current || !commandMessageId) {
+                    return current;
+                  }
+
+                  return current.map((message) =>
+                    message.id === commandMessageId
+                      ? {
+                          ...message,
+                          deleted_at: null,
+                        }
+                      : message
+                  );
+                });
+              }
+            }
+
+            if (envelope.type === SOCKET_EVENT.commandUndone && commandId) {
+              setLastUndoneCommand(commandConversationId, commandId);
+            }
+            if (envelope.type === SOCKET_EVENT.commandRedone || commandStatus === 'EXECUTED') {
+              clearLastUndoneCommand(commandConversationId);
+            }
           }
           break;
         }
@@ -256,7 +412,19 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           break;
       }
     });
-  }, [currentUserId, enqueueSignal, markTyping, queryClient, resetCall, setActiveCall, setCallStatus, setIncomingCall, socket]);
+  }, [
+    clearLastUndoneCommand,
+    currentUserId,
+    enqueueSignal,
+    markTyping,
+    queryClient,
+    resetCall,
+    setActiveCall,
+    setCallStatus,
+    setIncomingCall,
+    setLastUndoneCommand,
+    socket,
+  ]);
 
   return null;
 }

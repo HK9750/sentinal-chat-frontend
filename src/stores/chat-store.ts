@@ -6,17 +6,21 @@ interface ChatState {
   selectedConversationId: string | null;
   drafts: Record<string, string>;
   typingByConversation: Record<string, Record<string, number>>;
+  lastUndoneCommandByConversation: Record<string, string>;
   setSelectedConversationId: (conversationId: string | null) => void;
   setDraft: (conversationId: string, draft: string) => void;
   clearDraft: (conversationId: string) => void;
   markTyping: (conversationId: string, userId: string, active: boolean) => void;
   pruneTyping: () => void;
+  setLastUndoneCommand: (conversationId: string, commandId: string) => void;
+  clearLastUndoneCommand: (conversationId: string) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
   selectedConversationId: null,
   drafts: {},
   typingByConversation: {},
+  lastUndoneCommandByConversation: {},
   setSelectedConversationId: (selectedConversationId) => set({ selectedConversationId }),
   setDraft: (conversationId, draft) =>
     set((state) => ({
@@ -64,5 +68,18 @@ export const useChatStore = create<ChatState>((set) => ({
       }
 
       return { typingByConversation: nextTyping };
+    }),
+  setLastUndoneCommand: (conversationId, commandId) =>
+    set((state) => ({
+      lastUndoneCommandByConversation: {
+        ...state.lastUndoneCommandByConversation,
+        [conversationId]: commandId,
+      },
+    })),
+  clearLastUndoneCommand: (conversationId) =>
+    set((state) => {
+      const next = { ...state.lastUndoneCommandByConversation };
+      delete next[conversationId];
+      return { lastUndoneCommandByConversation: next };
     }),
 }));

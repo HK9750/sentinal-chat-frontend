@@ -5,6 +5,7 @@ import { ArrowLeft, Phone, Search, Video } from 'lucide-react';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
 import { getConversationTitle, getOtherParticipant } from '@/lib/utils';
+import { useSocket } from '@/providers/socket-provider';
 import { useConversation } from '@/queries/use-conversation-queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { useChatStore } from '@/stores/chat-store';
@@ -18,6 +19,7 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }: ChatHeaderProps) {
+  const socket = useSocket();
   const conversationQuery = useConversation(conversationId);
   const currentUserId = useAuthStore((state) => state.user?.id);
   const typingByConversation = useChatStore((state) => state.typingByConversation);
@@ -38,12 +40,16 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
       return typingUserIds.length === 1 ? 'Someone is typing...' : `${typingUserIds.length} people are typing...`;
     }
 
+    if (!socket.connected) {
+      return 'Reconnecting realtime channel...';
+    }
+
     if (conversation.type === 'DM') {
       return otherParticipant?.is_online ? 'Online now' : 'Direct message';
     }
 
     return `${conversation.participants.length} participant${conversation.participants.length === 1 ? '' : 's'}`;
-  }, [conversation, conversationQuery.isError, otherParticipant?.is_online, typingUserIds.length]);
+  }, [conversation, conversationQuery.isError, otherParticipant?.is_online, socket.connected, typingUserIds.length]);
 
   return (
     <div className="border-b border-border bg-card/90 px-4 py-3 backdrop-blur-xl lg:px-5">

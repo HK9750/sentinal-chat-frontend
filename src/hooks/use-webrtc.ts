@@ -25,10 +25,22 @@ export function useWebRtc() {
   }, [setPeerConnection, setStreams]);
 
   const ensureLocalStream = useCallback(async (mode: 'audio' | 'video') => {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: mode === 'video',
-    });
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: mode === 'video',
+      });
+    } catch (error) {
+      if (mode !== 'video') {
+        throw error;
+      }
+
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: false,
+      });
+    }
 
     setStreams(stream, useCallStore.getState().remoteStream);
 

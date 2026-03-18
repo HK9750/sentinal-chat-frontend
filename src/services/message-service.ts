@@ -253,17 +253,21 @@ export function upsertReceiptState(
   messages: Message[] | undefined,
   userId: string,
   status: string,
-  messageIds: string[]
+  messageIds: string[],
+  upToSeqId?: number
 ): Message[] {
-  if (!messages || messageIds.length === 0) {
+  if (!messages || (messageIds.length === 0 && typeof upToSeqId !== 'number')) {
     return messages ?? [];
   }
 
   const normalizedStatus = status.toUpperCase() as MessageReceipt['status'];
   const now = new Date().toISOString();
+  const messageIdSet = new Set(messageIds);
 
   return messages.map((message) => {
-    if (!messageIds.includes(message.id)) {
+    const targetById = messageIdSet.has(message.id);
+    const targetBySeq = typeof upToSeqId === 'number' && message.seq_id <= upToSeqId;
+    if (!targetById && !targetBySeq) {
       return message;
     }
 

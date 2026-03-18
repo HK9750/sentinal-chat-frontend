@@ -63,7 +63,12 @@ export function CallController() {
           return;
         }
 
-        if (connection.connectionState === 'failed') {
+        if (connection.connectionState === 'disconnected') {
+          setCallStatus('connecting', 'Reconnecting call...');
+          return;
+        }
+
+        if (connection.connectionState === 'failed' || connection.connectionState === 'closed') {
           setCallStatus('failed', 'Connection failed.');
         }
       };

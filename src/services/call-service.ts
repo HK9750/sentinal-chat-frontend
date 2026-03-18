@@ -2,7 +2,11 @@ import { SOCKET_EVENT } from '@/lib/constants';
 import type { CallSignalPayload, CallType, ClientSocketFrame } from '@/types';
 
 export const DEFAULT_RTC_CONFIGURATION: RTCConfiguration = {
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+  ],
   iceCandidatePoolSize: 10,
 };
 

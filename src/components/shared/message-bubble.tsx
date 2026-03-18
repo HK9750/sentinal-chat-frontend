@@ -6,6 +6,7 @@ import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
 import { cn, formatBytes, formatTimestamp, isImageMimeType } from '@/lib/utils';
 import { getMessagePrimaryText } from '@/lib/message-payload';
+import { markAttachmentViewed } from '@/services/upload-service';
 import type { Message } from '@/types';
 
 interface MessageBubbleProps {
@@ -25,6 +26,16 @@ export function MessageBubble({
   avatarUrl,
   onPlayed,
 }: MessageBubbleProps) {
+  const markViewed = (attachmentId: string, viewOnce: boolean) => {
+    if (!viewOnce) {
+      return;
+    }
+
+    void markAttachmentViewed(attachmentId).catch(() => {
+      return;
+    });
+  };
+
   const deliveryState = useMemo(() => {
     const others = (message.receipts ?? []).filter((receipt) => receipt.user_id !== message.sender_id);
 
@@ -90,7 +101,13 @@ export function MessageBubble({
                 return (
                   <div key={attachment.id} className="overflow-hidden rounded-[20px] border border-border bg-background">
                     {isImage ? (
-                      <a href={assetUrl} target="_blank" rel="noopener noreferrer" className="block w-full bg-muted/40">
+                      <a
+                        href={assetUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full bg-muted/40"
+                        onClick={() => markViewed(attachment.id, attachment.view_once)}
+                      >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={assetUrl} alt={fileName} className="max-h-80 w-full object-cover" />
                       </a>
@@ -117,7 +134,7 @@ export function MessageBubble({
                           className="rounded-full border-border bg-background"
                           asChild
                         >
-                          <a href={assetUrl} download={fileName}>
+                          <a href={assetUrl} download={fileName} onClick={() => markViewed(attachment.id, attachment.view_once)}>
                             <Download className="size-4" />
                             Save
                           </a>
@@ -125,7 +142,16 @@ export function MessageBubble({
                       </div>
 
                       {isAudio ? (
-                        <audio controls preload="metadata" className="h-10 w-full" src={assetUrl} onPlay={() => onPlayed?.(message.id)} />
+                        <audio
+                          controls
+                          preload="metadata"
+                          className="h-10 w-full"
+                          src={assetUrl}
+                          onPlay={() => {
+                            markViewed(attachment.id, attachment.view_once);
+                            onPlayed?.(message.id);
+                          }}
+                        />
                       ) : null}
                     </div>
                   </div>

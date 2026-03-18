@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { env } from '@/config/env';
 import { SOCKET_EVENT, WS_HEARTBEAT_INTERVAL, WS_RECONNECT_BASE_DELAY, WS_RECONNECT_MAX_DELAY } from '@/lib/constants';
 import { createRequestId } from '@/lib/request-id';
-import { buildSocketUrl, parseSocketEnvelope, serializeSocketFrame } from '@/services/socket-service';
+import { buildSocketUrl, safeParseSocketEnvelope, serializeSocketFrame } from '@/services/socket-service';
 import { useAuthStore } from '@/stores/auth-store';
 import type { ClientSocketFrame, SocketEnvelope } from '@/types';
 
@@ -18,6 +18,8 @@ export function useSocketConnection() {
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<number | null>(null);
   const heartbeatTimerRef = useRef<number | null>(null);
+  const staleTimerRef = useRef<number | null>(null);
+  const lastActivityAtRef = useRef<number>(0);
   const messageQueueRef = useRef<string[]>([]);
   const listenersRef = useRef(new Set<(envelope: SocketEnvelope) => void>());
   const connectRef = useRef<() => void>(() => undefined);
@@ -49,10 +51,17 @@ export function useSocketConnection() {
       window.clearInterval(heartbeatTimerRef.current);
       heartbeatTimerRef.current = null;
     }
+
+    if (staleTimerRef.current) {
+      window.clearInterval(staleTimerRef.current);
+      staleTimerRef.current = null;
+    }
   }, []);
 
   const startHeartbeat = useCallback(() => {
     clearTimers();
+    lastActivityAtRef.current = Date.now();
+
     heartbeatTimerRef.current = window.setInterval(() => {
       const frame: ClientSocketFrame = {
         type: SOCKET_EVENT.ping,
@@ -63,6 +72,17 @@ export function useSocketConnection() {
         socketRef.current.send(serializeSocketFrame(frame));
       }
     }, WS_HEARTBEAT_INTERVAL);
+
+    staleTimerRef.current = window.setInterval(() => {
+      if (socketRef.current?.readyState !== WebSocket.OPEN) {
+        return;
+      }
+
+      const maxIdle = WS_HEARTBEAT_INTERVAL * 2;
+      if (Date.now() - lastActivityAtRef.current > maxIdle) {
+        socketRef.current.close();
+      }
+    }, Math.max(1000, Math.floor(WS_HEARTBEAT_INTERVAL / 2)));
   }, [clearTimers]);
 
   const scheduleReconnect = useCallback(() => {
@@ -98,13 +118,23 @@ export function useSocketConnection() {
 
     socket.onopen = () => {
       reconnectAttemptRef.current = 0;
+      lastActivityAtRef.current = Date.now();
       setState('connected');
       startHeartbeat();
       flushQueue();
     };
 
     socket.onmessage = (event) => {
-      const envelope = parseSocketEnvelope(event.data);
+      if (typeof event.data !== 'string') {
+        return;
+      }
+
+      const envelope = safeParseSocketEnvelope(event.data);
+      if (!envelope) {
+        return;
+      }
+
+      lastActivityAtRef.current = Date.now();
       setLastEnvelope(envelope);
 
       for (const listener of listenersRef.current) {

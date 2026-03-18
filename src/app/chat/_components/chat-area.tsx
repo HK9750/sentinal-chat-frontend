@@ -2,9 +2,11 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Search, Phone, Video } from 'lucide-react';
 import { CallModal } from '@/components/shared/call-modal';
 import { MessageSearchPanel } from '@/components/shared/message-search-panel';
 import { getConversationTitle, getOtherParticipant } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { useConversation } from '@/queries/use-conversation-queries';
 import { useAuthStore } from '@/stores/auth-store';
 import type { CallType } from '@/types';
@@ -29,6 +31,7 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
   const conversation = conversationQuery.data;
   const otherParticipant = useMemo(() => (conversation ? getOtherParticipant(conversation, currentUserId) : null), [conversation, currentUserId]);
   const recipientName = conversation ? getConversationTitle(conversation, currentUserId) : 'Conversation';
+  const isDmConversation = conversation?.type === 'DM';
 
   const handleBack = useCallback(() => {
     router.push('/chat', { scroll: false });
@@ -61,6 +64,36 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
         onStartCall={handleStartCall}
         onOpenSearch={() => setSearchOpen(true)}
       />
+      <div className="border-b border-border/60 bg-card/70 px-4 py-2.5 lg:hidden">
+        <div className="flex items-center gap-2 overflow-x-auto">
+          <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={() => setSearchOpen(true)}>
+            <Search className="size-4" />
+            Search
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-full"
+            onClick={() => handleStartCall('AUDIO')}
+            disabled={!isDmConversation}
+          >
+            <Phone className="size-4" />
+            Voice
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-full"
+            onClick={() => handleStartCall('VIDEO')}
+            disabled={!isDmConversation}
+          >
+            <Video className="size-4" />
+            Video
+          </Button>
+        </div>
+      </div>
       <MessageList conversationId={conversationId} currentUserId={currentUserId} scrollRef={scrollRef} messageRefs={messageRefs} />
       <MessageInput conversationId={conversationId} />
 

@@ -3,7 +3,16 @@
 import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { createClientMessageId, createMessageRequestId, createRequestId } from '@/lib/request-id';
-import { buildDeleteMessageFrame, buildEditMessageFrame, buildReactionFrame, buildSendMessageFrame, createOptimisticMessage, mergeMessage } from '@/services/message-service';
+import {
+  buildDeleteMessageFrame,
+  buildEditMessageFrame,
+  buildReactionFrame,
+  buildRedoFrame,
+  buildSendMessageFrame,
+  buildUndoFrame,
+  createOptimisticMessage,
+  mergeMessage,
+} from '@/services/message-service';
 import { queryKeys } from '@/queries/query-keys';
 import { useSocket } from '@/providers/socket-provider';
 import { useAuthStore } from '@/stores/auth-store';
@@ -176,10 +185,23 @@ export function useMessageChannel(conversationId?: string | null) {
     [conversationId, socket]
   );
 
+  const undoLatest = useCallback(() => {
+    socket.send(buildUndoFrame(conversationId ?? undefined, createRequestId('undo')));
+  }, [conversationId, socket]);
+
+  const redoCommand = useCallback(
+    (commandId: string) => {
+      socket.send(buildRedoFrame(commandId, createRequestId('redo')));
+    },
+    [socket]
+  );
+
   return {
     sendMessage,
     editMessage,
     deleteMessage,
     reactToMessage,
+    undoLatest,
+    redoCommand,
   };
 }

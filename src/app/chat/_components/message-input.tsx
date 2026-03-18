@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { LoaderCircle, Mic, Send, StopCircle } from "lucide-react";
+import { LoaderCircle, Mic, RotateCcw, RotateCw, Send, StopCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useMessageChannel } from "@/hooks/use-message-channel";
@@ -11,6 +11,7 @@ import { useFileUploadMutation, useVoiceUploadMutation } from "@/queries/use-upl
 import { useAuthStore } from "@/stores/auth-store";
 import { useUiStore } from "@/stores/ui-store";
 import { useUploadStore } from "@/stores/upload-store";
+import { useChatStore } from "@/stores/chat-store";
 import { createClientMessageId } from "@/lib/request-id";
 import { FileUploadButton } from "@/components/shared/file-upload-button";
 import { UploadProgressList } from "@/components/shared/upload-progress-list";
@@ -22,11 +23,12 @@ interface MessageInputProps {
 export function MessageInput({ conversationId }: MessageInputProps) {
   const currentUserId = useAuthStore((state) => state.user?.id);
   const enterToSend = useUiStore((state) => state.preferences.enter_to_send);
-  const { sendMessage } = useMessageChannel(conversationId);
+  const { sendMessage, undoLatest, redoCommand } = useMessageChannel(conversationId);
   const { sendTyping } = useTypingChannel(conversationId);
   const fileUpload = useFileUploadMutation();
   const voiceUpload = useVoiceUploadMutation();
   const voiceNote = useVoiceNote();
+  const lastUndoneCommandId = useChatStore((state) => state.lastUndoneCommandByConversation[conversationId]);
   const addUpload = useUploadStore((state) => state.addUpload);
   const updateUpload = useUploadStore((state) => state.updateUpload);
   const [text, setText] = useState("");
@@ -246,7 +248,7 @@ export function MessageInput({ conversationId }: MessageInputProps) {
   }, [currentUserId]);
 
   return (
-    <div className="border-t border-border bg-card/90 backdrop-blur-xl">
+    <div className="border-t border-border bg-card/90 backdrop-blur-xl pb-[max(env(safe-area-inset-bottom),0px)]">
       <UploadProgressList conversationId={conversationId} />
 
       <div className="mx-auto w-full max-w-5xl px-3 pb-4 pt-3 lg:px-4">
@@ -312,12 +314,39 @@ export function MessageInput({ conversationId }: MessageInputProps) {
 
           <div className="mt-3 flex flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between">
             <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">{helperText}</div>
-            <div className="text-xs text-muted-foreground">
-              {voiceNote.isRecording
-                ? "Recording in progress. Tap the stop button to upload."
-                : enterToSend
-                  ? "Press Enter to send. Use Shift+Enter for a new line."
-                  : "Use the send button to send your message."}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-full"
+                onClick={undoLatest}
+              >
+                <RotateCcw className="size-3.5" />
+                Undo
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-full"
+                onClick={() => {
+                  if (lastUndoneCommandId) {
+                    redoCommand(lastUndoneCommandId);
+                  }
+                }}
+                disabled={!lastUndoneCommandId}
+              >
+                <RotateCw className="size-3.5" />
+                Redo
+              </Button>
+              <div className="text-xs text-muted-foreground">
+                {voiceNote.isRecording
+                  ? "Recording in progress. Tap the stop button to upload."
+                  : enterToSend
+                    ? "Press Enter to send. Use Shift+Enter for a new line."
+                    : "Use the send button to send your message."}
+              </div>
             </div>
           </div>
 

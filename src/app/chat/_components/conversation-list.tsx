@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { getConversationSubtitle, getConversationTitle } from '@/lib/utils';
 import { useConversations } from '@/queries/use-conversation-queries';
 import { useAuthStore } from '@/stores/auth-store';
+import { useSocket } from '@/providers/socket-provider';
 import { ConversationItem, ConversationListSkeleton } from './conversation-item';
 
 interface ConversationListProps {
@@ -18,6 +19,7 @@ interface ConversationListProps {
 }
 
 export function ConversationList({ selectedConversationId }: ConversationListProps) {
+  const socket = useSocket();
   const currentUserId = useAuthStore((state) => state.user?.id);
   const [query, setQuery] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -84,10 +86,10 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
           <div className="rounded-[20px] border border-border bg-background px-3 py-3 shadow-sm">
             <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em]">
               <Sparkles className="size-3.5 text-primary" />
-              Live filter
+              Realtime link
             </div>
-            <p className="mt-2 text-sm font-medium text-foreground">Fast retrieval</p>
-            <p>Search titles, previews, and descriptions.</p>
+            <p className="mt-2 text-sm font-medium text-foreground">{socket.connected ? 'Connected' : 'Reconnecting'}</p>
+            <p>{socket.connected ? 'Websocket sync is active.' : 'Realtime updates will resume shortly.'}</p>
           </div>
         </div>
       </div>
@@ -108,10 +110,10 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
             </p>
           </div>
         ) : (
-            <div className="space-y-2 p-3">
-              {filteredConversations.map((conversation) => (
-                <ConversationItem
-                  key={conversation.id}
+          <div className="space-y-2 p-3">
+            {filteredConversations.map((conversation) => (
+              <ConversationItem
+                key={conversation.id}
                 conversation={conversation}
                 isSelected={selectedConversationId === conversation.id}
               />

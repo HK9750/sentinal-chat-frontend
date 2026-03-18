@@ -56,6 +56,10 @@ export function MessageList({ conversationId, currentUserId, scrollRef, messageR
       sendDeliveredReceipt(deliverableIds);
     }
 
+    if (document.visibilityState !== 'visible') {
+      return;
+    }
+
     const latestReadable = [...receivable].reverse().find((message) => !readSetRef.current.has(message.id));
 
     if (latestReadable) {

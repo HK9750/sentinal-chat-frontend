@@ -96,7 +96,7 @@ export function ActiveCallOverlay() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background/96 backdrop-blur-xl">
+    <div className="fixed inset-0 z-50 flex flex-col bg-background/96 backdrop-blur-xl pb-[max(env(safe-area-inset-bottom),0px)]">
       <div className="flex items-center justify-between border-b border-border/70 px-6 py-4">
         <div>
           <p className="section-kicker">Call</p>
@@ -114,8 +114,8 @@ export function ActiveCallOverlay() {
 
       <div className="flex flex-1 items-center justify-center px-6 py-6">
         {showVideoLayout ? (
-          <div className="grid h-full w-full max-w-6xl gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="flex min-h-[320px] items-center justify-center overflow-hidden rounded-[28px] border border-border/70 bg-card/60">
+          <div className="grid h-full w-full max-w-6xl gap-4 md:grid-cols-[minmax(0,1fr)_220px] lg:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="flex min-h-[240px] items-center justify-center overflow-hidden rounded-[28px] border border-border/70 bg-card/60 md:min-h-[320px]">
               {remoteStream ? (
                 <video ref={remoteVideoRef} autoPlay playsInline className="h-full w-full object-cover" />
               ) : (
@@ -126,7 +126,7 @@ export function ActiveCallOverlay() {
               )}
             </div>
 
-            <div className="flex min-h-[240px] items-center justify-center overflow-hidden rounded-[28px] border border-border/70 bg-card/60">
+            <div className="flex min-h-[180px] items-center justify-center overflow-hidden rounded-[28px] border border-border/70 bg-card/60 md:min-h-[240px]">
               {localStream && !cameraMuted ? (
                 <video ref={localVideoRef} autoPlay playsInline muted className={cn('h-full w-full object-cover', 'scale-x-[-1]')} />
               ) : (
@@ -150,7 +150,7 @@ export function ActiveCallOverlay() {
         )}
       </div>
 
-      <div className="flex items-center justify-center gap-4 border-t border-border/70 px-6 py-6">
+      <div className="flex items-center justify-center gap-4 border-t border-border/70 px-6 py-6 pb-[max(env(safe-area-inset-bottom),1.5rem)]">
         <Button
           type="button"
           variant="outline"

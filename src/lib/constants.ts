@@ -86,6 +86,7 @@ export const SOCKET_EVENT = {
   pong: "pong",
   error: "error",
   connectionReady: "connection:ready",
+  presenceUpdate: "presence:update",
   typingStart: "typing:start",
   typingStop: "typing:stop",
   typingStarted: "typing:started",
