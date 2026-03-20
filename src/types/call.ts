@@ -39,10 +39,3 @@ export interface ServerCallSignalPayload {
   from_user_id: string;
   payload: Record<string, unknown>;
 }
-
-export interface WebRtcState {
-  local_stream: MediaStream | null;
-  remote_stream: MediaStream | null;
-  is_audio_muted: boolean;
-  is_video_muted: boolean;
-}

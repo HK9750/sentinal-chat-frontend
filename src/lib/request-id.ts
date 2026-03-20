@@ -19,8 +19,10 @@ export function parseMessageRequestId(requestId?: string | null): {
     return null;
   }
 
-  const prefix = requestId.split("_", 1)[0] ?? "";
-  const [action, conversationId, clientMessageId] = prefix.split(":");
+  const separatorIndex = requestId.lastIndexOf("_");
+  const prefix = separatorIndex >= 0 ? requestId.slice(0, separatorIndex) : requestId;
+  const [action, conversationId, ...clientMessageParts] = prefix.split(":");
+  const clientMessageId = clientMessageParts.join(":");
 
   if (!action || !conversationId || !clientMessageId) {
     return null;
@@ -30,5 +32,5 @@ export function parseMessageRequestId(requestId?: string | null): {
 }
 
 export function createClientMessageId(): string {
-  return `msg_${crypto.randomUUID()}`;
+  return `msg-${crypto.randomUUID()}`;
 }

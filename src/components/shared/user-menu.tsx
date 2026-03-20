@@ -1,8 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LogOut, Shield, User2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { LogOut, Settings, User2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,41 +21,48 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-11 rounded-full border border-transparent hover:border-border">
-          <UserAvatar user={user} size="sm" />
-        </Button>
+        <button
+          type="button"
+          className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <UserAvatar user={user} size="lg" />
+        </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64 rounded-2xl p-2">
-        <DropdownMenuLabel className="p-2">
+      <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuLabel className="p-3">
           <div className="flex items-center gap-3">
-            <UserAvatar user={user} size="md" />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{user?.display_name ?? 'Anonymous'}</p>
-              <p className="truncate text-xs text-muted-foreground">{user?.email ?? user?.username ?? 'Private profile'}</p>
+            <UserAvatar user={user} size="lg" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-foreground">
+                {user?.display_name ?? 'Anonymous'}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {user?.email ?? user?.username ?? 'No email'}
+              </p>
             </div>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/profile">
-            <User2 className="size-4" />
-            Profile
+          <Link href="/profile" className="flex items-center gap-3 px-3 py-2">
+            <User2 className="h-4 w-4 text-muted-foreground" />
+            <span>Profile</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href="/settings">
-            <Shield className="size-4" />
-            Settings
+          <Link href="/settings" className="flex items-center gap-3 px-3 py-2">
+            <Settings className="h-4 w-4 text-muted-foreground" />
+            <span>Settings</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => logoutMutation.mutate(undefined)}
           disabled={logoutMutation.isPending}
-          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+          className="flex items-center gap-3 px-3 py-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
         >
-          <LogOut className="size-4" />
-          {logoutMutation.isPending ? 'Signing out...' : 'Sign out'}
+          <LogOut className="h-4 w-4" />
+          <span>{logoutMutation.isPending ? 'Signing out...' : 'Log out'}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

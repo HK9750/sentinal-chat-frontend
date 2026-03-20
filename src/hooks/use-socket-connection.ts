@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { env } from '@/config/env';
-import { SOCKET_EVENT, WS_HEARTBEAT_INTERVAL, WS_RECONNECT_BASE_DELAY, WS_RECONNECT_MAX_DELAY } from '@/lib/constants';
+import {
+  SOCKET_EVENT,
+  WS_HEARTBEAT_INTERVAL,
+  WS_MAX_QUEUED_MESSAGES,
+  WS_RECONNECT_BASE_DELAY,
+  WS_RECONNECT_MAX_DELAY,
+} from '@/lib/constants';
 import { createRequestId } from '@/lib/request-id';
 import { buildSocketUrl, safeParseSocketEnvelope, serializeSocketFrame } from '@/services/socket-service';
 import { useAuthStore } from '@/stores/auth-store';
@@ -177,6 +183,9 @@ export function useSocketConnection() {
       return frame.request_id ?? null;
     }
 
+    if (messageQueueRef.current.length >= WS_MAX_QUEUED_MESSAGES) {
+      messageQueueRef.current.shift();
+    }
     messageQueueRef.current.push(payload);
     return frame.request_id ?? null;
   }, []);

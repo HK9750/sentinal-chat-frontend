@@ -12,23 +12,39 @@ export function ChatShell({ selectedConversationId }: ChatShellProps) {
   const hasConversation = Boolean(selectedConversationId);
 
   return (
-    <div className="min-h-dvh bg-background px-0 py-0 lg:p-5">
-      <div className="mx-auto flex min-h-dvh w-full max-w-[1680px] overflow-hidden border-x border-border bg-card shadow-2xl backdrop-blur-2xl lg:min-h-[calc(100dvh-2.5rem)] lg:rounded-[30px] lg:border">
-        <aside
-          className={hasConversation
-            ? 'hidden w-full border-r border-border bg-muted/30 lg:flex lg:max-w-[380px] xl:max-w-[420px]'
-            : 'flex w-full border-r border-border bg-muted/30 lg:max-w-[380px] xl:max-w-[420px]'}
-        >
-          <ConversationList selectedConversationId={selectedConversationId} />
-        </aside>
+    <div className="flex h-dvh w-full overflow-hidden bg-[#00a884] dark:bg-[#111b21]">
+      {/* WhatsApp-style header bar color at top */}
+      <div className="absolute inset-x-0 top-0 h-[127px] bg-[#00a884] dark:bg-[#1f2c34]" />
+      
+      {/* Main container */}
+      <div className="relative z-10 mx-auto flex h-full w-full max-w-[1600px] flex-col py-5 lg:px-5">
+        <div className="flex h-full flex-1 overflow-hidden rounded-none shadow-xl lg:rounded-sm">
+          {/* Sidebar / Conversation List */}
+          <aside
+            className={
+              hasConversation
+                ? 'hidden h-full w-full flex-col border-r border-border bg-sidebar lg:flex lg:w-[400px] lg:min-w-[340px]'
+                : 'flex h-full w-full flex-col border-r border-border bg-sidebar lg:w-[400px] lg:min-w-[340px]'
+            }
+          >
+            <ConversationList selectedConversationId={selectedConversationId} />
+          </aside>
 
-        <section
-          className={hasConversation
-              ? 'flex min-h-dvh min-w-0 flex-1 flex-col bg-background'
-              : 'hidden min-w-0 flex-1 bg-background lg:flex lg:min-h-[calc(100dvh-2.5rem)] lg:flex-col'}
-        >
-          {selectedConversationId ? <ChatArea conversationId={selectedConversationId} /> : <ChatEmptyState />}
-        </section>
+          {/* Chat Area */}
+          <section
+            className={
+              hasConversation
+                ? 'flex h-full min-w-0 flex-1 flex-col'
+                : 'hidden h-full min-w-0 flex-1 flex-col lg:flex'
+            }
+          >
+            {selectedConversationId ? (
+              <ChatArea conversationId={selectedConversationId} />
+            ) : (
+              <ChatEmptyState />
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );

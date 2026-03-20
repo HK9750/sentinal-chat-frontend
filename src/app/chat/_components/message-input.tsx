@@ -1,18 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { CornerUpLeft, LoaderCircle, Mic, Pencil, RotateCcw, RotateCw, Send, StopCircle, X } from "lucide-react";
+import { useCallback, useState } from "react";
+import {
+  LoaderCircle,
+  Mic,
+  Pencil,
+  Send,
+  Smile,
+  StopCircle,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMessageChannel } from "@/hooks/use-message-channel";
 import { useTypingChannel } from "@/hooks/use-typing-channel";
 import { useVoiceNote } from "@/hooks/use-voice-note";
 import { useFileUploadMutation, useVoiceUploadMutation } from "@/queries/use-upload-queries";
-import { useAuthStore } from "@/stores/auth-store";
 import { useUiStore } from "@/stores/ui-store";
 import { useUploadStore } from "@/stores/upload-store";
-import { useChatStore } from "@/stores/chat-store";
 import { createClientMessageId } from "@/lib/request-id";
 import { getMessagePrimaryText } from "@/lib/message-payload";
 import { cn } from "@/lib/utils";
@@ -35,26 +39,18 @@ export function MessageInput({
   onCancelReply,
   onCancelEdit,
 }: MessageInputProps) {
-  const currentUserId = useAuthStore((state) => state.user?.id);
   const enterToSend = useUiStore((state) => state.preferences.enter_to_send);
-  const { sendMessage, editMessage, undoLatest, redoCommand } = useMessageChannel(conversationId);
+  const { sendMessage, editMessage } = useMessageChannel(conversationId);
   const { sendTyping } = useTypingChannel(conversationId);
   const fileUpload = useFileUploadMutation();
   const voiceUpload = useVoiceUploadMutation();
   const voiceNote = useVoiceNote();
-  const lastUndoneCommandId = useChatStore((state) => state.lastUndoneCommandByConversation[conversationId]);
   const addUpload = useUploadStore((state) => state.addUpload);
   const updateUpload = useUploadStore((state) => state.updateUpload);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() =>
+    editingMessage ? getMessagePrimaryText(editingMessage) : ""
+  );
   const [error, setError] = useState<string | null>(null);
-
-  // Set text to editing message content when entering edit mode
-  useEffect(() => {
-    if (editingMessage) {
-      const content = getMessagePrimaryText(editingMessage);
-      setText(content);
-    }
-  }, [editingMessage]);
 
   // Clear text when cancelling edit
   const handleCancelEdit = useCallback(() => {
@@ -66,17 +62,21 @@ export function MessageInput({
     (uploadIds: string[], message: string) => {
       uploadIds.forEach((id) => updateUpload(id, { status: "error", error: message }));
     },
-    [updateUpload],
+    [updateUpload]
   );
 
-  const isBusy =
-    fileUpload.isPending || voiceUpload.isPending || voiceNote.isRecording;
+  const isBusy = fileUpload.isPending || voiceUpload.isPending || voiceNote.isRecording;
 
   const submitPayload = useCallback(
-    async (content: string, type: "TEXT" | "AUDIO" | "FILE" | "SYSTEM", attachmentIds: string[] = [], replyToMessageId?: string) => {
+    async (
+      content: string,
+      type: "TEXT" | "AUDIO" | "FILE" | "SYSTEM",
+      attachmentIds: string[] = [],
+      replyToMessageId?: string
+    ) => {
       return sendMessage(content, type, attachmentIds, replyToMessageId);
     },
-    [sendMessage],
+    [sendMessage]
   );
 
   const handleSubmit = useCallback(
@@ -107,13 +107,20 @@ export function MessageInput({
         onCancelReply?.();
       } catch (submitError) {
         setError(
-          submitError instanceof Error
-            ? submitError.message
-            : "Unable to send the message.",
+          submitError instanceof Error ? submitError.message : "Unable to send the message."
         );
       }
     },
-    [editMessage, editingMessage, onCancelEdit, onCancelReply, replyToMessage?.id, sendTyping, submitPayload, text],
+    [
+      editMessage,
+      editingMessage,
+      onCancelEdit,
+      onCancelReply,
+      replyToMessage,
+      sendTyping,
+      submitPayload,
+      text,
+    ]
   );
 
   const handleFilesSelected = useCallback(
@@ -121,7 +128,7 @@ export function MessageInput({
       setError(null);
 
       const uploadIds = files.map(
-        (file) => `${conversationId}:${file.name}:${crypto.randomUUID()}`,
+        (file) => `${conversationId}:${file.name}:${crypto.randomUUID()}`
       );
 
       files.forEach((file, index) => {
@@ -145,22 +152,21 @@ export function MessageInput({
         const result = await fileUpload.mutateAsync({
           files,
           onProgress: (progress) => {
-            uploadIds.forEach((id) =>
-              updateUpload(id, { status: "uploading", progress }),
-            );
+            uploadIds.forEach((id) => updateUpload(id, { status: "uploading", progress }));
           },
         });
 
-        uploadIds.forEach((id) =>
-          updateUpload(id, { status: "registering", progress: 100 }),
-        );
+        uploadIds.forEach((id) => updateUpload(id, { status: "registering", progress: 100 }));
 
         try {
-          uploadIds.forEach((id) =>
-            updateUpload(id, { status: "sending", progress: 100 }),
-          );
+          uploadIds.forEach((id) => updateUpload(id, { status: "sending", progress: 100 }));
 
-          await submitPayload("", "FILE", result.attachments.map((attachment) => attachment.id), replyToMessage?.id);
+          await submitPayload(
+            "",
+            "FILE",
+            result.attachments.map((attachment) => attachment.id),
+            replyToMessage?.id
+          );
           onCancelReply?.();
         } catch (sendError) {
           const message =
@@ -172,23 +178,28 @@ export function MessageInput({
           return;
         }
 
-        uploadIds.forEach((id) =>
-          updateUpload(id, { status: "done", progress: 100 }),
-        );
+        uploadIds.forEach((id) => updateUpload(id, { status: "done", progress: 100 }));
 
         window.setTimeout(() => {
           uploadIds.forEach((id) => useUploadStore.getState().removeUpload(id));
         }, 2500);
       } catch (uploadError) {
         const message =
-          uploadError instanceof Error
-            ? uploadError.message
-            : "Unable to upload files.";
+          uploadError instanceof Error ? uploadError.message : "Unable to upload files.";
         markUploadsError(uploadIds, message);
         setError(message);
       }
     },
-    [addUpload, conversationId, fileUpload, markUploadsError, onCancelReply, replyToMessage?.id, submitPayload, updateUpload],
+    [
+      addUpload,
+      conversationId,
+      fileUpload,
+      markUploadsError,
+      onCancelReply,
+      replyToMessage,
+      submitPayload,
+      updateUpload,
+    ]
   );
 
   const handleVoiceToggle = useCallback(async () => {
@@ -202,7 +213,7 @@ export function MessageInput({
         setError(
           recordError instanceof Error
             ? recordError.message
-            : "Unable to access the microphone.",
+            : "Unable to access the microphone."
         );
       }
       return;
@@ -262,10 +273,8 @@ export function MessageInput({
         }
       }, 2500);
     } catch (voiceError) {
-        const message =
-          voiceError instanceof Error
-            ? voiceError.message
-            : "Unable to send the voice note.";
+      const message =
+        voiceError instanceof Error ? voiceError.message : "Unable to send the voice note.";
       if (uploadId) {
         updateUpload(uploadId, { status: "error", error: message });
       }
@@ -275,210 +284,168 @@ export function MessageInput({
     addUpload,
     conversationId,
     onCancelReply,
-    replyToMessage?.id,
+    replyToMessage,
     submitPayload,
     updateUpload,
     voiceNote,
     voiceUpload,
   ]);
 
-  const helperText = useMemo(() => {
-    if (!currentUserId) {
-      return "Sign in again if sending stops working.";
-    }
-
-    return "Send messages, files, and voice notes in real time.";
-  }, [currentUserId]);
-
   const isEditing = !!editingMessage;
   const isReplying = !!replyToMessage;
+  const hasText = text.trim().length > 0;
 
   return (
-    <div className="border-t border-border bg-card/90 backdrop-blur-xl pb-[max(env(safe-area-inset-bottom),0px)]">
+    <div className="shrink-0 bg-muted/50 px-4 py-3">
       <UploadProgressList conversationId={conversationId} />
 
       {/* Reply/Edit context bar */}
       {(isReplying || isEditing) && (
         <div
           className={cn(
-            "flex items-center gap-3 border-b border-border px-4 py-2",
-            isEditing ? "bg-amber-500/10" : "bg-primary/5"
+            "mb-2 flex items-center gap-3 rounded-lg border-l-4 bg-card px-3 py-2",
+            isEditing ? "border-amber-500" : "border-primary"
           )}
         >
-          <div
-            className={cn(
-              "flex size-8 items-center justify-center rounded-full",
-              isEditing ? "bg-amber-500/20 text-amber-600" : "bg-primary/20 text-primary"
-            )}
-          >
-            {isEditing ? <Pencil className="size-4" /> : <CornerUpLeft className="size-4" />}
-          </div>
           <div className="min-w-0 flex-1">
-            <p className={cn("text-xs font-semibold", isEditing ? "text-amber-600" : "text-primary")}>
-              {isEditing ? "Editing message" : "Replying to"}
+            <p
+              className={cn(
+                "text-xs font-medium",
+                isEditing ? "text-amber-500" : "text-primary"
+              )}
+            >
+              {isEditing ? "Editing message" : "Replying"}
             </p>
             <p className="truncate text-sm text-muted-foreground">
-              {getMessagePrimaryText(isEditing ? editingMessage : replyToMessage!) || "Attachment"}
+              {getMessagePrimaryText(isEditing ? editingMessage : replyToMessage!) ||
+                "Attachment"}
             </p>
           </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8 rounded-full"
-                onClick={isEditing ? handleCancelEdit : onCancelReply}
-              >
-                <X className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">Cancel</TooltipContent>
-          </Tooltip>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 rounded-full"
+            onClick={isEditing ? handleCancelEdit : onCancelReply}
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
       )}
 
-      <div className="mx-auto w-full max-w-5xl px-3 pb-4 pt-3 lg:px-4">
-        <div className="rounded-[30px] border border-border bg-card p-3 shadow-lg">
-          <form onSubmit={handleSubmit} className="flex items-end gap-3">
-            <div className="flex flex-1 items-end gap-2 rounded-3xl border border-border bg-background px-2 py-2">
-              {!isEditing && (
-                <>
-                  <FileUploadButton
-                    onFilesSelected={handleFilesSelected}
-                    disabled={isBusy}
-                    className="text-muted-foreground"
-                  />
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleVoiceToggle}
-                        disabled={voiceUpload.isPending}
-                        className="rounded-2xl text-muted-foreground"
-                      >
-                        {voiceNote.isRecording ? (
-                          <StopCircle className="size-5 text-destructive" />
-                        ) : (
-                          <Mic className="size-5" />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      {voiceNote.isRecording ? "Stop recording" : "Record voice note"}
-                    </TooltipContent>
-                  </Tooltip>
-                </>
-              )}
-              <Textarea
-                value={text}
-                onChange={(event) => {
-                  const nextValue = event.target.value;
-                  setText(nextValue);
-                  sendTyping(nextValue.trim().length > 0);
-                }}
-                onKeyDown={(event) => {
-                  // Escape cancels reply/edit
-                  if (event.key === "Escape") {
-                    if (isEditing) {
-                      handleCancelEdit();
-                    } else if (isReplying) {
-                      onCancelReply?.();
-                    }
-                    return;
-                  }
+      {/* Input area - WhatsApp style */}
+      <form onSubmit={handleSubmit} className="flex items-end gap-2">
+        {/* Emoji button */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:bg-muted"
+        >
+          <Smile className="h-6 w-6" />
+        </Button>
 
-                  if (!enterToSend) {
-                    return;
-                  }
+        {/* Attachment button */}
+        {!isEditing && (
+          <FileUploadButton
+            onFilesSelected={handleFilesSelected}
+            disabled={isBusy}
+            className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:bg-muted [&_svg]:h-6 [&_svg]:w-6"
+          />
+        )}
 
-                  if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) {
-                    return;
-                  }
-
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
-                }}
-                placeholder={
-                  isEditing
-                    ? "Edit your message..."
-                    : isReplying
-                      ? "Write your reply..."
-                      : "Write a message, attach a file, or record a voice note"
+        {/* Text input */}
+        <div className="min-w-0 flex-1">
+          <input
+            type="text"
+            value={text}
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              setText(nextValue);
+              sendTyping(nextValue.trim().length > 0);
+            }}
+            onKeyDown={(event) => {
+              // Escape cancels reply/edit
+              if (event.key === "Escape") {
+                if (isEditing) {
+                  handleCancelEdit();
+                } else if (isReplying) {
+                  onCancelReply?.();
                 }
-                className="min-h-11 border-0 bg-transparent px-1 py-2 shadow-none focus-visible:ring-0"
-              />
-            </div>
+                return;
+              }
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="submit"
-                  size="icon-lg"
-                  className={cn(
-                    "h-12 w-12 rounded-[20px]",
-                    isEditing && "bg-amber-500 hover:bg-amber-600"
-                  )}
-                  disabled={!text.trim() || isBusy}
-                >
-                  {isBusy ? (
-                    <LoaderCircle className="size-4 animate-spin" />
-                  ) : isEditing ? (
-                    <Pencil className="size-4" />
-                  ) : (
-                    <Send className="size-4" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {isEditing ? "Save edit" : "Send message"}
-              </TooltipContent>
-            </Tooltip>
-          </form>
+              if (!enterToSend) {
+                return;
+              }
 
-          <div className="mt-3 flex flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between">
-            <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">{helperText}</div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 rounded-full"
-                onClick={undoLatest}
-              >
-                <RotateCcw className="size-3.5" />
-                Undo
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 rounded-full"
-                onClick={() => {
-                  if (lastUndoneCommandId) {
-                    redoCommand(lastUndoneCommandId);
-                  }
-                }}
-                disabled={!lastUndoneCommandId}
-              >
-                <RotateCw className="size-3.5" />
-                Redo
-              </Button>
-              <div className="text-xs text-muted-foreground">
-                {voiceNote.isRecording
-                  ? "Recording in progress. Tap the stop button to upload."
-                  : enterToSend
-                    ? "Press Enter to send. Use Shift+Enter for a new line."
-                    : "Use the send button to send your message."}
-              </div>
-            </div>
-          </div>
+              if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) {
+                return;
+              }
 
-          {error ? <p className="px-1 pt-3 text-sm text-destructive">{error}</p> : null}
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }}
+            placeholder={
+              isEditing
+                ? "Edit message"
+                : isReplying
+                  ? "Type a reply"
+                  : "Type a message"
+            }
+            className="h-10 w-full rounded-lg bg-card px-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30"
+          />
         </div>
-      </div>
+
+        {/* Send or Voice button */}
+        {hasText || isEditing ? (
+          <Button
+            type="submit"
+            size="icon"
+            className={cn(
+              "h-10 w-10 shrink-0 rounded-full",
+              isEditing && "bg-amber-500 hover:bg-amber-600"
+            )}
+            disabled={!hasText || isBusy}
+          >
+            {isBusy ? (
+              <LoaderCircle className="h-5 w-5 animate-spin" />
+            ) : isEditing ? (
+              <Pencil className="h-5 w-5" />
+            ) : (
+              <Send className="h-5 w-5" />
+            )}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            size="icon"
+            className={cn(
+              "h-10 w-10 shrink-0 rounded-full",
+              voiceNote.isRecording && "bg-destructive hover:bg-destructive/90"
+            )}
+            onClick={handleVoiceToggle}
+            disabled={voiceUpload.isPending}
+          >
+            {voiceNote.isRecording ? (
+              <StopCircle className="h-5 w-5" />
+            ) : (
+              <Mic className="h-5 w-5" />
+            )}
+          </Button>
+        )}
+      </form>
+
+      {/* Error message */}
+      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+
+      {/* Recording indicator */}
+      {voiceNote.isRecording && (
+        <div className="mt-2 flex items-center gap-2 text-xs text-destructive">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-destructive" />
+          Recording... Tap to send
+        </div>
+      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ export const MAX_MESSAGE_BYTES = 20_000;
 export const WS_RECONNECT_BASE_DELAY = 1_500;
 export const WS_RECONNECT_MAX_DELAY = 12_000;
 export const WS_HEARTBEAT_INTERVAL = 25_000;
+export const WS_MAX_QUEUED_MESSAGES = 200;
 export const TYPING_DEBOUNCE_DELAY = 350;
 export const TYPING_STALE_AFTER = 4_000;
 

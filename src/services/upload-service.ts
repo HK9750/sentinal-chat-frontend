@@ -5,7 +5,6 @@ import type {
   Attachment,
   AttachmentViewedPayload,
   CreateAttachmentRequest,
-  MessageAttachmentsPayload,
   UploadedFile,
   UploadedFilesPayload,
 } from '@/types';
@@ -65,26 +64,6 @@ export async function createAttachment(input: CreateAttachmentRequest): Promise<
   return normalizeAttachment(attachment);
 }
 
-export async function getAttachment(attachmentId: string): Promise<Attachment> {
-  const attachment = await unwrapData<Attachment>(apiClient.get(API_ROUTES.uploads.attachment(attachmentId)));
-  return normalizeAttachment(attachment);
-}
-
 export async function markAttachmentViewed(attachmentId: string): Promise<AttachmentViewedPayload> {
   return unwrapData<AttachmentViewedPayload>(apiClient.post(API_ROUTES.uploads.viewed(attachmentId)));
-}
-
-export async function listMessageAttachments(messageId: string): Promise<Attachment[]> {
-  const payload = await unwrapData<MessageAttachmentsPayload>(apiClient.get(API_ROUTES.messages.attachments(messageId)));
-  return payload.attachments.map(normalizeAttachment);
-}
-
-export async function downloadAttachment(url: string): Promise<Blob> {
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error('Unable to download attachment.');
-  }
-
-  return response.blob();
 }

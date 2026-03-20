@@ -7,7 +7,7 @@ import type { ApiEnvelope, AuthPayload } from '@/types';
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
-export class ApiError extends Error {
+class ApiError extends Error {
   status: number;
   code?: string;
 
@@ -120,4 +120,4 @@ export function getUploadProgress(event: AxiosProgressEvent): number {
   return Math.min(100, Math.round((event.loaded / event.total) * 100));
 }
 
-export { apiClient, refreshAccessToken, toApiError };
+export { apiClient, refreshAccessToken };

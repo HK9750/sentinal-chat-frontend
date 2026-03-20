@@ -53,11 +53,6 @@ export interface CreateAttachmentRequest {
   duration_seconds?: number;
 }
 
-export interface MessageAttachmentsPayload {
-  message_id: string;
-  attachments: Attachment[];
-}
-
 export interface AttachmentViewedPayload {
   attachment_id: string;
   viewed: boolean;

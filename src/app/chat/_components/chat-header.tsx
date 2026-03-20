@@ -1,10 +1,16 @@
 'use client';
 
 import { useMemo } from 'react';
-import { ArrowLeft, Phone, Search, Video } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Phone, Search, Video } from 'lucide-react';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { getConversationTitle, getOtherParticipant } from '@/lib/utils';
 import { useSocket } from '@/providers/socket-provider';
 import { useConversation } from '@/queries/use-conversation-queries';
@@ -19,7 +25,12 @@ interface ChatHeaderProps {
   onOpenSearch: () => void;
 }
 
-export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }: ChatHeaderProps) {
+export function ChatHeader({
+  conversationId,
+  onBack,
+  onStartCall,
+  onOpenSearch,
+}: ChatHeaderProps) {
   const socket = useSocket();
   const conversationQuery = useConversation(conversationId);
   const currentUserId = useAuthStore((state) => state.user?.id);
@@ -27,94 +38,150 @@ export function ChatHeader({ conversationId, onBack, onStartCall, onOpenSearch }
   const typingUserIds = Object.keys(typingByConversation[conversationId] ?? {});
 
   const conversation = conversationQuery.data;
-  const otherParticipant = conversation ? getOtherParticipant(conversation, currentUserId) : null;
-  const title = conversation ? getConversationTitle(conversation, currentUserId) : 'Conversation';
-  const actionsDisabled = conversationQuery.isLoading || conversationQuery.isError || !conversation;
+  const otherParticipant = conversation
+    ? getOtherParticipant(conversation, currentUserId)
+    : null;
+  const title = conversation
+    ? getConversationTitle(conversation, currentUserId)
+    : 'Conversation';
+  const actionsDisabled =
+    conversationQuery.isLoading || conversationQuery.isError || !conversation;
   const callsEnabled = !actionsDisabled && conversation?.type === 'DM';
 
   const subtitle = useMemo(() => {
     if (!conversation) {
-      return conversationQuery.isError ? 'Unable to load conversation' : 'Loading conversation...';
+      return conversationQuery.isError
+        ? 'Unable to load conversation'
+        : 'Loading...';
     }
 
     if (typingUserIds.length > 0) {
-      return typingUserIds.length === 1 ? 'Someone is typing...' : `${typingUserIds.length} people are typing...`;
+      return 'typing...';
     }
 
     if (!socket.connected) {
-      return 'Reconnecting realtime channel...';
+      return 'Connecting...';
     }
 
     if (conversation.type === 'DM') {
-      return otherParticipant?.is_online ? 'Online now' : 'Direct message';
+      return otherParticipant?.is_online ? 'online' : 'offline';
     }
 
-    return `${conversation.participants.length} participant${conversation.participants.length === 1 ? '' : 's'}`;
-  }, [conversation, conversationQuery.isError, otherParticipant?.is_online, socket.connected, typingUserIds.length]);
+    const participantCount = conversation.participants.length;
+    return `${participantCount} participant${participantCount === 1 ? '' : 's'}`;
+  }, [
+    conversation,
+    conversationQuery.isError,
+    otherParticipant?.is_online,
+    socket.connected,
+    typingUserIds.length,
+  ]);
+
+  const isOnline = otherParticipant?.is_online ?? false;
+  const isTyping = typingUserIds.length > 0;
 
   return (
-    <div className="border-b border-border bg-card/90 px-4 py-3 backdrop-blur-xl lg:px-5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          {onBack ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" className="rounded-2xl lg:hidden" onClick={onBack}>
-                  <ArrowLeft className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Back</TooltipContent>
-            </Tooltip>
-          ) : null}
+    <header className="flex h-[60px] shrink-0 items-center gap-3 bg-muted/50 px-4">
+      {/* Back button (mobile) */}
+      {onBack && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 shrink-0 rounded-full lg:hidden"
+          onClick={onBack}
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+      )}
 
-          <UserAvatar
-            src={conversation?.avatar_url ?? otherParticipant?.avatar_url}
-            alt={title}
-            fallback={title[0]}
-            size="md"
-            showStatus={conversation?.type === 'DM'}
-            isOnline={otherParticipant?.is_online ?? false}
-          />
+      {/* Avatar and info */}
+      <div className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+        <UserAvatar
+          src={conversation?.avatar_url ?? otherParticipant?.avatar_url}
+          alt={title}
+          fallback={title[0]}
+          size="md"
+          showStatus={conversation?.type === 'DM'}
+          isOnline={isOnline}
+        />
 
-          <div className="min-w-0">
-            <p className="truncate text-base font-semibold tracking-[-0.03em]">{title}</p>
-            <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={onOpenSearch} disabled={actionsDisabled}>
-                <Search className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Search messages</TooltipContent>
-          </Tooltip>
-
-          {conversation?.type === 'DM' ? (
-            <>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={() => onStartCall('AUDIO')} disabled={!callsEnabled}>
-                    <Phone className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Voice call</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button type="button" variant="ghost" size="icon" className="rounded-2xl bg-background" onClick={() => onStartCall('VIDEO')} disabled={!callsEnabled}>
-                    <Video className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Video call</TooltipContent>
-              </Tooltip>
-            </>
-          ) : null}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-base font-medium text-foreground">{title}</p>
+          <p
+            className={`truncate text-xs ${
+              isTyping
+                ? 'text-primary'
+                : isOnline
+                  ? 'text-primary'
+                  : 'text-muted-foreground'
+            }`}
+          >
+            {subtitle}
+          </p>
         </div>
       </div>
-    </div>
+
+      {/* Actions */}
+      <div className="flex shrink-0 items-center gap-1">
+        {conversation?.type === 'DM' && (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-full text-muted-foreground hover:bg-muted"
+              onClick={() => onStartCall('VIDEO')}
+              disabled={!callsEnabled}
+            >
+              <Video className="h-5 w-5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-full text-muted-foreground hover:bg-muted"
+              onClick={() => onStartCall('AUDIO')}
+              disabled={!callsEnabled}
+            >
+              <Phone className="h-5 w-5" />
+            </Button>
+          </>
+        )}
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 rounded-full text-muted-foreground hover:bg-muted"
+          onClick={onOpenSearch}
+          disabled={actionsDisabled}
+        >
+          <Search className="h-5 w-5" />
+        </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-full text-muted-foreground hover:bg-muted"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuItem>Contact info</DropdownMenuItem>
+            <DropdownMenuItem>Select messages</DropdownMenuItem>
+            <DropdownMenuItem>Mute notifications</DropdownMenuItem>
+            <DropdownMenuItem>Disappearing messages</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>Clear chat</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive">Delete chat</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </header>
   );
 }

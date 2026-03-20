@@ -24,8 +24,10 @@ export interface SocketEnvelope<T = unknown> {
   type: string;
   request_id?: string;
   user_id?: string;
+  device_id?: string;
   conversation_id?: string;
   call_id?: string;
+  source?: string;
   sent_at: string;
   data?: T;
 }

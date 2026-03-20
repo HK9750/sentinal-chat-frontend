@@ -57,10 +57,14 @@ function upsertMessage(current: Message[] | undefined, incoming: Message): Messa
     (item) => item.id === incoming.id || item.client_message_id === incoming.client_message_id
   );
   const merged = mergeMessage(existing, incoming);
+  const mergedWithClientStatus =
+    merged.sender_id === incoming.sender_id && merged.client_message_id
+      ? { ...merged, client_status: 'SENT' as const }
+      : merged;
   const next = (current ?? []).filter(
     (item) => item.id !== incoming.id && item.client_message_id !== incoming.client_message_id
   );
-  next.push(merged);
+  next.push(mergedWithClientStatus);
   return next.sort((left, right) => left.seq_id - right.seq_id);
 }
 
@@ -136,6 +140,55 @@ function updateConversationPreview(
   return {
     ...payload,
     items,
+  };
+}
+
+function getMostAdvancedReceiptStatus(message: Message): ConversationMessageSummary['receipt_status'] {
+  const others = (message.receipts ?? []).filter((receipt) => receipt.user_id !== message.sender_id);
+
+  return others.reduce<ConversationMessageSummary['receipt_status']>((state, receipt) => {
+    if (receipt.status === 'PLAYED') {
+      return 'PLAYED';
+    }
+    if (receipt.status === 'READ' && state !== 'PLAYED') {
+      return 'READ';
+    }
+    if (receipt.status === 'DELIVERED' && state === 'SENT') {
+      return 'DELIVERED';
+    }
+    return state;
+  }, 'SENT');
+}
+
+function updateConversationLastMessageReceipt(
+  payload: ConversationListPayload | undefined,
+  conversationId: string,
+  currentUserId: string,
+  status: ConversationMessageSummary['receipt_status']
+): ConversationListPayload | undefined {
+  if (!payload) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    items: payload.items.map((conversation) => {
+      if (conversation.id !== conversationId || !conversation.last_message) {
+        return conversation;
+      }
+
+      if (conversation.last_message.sender_id !== currentUserId) {
+        return conversation;
+      }
+
+      return {
+        ...conversation,
+        last_message: {
+          ...conversation.last_message,
+          receipt_status: status,
+        },
+      };
+    }),
   };
 }
 
@@ -232,11 +285,18 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           }
 
           const normalized = normalizeMessage(message as never);
+          const normalizedWithClientState: Message = {
+            ...normalized,
+            client_status:
+              normalized.sender_id === currentUserId && normalized.client_message_id
+                ? 'SENT'
+                : normalized.client_status,
+          };
           queryClient.setQueryData<Message[]>(queryKeys.messages(normalized.conversation_id), (current) =>
-            upsertMessage(current, normalized)
+            upsertMessage(current, normalizedWithClientState)
           );
           queryClient.setQueryData<ConversationListPayload>(queryKeys.conversations, (payload) =>
-            updateConversationPreview(payload, normalized.conversation_id, normalized)
+            updateConversationPreview(payload, normalized.conversation_id, normalizedWithClientState)
           );
           break;
         }
@@ -269,10 +329,24 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
               payload.up_to_seq_id
             );
             const latest = [...next].sort((left, right) => right.seq_id - left.seq_id)[0];
+            const latestOwn = [...next]
+              .filter((message) => message.sender_id === currentUserId)
+              .sort((left, right) => right.seq_id - left.seq_id)[0];
 
             if (latest) {
               queryClient.setQueryData<ConversationListPayload>(queryKeys.conversations, (conversations) =>
                 updateConversationPreview(conversations, conversationId, latest)
+              );
+            }
+
+            if (latestOwn && currentUserId) {
+              queryClient.setQueryData<ConversationListPayload>(queryKeys.conversations, (conversations) =>
+                updateConversationLastMessageReceipt(
+                  conversations,
+                  conversationId,
+                  currentUserId,
+                  getMostAdvancedReceiptStatus(latestOwn)
+                )
               );
             }
 
@@ -287,8 +361,19 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
             break;
           }
 
+          if (envelope.conversation_id && request.conversationId !== envelope.conversation_id) {
+            break;
+          }
+
           queryClient.setQueryData<Message[]>(queryKeys.messages(request.conversationId), (current) =>
-            (current ?? []).filter((message) => message.client_message_id !== request.clientMessageId)
+            (current ?? []).map((message) =>
+              message.client_message_id === request.clientMessageId
+                ? {
+                    ...message,
+                    client_status: 'FAILED' as const,
+                  }
+                : message
+            )
           );
           queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
           break;

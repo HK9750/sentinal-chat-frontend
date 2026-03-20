@@ -8,7 +8,6 @@ interface UploadState {
   addUpload: (item: UploadQueueItem) => void;
   updateUpload: (id: string, patch: Partial<UploadQueueItem>) => void;
   removeUpload: (id: string) => void;
-  clearUploads: () => void;
 }
 
 export const useUploadStore = create<UploadState>((set) => ({
@@ -19,5 +18,4 @@ export const useUploadStore = create<UploadState>((set) => ({
       items: state.items.map((item) => (item.id === id ? { ...item, ...patch } : item)),
     })),
   removeUpload: (id) => set((state) => ({ items: state.items.filter((item) => item.id !== id) })),
-  clearUploads: () => set({ items: [] }),
 }));

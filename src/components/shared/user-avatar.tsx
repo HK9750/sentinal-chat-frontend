@@ -20,10 +20,17 @@ interface UserAvatarProps {
 }
 
 const sizeClassMap = {
-  sm: 'size-8 text-xs',
-  md: 'size-10 text-sm',
-  lg: 'size-12 text-base',
-  xl: 'size-16 text-lg',
+  sm: 'h-8 w-8 text-xs',
+  md: 'h-10 w-10 text-sm',
+  lg: 'h-12 w-12 text-base',
+  xl: 'h-16 w-16 text-lg',
+} as const;
+
+const statusSizeMap = {
+  sm: 'h-2.5 w-2.5 border-[1.5px]',
+  md: 'h-3 w-3 border-2',
+  lg: 'h-3.5 w-3.5 border-2',
+  xl: 'h-4 w-4 border-2',
 } as const;
 
 export function UserAvatar({
@@ -42,20 +49,21 @@ export function UserAvatar({
 
   return (
     <div className={cn('relative inline-flex shrink-0', className)}>
-      <Avatar className={cn(sizeClassMap[size], 'border border-border bg-card shadow-sm')}>
-        <AvatarImage src={imageSrc ?? undefined} alt={label} />
-        <AvatarFallback className="bg-primary/10 font-semibold text-primary">
+      <Avatar className={cn(sizeClassMap[size], 'bg-muted')}>
+        <AvatarImage src={imageSrc ?? undefined} alt={label} className="object-cover" />
+        <AvatarFallback className="bg-[#dfe5e7] font-medium text-[#54656f] dark:bg-[#6b7c85] dark:text-[#d1d7db]">
           {initials}
         </AvatarFallback>
       </Avatar>
-      {showStatus ? (
+      {showStatus && (
         <span
           className={cn(
-            'absolute bottom-0 right-0 size-3 rounded-full border-2 border-background',
-            isOnline ? 'bg-primary' : 'bg-muted-foreground'
+            'absolute bottom-0 right-0 rounded-full border-sidebar',
+            statusSizeMap[size],
+            isOnline ? 'bg-[#00a884]' : 'bg-[#667781]'
           )}
         />
-      ) : null}
+      )}
     </div>
   );
 }

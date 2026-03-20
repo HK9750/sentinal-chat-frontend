@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { MAX_MESSAGE_BYTES } from "@/lib/constants";
 
 export const loginSchema = z.object({
   identifier: z
@@ -40,19 +39,3 @@ export const registerSchema = z
       });
     }
   });
-
-export const conversationSchema = z.object({
-  type: z.enum(["DM", "GROUP"]),
-  subject: z.string().trim().max(255).optional().or(z.literal("")),
-  description: z.string().trim().max(255).optional().or(z.literal("")),
-  participant_ids: z
-    .array(z.string().uuid("Use valid participant UUIDs."))
-    .min(1),
-  disappearing_mode: z
-    .enum(["OFF", "24_HOURS", "7_DAYS", "90_DAYS"])
-    .default("OFF"),
-});
-
-export const messageComposerSchema = z.object({
-  text: z.string().max(MAX_MESSAGE_BYTES, "Message is too large."),
-});

@@ -12,6 +12,7 @@ import {
   buildUndoFrame,
   createOptimisticMessage,
   mergeMessage,
+  withClientStatus,
 } from '@/services/message-service';
 import { queryKeys } from '@/queries/query-keys';
 import { useSocket } from '@/providers/socket-provider';
@@ -120,6 +121,7 @@ export function useMessageChannel(conversationId?: string | null) {
         );
       }
 
+      const requestId = createMessageRequestId('send', conversationId, clientMessageId);
       socket.send(
         buildSendMessageFrame(
           conversationId,
@@ -130,7 +132,15 @@ export function useMessageChannel(conversationId?: string | null) {
             attachment_ids: attachmentIds.length > 0 ? attachmentIds : undefined,
             reply_to_msg_id: replyToMessageId,
           },
-          createMessageRequestId('send', conversationId, clientMessageId)
+          requestId
+        )
+      );
+
+      queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (messages) =>
+        (messages ?? []).map((message) =>
+          message.client_message_id === clientMessageId
+            ? withClientStatus(message, 'SENT')
+            : message
         )
       );
 

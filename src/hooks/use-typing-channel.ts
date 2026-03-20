@@ -10,6 +10,7 @@ export function useTypingChannel(conversationId?: string | null) {
   const socket = useSocket();
   const pruneTyping = useChatStore((state) => state.pruneTyping);
   const debounceTimerRef = useRef<number | null>(null);
+  const lastSentRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -25,6 +26,11 @@ export function useTypingChannel(conversationId?: string | null) {
         return;
       }
 
+      if (lastSentRef.current === active) {
+        return;
+      }
+      lastSentRef.current = active;
+
       socket.send({
         type: active ? SOCKET_EVENT.typingStart : SOCKET_EVENT.typingStop,
         request_id: createRequestId('typing'),
@@ -38,10 +44,12 @@ export function useTypingChannel(conversationId?: string | null) {
     (active: boolean) => {
       if (debounceTimerRef.current) {
         window.clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
       }
 
       debounceTimerRef.current = window.setTimeout(() => {
         sendTyping(active);
+        debounceTimerRef.current = null;
       }, TYPING_DEBOUNCE_DELAY);
     },
     [sendTyping]
@@ -52,8 +60,12 @@ export function useTypingChannel(conversationId?: string | null) {
       if (debounceTimerRef.current) {
         window.clearTimeout(debounceTimerRef.current);
       }
+      if (lastSentRef.current) {
+        sendTyping(false);
+      }
+      lastSentRef.current = null;
     },
-    []
+    [sendTyping]
   );
 
   return {

@@ -2,11 +2,9 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Phone, Video } from 'lucide-react';
 import { CallModal } from '@/components/shared/call-modal';
 import { MessageSearchPanel } from '@/components/shared/message-search-panel';
 import { getConversationTitle, getOtherParticipant } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { useConversation } from '@/queries/use-conversation-queries';
 import { useAuthStore } from '@/stores/auth-store';
 import type { CallType, Message } from '@/types';
@@ -27,15 +25,19 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
   const [callModalOpen, setCallModalOpen] = useState(false);
   const [callType, setCallType] = useState<CallType>('AUDIO');
   const [searchOpen, setSearchOpen] = useState(false);
-  
+
   // Reply and edit state
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
 
   const conversation = conversationQuery.data;
-  const otherParticipant = useMemo(() => (conversation ? getOtherParticipant(conversation, currentUserId) : null), [conversation, currentUserId]);
-  const recipientName = conversation ? getConversationTitle(conversation, currentUserId) : 'Conversation';
-  const isDmConversation = conversation?.type === 'DM';
+  const otherParticipant = useMemo(
+    () => (conversation ? getOtherParticipant(conversation, currentUserId) : null),
+    [conversation, currentUserId]
+  );
+  const recipientName = conversation
+    ? getConversationTitle(conversation, currentUserId)
+    : 'Conversation';
 
   const handleBack = useCallback(() => {
     router.push('/chat', { scroll: false });
@@ -79,52 +81,30 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
   }, []);
 
   return (
-    <div className="relative flex h-full flex-col bg-transparent">
+    <div className="relative flex h-full flex-col">
+      {/* Chat header */}
       <ChatHeader
         conversationId={conversationId}
         onBack={handleBack}
         onStartCall={handleStartCall}
         onOpenSearch={() => setSearchOpen(true)}
       />
-      <div className="border-b border-border/60 bg-card/70 px-4 py-2.5 lg:hidden">
-        <div className="flex items-center gap-2 overflow-x-auto">
-          <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={() => setSearchOpen(true)}>
-            <Search className="size-4" />
-            Search
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="rounded-full"
-            onClick={() => handleStartCall('AUDIO')}
-            disabled={!isDmConversation}
-          >
-            <Phone className="size-4" />
-            Voice
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="rounded-full"
-            onClick={() => handleStartCall('VIDEO')}
-            disabled={!isDmConversation}
-          >
-            <Video className="size-4" />
-            Video
-          </Button>
-        </div>
+
+      {/* Messages area with WhatsApp background pattern */}
+      <div className="chat-pattern relative flex-1 overflow-hidden">
+        <MessageList
+          conversationId={conversationId}
+          currentUserId={currentUserId}
+          scrollRef={scrollRef}
+          messageRefs={messageRefs}
+          onReply={handleReply}
+          onEdit={handleEdit}
+        />
       </div>
-      <MessageList
-        conversationId={conversationId}
-        currentUserId={currentUserId}
-        scrollRef={scrollRef}
-        messageRefs={messageRefs}
-        onReply={handleReply}
-        onEdit={handleEdit}
-      />
+
+      {/* Message input */}
       <MessageInput
+        key={editingMessage?.id ?? 'composer'}
         conversationId={conversationId}
         replyToMessage={replyToMessage}
         editingMessage={editingMessage}
@@ -132,6 +112,7 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
         onCancelEdit={handleCancelEdit}
       />
 
+      {/* Search panel */}
       <MessageSearchPanel
         conversationId={conversationId}
         isOpen={searchOpen}
@@ -139,6 +120,7 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
         onNavigateToMessage={handleNavigateToMessage}
       />
 
+      {/* Call modal */}
       <CallModal
         isOpen={callModalOpen}
         onClose={() => setCallModalOpen(false)}

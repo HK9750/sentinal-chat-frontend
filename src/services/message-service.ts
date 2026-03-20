@@ -3,6 +3,7 @@ import { API_ROUTES, MESSAGES_PER_PAGE, SOCKET_EVENT } from '@/lib/constants';
 import type {
   Attachment,
   BackendMessage,
+  ClientMessageStatus,
   ClientSocketFrame,
   Message,
   MessageReceipt,
@@ -158,6 +159,14 @@ export function createOptimisticMessage(input: {
     poll: null,
     pinned: false,
     is_starred: false,
+    client_status: 'PENDING',
+  };
+}
+
+export function withClientStatus(message: Message, status: ClientMessageStatus): Message {
+  return {
+    ...message,
+    client_status: status,
   };
 }
 
@@ -211,20 +220,6 @@ export function buildReactionFrame(
     request_id: requestId,
     conversation_id: conversationId,
     data,
-  };
-}
-
-export function buildPinFrame(
-  conversationId: string,
-  messageId: string,
-  pinned: boolean,
-  requestId?: string
-): ClientSocketFrame<{ message_id: string }> {
-  return {
-    type: pinned ? SOCKET_EVENT.pinMessage : SOCKET_EVENT.unpinMessage,
-    request_id: requestId,
-    conversation_id: conversationId,
-    data: { message_id: messageId },
   };
 }
 

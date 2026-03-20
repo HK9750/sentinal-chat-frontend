@@ -2,12 +2,18 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { MessageSquarePlus, Settings, Sparkles } from 'lucide-react';
-import { SearchInput } from '@/components/shared/search-input';
+import { Filter, MessageSquarePlus, MoreVertical, Search, Users } from 'lucide-react';
 import { UserMenu } from '@/components/shared/user-menu';
 import { NewConversationDialog } from '@/components/shared/new-conversation-dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { getConversationSubtitle, getConversationTitle } from '@/lib/utils';
 import { useConversations } from '@/queries/use-conversation-queries';
 import { useAuthStore } from '@/stores/auth-store';
@@ -47,70 +53,123 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
   }, [conversationsQuery.data?.items, currentUserId, query]);
 
   return (
-    <div className="flex min-h-full w-full flex-col">
-      <div className="border-b border-border bg-card/90 px-4 pb-4 pt-5 backdrop-blur-xl">
-        <div className="mb-5 flex items-start justify-between gap-3">
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Sentinel Inbox</p>
-            <div>
-              <p className="text-[24px] font-semibold tracking-[-0.05em] text-foreground">Chat threads</p>
-              <p className="text-sm text-muted-foreground">Conversations organized like a calm workspace.</p>
-            </div>
-          </div>
-          <UserMenu />
+    <div className="flex h-full flex-col">
+      {/* Header - WhatsApp style */}
+      <header className="flex h-[60px] items-center justify-between bg-muted/50 px-4">
+        <UserMenu />
+        
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 rounded-full text-muted-foreground hover:bg-muted"
+            onClick={() => setDialogOpen(true)}
+          >
+            <Users className="h-5 w-5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 rounded-full text-muted-foreground hover:bg-muted"
+            onClick={() => setDialogOpen(true)}
+          >
+            <MessageSquarePlus className="h-5 w-5" />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 rounded-full text-muted-foreground hover:bg-muted"
+              >
+                <MoreVertical className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onClick={() => setDialogOpen(true)}>
+                New group
+              </DropdownMenuItem>
+              <DropdownMenuItem>New community</DropdownMenuItem>
+              <DropdownMenuItem>Starred messages</DropdownMenuItem>
+              <DropdownMenuItem>Select chats</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/settings">Settings</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>Log out</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+      </header>
 
-        <div className="flex items-center gap-2">
-          <SearchInput
+      {/* Search bar */}
+      <div className="border-b border-border bg-sidebar px-3 py-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
             value={query}
-            onChange={setQuery}
-            placeholder="Search threads, people, or subjects"
-            className="flex-1"
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search or start new chat"
+            className="input-whatsapp h-[35px] w-full rounded-lg bg-muted/70 pl-10 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30"
           />
-          <Button type="button" variant="outline" size="icon" className="rounded-2xl border-border bg-background" onClick={() => setDialogOpen(true)}>
-            <MessageSquarePlus className="size-4" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground"
+          >
+            <Filter className="h-4 w-4" />
           </Button>
-          <Button asChild type="button" variant="outline" size="icon" className="rounded-2xl border-border bg-background">
-            <Link href="/settings">
-              <Settings className="size-4" />
-            </Link>
-          </Button>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-          <div className="rounded-[20px] border border-border bg-background px-3 py-3 shadow-sm">
-            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em]">Visible</div>
-            <p className="mt-2 text-lg font-semibold tracking-[-0.04em] text-foreground">{filteredConversations.length}</p>
-            <p>Visible threads</p>
-          </div>
-          <div className="rounded-[20px] border border-border bg-background px-3 py-3 shadow-sm">
-            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em]">
-              <Sparkles className="size-3.5 text-primary" />
-              Realtime link
-            </div>
-            <p className="mt-2 text-sm font-medium text-foreground">{socket.connected ? 'Connected' : 'Reconnecting'}</p>
-            <p>{socket.connected ? 'Websocket sync is active.' : 'Realtime updates will resume shortly.'}</p>
-          </div>
         </div>
       </div>
 
+      {/* Filter tabs - WhatsApp style */}
+      <div className="flex gap-2 border-b border-border bg-sidebar px-3 py-2">
+        <button className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
+          All
+        </button>
+        <button className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/80">
+          Unread
+        </button>
+        <button className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/80">
+          Groups
+        </button>
+      </div>
+
+      {/* Connection status indicator */}
+      {!socket.connected && (
+        <div className="flex items-center gap-2 bg-amber-500/10 px-4 py-2 text-xs text-amber-600 dark:text-amber-400">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
+          Connecting...
+        </div>
+      )}
+
+      {/* Conversation list */}
       <ScrollArea className="flex-1">
         {conversationsQuery.isLoading ? (
           <ConversationListSkeleton />
         ) : conversationsQuery.isError ? (
           <div className="px-6 py-12 text-center">
-            <p className="text-sm font-medium">Unable to load conversations</p>
-            <p className="mt-1 text-sm text-muted-foreground">Check your connection and refresh the page.</p>
+            <p className="text-sm font-medium text-foreground">Unable to load chats</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Check your connection and refresh.
+            </p>
           </div>
         ) : filteredConversations.length === 0 ? (
           <div className="px-6 py-12 text-center">
-            <p className="text-sm font-medium">{query ? 'No matching conversations' : 'No conversations yet'}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {query ? 'Try another search term.' : 'Use the new chat button to start talking to your contacts.'}
+            <p className="text-sm font-medium text-foreground">
+              {query ? 'No chats found' : 'No chats yet'}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {query ? 'Try a different search.' : 'Start a new conversation.'}
             </p>
           </div>
         ) : (
-          <div className="space-y-2 p-3">
+          <div className="divide-y divide-border">
             {filteredConversations.map((conversation) => (
               <ConversationItem
                 key={conversation.id}

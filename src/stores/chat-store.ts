@@ -3,13 +3,8 @@
 import { create } from 'zustand';
 
 interface ChatState {
-  selectedConversationId: string | null;
-  drafts: Record<string, string>;
   typingByConversation: Record<string, Record<string, number>>;
   lastUndoneCommandByConversation: Record<string, string>;
-  setSelectedConversationId: (conversationId: string | null) => void;
-  setDraft: (conversationId: string, draft: string) => void;
-  clearDraft: (conversationId: string) => void;
   markTyping: (conversationId: string, userId: string, active: boolean) => void;
   pruneTyping: () => void;
   setLastUndoneCommand: (conversationId: string, commandId: string) => void;
@@ -17,24 +12,8 @@ interface ChatState {
 }
 
 export const useChatStore = create<ChatState>((set) => ({
-  selectedConversationId: null,
-  drafts: {},
   typingByConversation: {},
   lastUndoneCommandByConversation: {},
-  setSelectedConversationId: (selectedConversationId) => set({ selectedConversationId }),
-  setDraft: (conversationId, draft) =>
-    set((state) => ({
-      drafts: {
-        ...state.drafts,
-        [conversationId]: draft,
-      },
-    })),
-  clearDraft: (conversationId) =>
-    set((state) => {
-      const nextDrafts = { ...state.drafts };
-      delete nextDrafts[conversationId];
-      return { drafts: nextDrafts };
-    }),
   markTyping: (conversationId, userId, active) =>
     set((state) => {
       const currentConversation = { ...(state.typingByConversation[conversationId] ?? {}) };

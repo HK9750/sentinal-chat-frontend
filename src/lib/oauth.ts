@@ -156,16 +156,3 @@ export function clearOAuthFlow(provider: OAuthProvider): void {
   removeStorageValue(window.sessionStorage, key);
   removeStorageValue(window.localStorage, key);
 }
-
-export function consumeOAuthFlow(
-  provider: OAuthProvider,
-): StoredOAuthFlow | null {
-  const flow = readOAuthFlow(provider);
-
-  if (!flow) {
-    return null;
-  }
-
-  clearOAuthFlow(provider);
-  return flow;
-}

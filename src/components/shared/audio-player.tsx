@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -18,6 +18,22 @@ function formatDuration(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+function createWaveformBars(seed: string, length = 32): number[] {
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+
+  const values: number[] = [];
+  let current = hash || 1;
+  for (let index = 0; index < length; index += 1) {
+    current = (1664525 * current + 1013904223) >>> 0;
+    values.push(0.3 + (current / 0xffffffff) * 0.7);
+  }
+
+  return values;
+}
+
 export function AudioPlayer({ src, duration, onPlay, className }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -25,10 +41,7 @@ export function AudioPlayer({ src, duration, onPlay, className }: AudioPlayerPro
   const [audioDuration, setAudioDuration] = useState(duration ?? 0);
   const [hasPlayed, setHasPlayed] = useState(false);
 
-  // Generate random waveform bars (pseudo-visualization)
-  const waveformBars = useRef(
-    Array.from({ length: 32 }, () => Math.random() * 0.7 + 0.3)
-  );
+  const waveformBars = useMemo(() => createWaveformBars(src), [src]);
 
   const progress = audioDuration > 0 ? (currentTime / audioDuration) * 100 : 0;
 
@@ -116,8 +129,8 @@ export function AudioPlayer({ src, duration, onPlay, className }: AudioPlayerPro
           aria-valuenow={currentTime}
           tabIndex={0}
         >
-          {waveformBars.current.map((height, index) => {
-            const barProgress = (index / waveformBars.current.length) * 100;
+          {waveformBars.map((height, index) => {
+            const barProgress = (index / waveformBars.length) * 100;
             const isActive = barProgress <= progress;
 
             return (

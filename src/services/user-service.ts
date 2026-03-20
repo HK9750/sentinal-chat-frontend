@@ -5,7 +5,6 @@ import type { AuthSession, LocalUserPreferences, ProfileMetrics } from '@/types'
 
 interface StoredUiState {
   state?: {
-    sidebarCollapsed?: boolean;
     preferences?: Partial<LocalUserPreferences>;
   };
 }

@@ -37,10 +37,6 @@ export async function exchangeOAuthCode(
   return unwrapData<AuthPayload>(apiClient.post(API_ROUTES.auth.oauthExchange(provider), input));
 }
 
-export async function refresh(): Promise<AuthPayload> {
-  return unwrapData<AuthPayload>(apiClient.post(API_ROUTES.auth.refresh));
-}
-
 export async function logout(sessionId?: string): Promise<void> {
   await unwrapData(apiClient.post(API_ROUTES.auth.logout, sessionId ? { session_id: sessionId } : undefined));
 }

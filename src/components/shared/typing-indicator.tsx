@@ -6,43 +6,42 @@ interface TypingIndicatorProps {
   className?: string;
 }
 
-export function TypingIndicator({ className }: TypingIndicatorProps) {
+function TypingIndicator({ className }: TypingIndicatorProps) {
   return (
     <div
       className={cn(
-        'inline-flex items-center gap-1 rounded-full bg-muted px-3 py-2',
+        'inline-flex items-center gap-1 px-1 py-1',
         className
       )}
     >
-      <span className="size-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.3s]" />
-      <span className="size-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
-      <span className="size-2 animate-bounce rounded-full bg-muted-foreground/60" />
+      <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:-0.3s]" />
+      <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:-0.15s]" />
+      <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50" />
     </div>
   );
 }
 
 interface TypingBubbleProps {
-  userNames?: string[];
   className?: string;
 }
 
-export function TypingBubble({ userNames, className }: TypingBubbleProps) {
-  const displayText =
-    !userNames || userNames.length === 0
-      ? 'Someone is typing'
-      : userNames.length === 1
-        ? `${userNames[0]} is typing`
-        : userNames.length === 2
-          ? `${userNames[0]} and ${userNames[1]} are typing`
-          : `${userNames[0]} and ${userNames.length - 1} others are typing`;
-
+export function TypingBubble({ className }: TypingBubbleProps) {
   return (
-    <div className={cn('flex items-end gap-2.5', className)}>
-      <div className="flex max-w-[82%] flex-col gap-1">
-        <span className="px-1 text-[11px] font-medium text-muted-foreground">
-          {displayText}
-        </span>
-        <div className="rounded-[24px] border border-border bg-card px-4 py-3 shadow-sm">
+    <div className={cn('flex justify-start px-1 py-0.5', className)}>
+      <div className="relative max-w-[65%] lg:max-w-[45%]">
+        {/* WhatsApp style typing bubble with tail */}
+        <div className="relative rounded-lg rounded-tl-none bg-message-in px-3 py-2 shadow-sm">
+          {/* Tail */}
+          <div className="absolute -left-2 top-0 h-3 w-2">
+            <svg
+              viewBox="0 0 8 13"
+              className="h-full w-full text-message-in"
+              fill="currentColor"
+            >
+              <path d="M7 0L0 0L0 6C0 6 0 12 7 13C7 13 5 9 5 6L5 3C5 3 5 0 7 0Z" />
+            </svg>
+          </div>
+
           <TypingIndicator />
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Mic, MicOff, PhoneOff, Video, VideoOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { UserAvatar } from '@/components/shared/user-avatar';
@@ -16,20 +16,11 @@ function formatDuration(seconds: number): string {
   return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
 }
 
-function subscribeToClock(onStoreChange: () => void) {
-  const timer = window.setInterval(onStoreChange, 1000);
-  return () => window.clearInterval(timer);
-}
-
-function getClockSnapshot() {
-  return Date.now();
-}
-
 export function ActiveCallOverlay() {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const now = useSyncExternalStore(subscribeToClock, getClockSnapshot, () => 0);
   const activeCall = useCallStore((state) => state.activeCall);
+  const [now, setNow] = useState(() => Date.now());
   const localStream = useCallStore((state) => state.localStream);
   const remoteStream = useCallStore((state) => state.remoteStream);
   const microphoneMuted = useCallStore((state) => state.microphoneMuted);
@@ -40,6 +31,20 @@ export function ActiveCallOverlay() {
   const currentUserId = useAuthStore((state) => state.user?.id);
   const conversationQuery = useConversation(activeCall?.conversation_id);
   const { endCall } = useCallSignaling(activeCall?.conversation_id);
+
+  useEffect(() => {
+    if (!activeCall || activeCall.status !== 'connected') {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [activeCall]);
 
   const otherParticipant = useMemo(
     () => (conversationQuery.data ? getOtherParticipant(conversationQuery.data, currentUserId) : null),

@@ -1,7 +1,7 @@
 import { STORAGE_KEYS } from "@/lib/constants";
 import type { ClientDeviceInput } from "@/types";
 
-export function getOrCreateClientDeviceId(): string {
+function getOrCreateClientDeviceId(): string {
   if (typeof window === "undefined") {
     return "server-render";
   }
@@ -17,7 +17,7 @@ export function getOrCreateClientDeviceId(): string {
   return nextId;
 }
 
-export function getDeviceName(): string {
+function getDeviceName(): string {
   if (typeof navigator === "undefined") {
     return "Server Render";
   }
@@ -46,15 +46,11 @@ export function getDeviceName(): string {
   return `${browser} on ${platform}`;
 }
 
-export function getDeviceType(): string {
-  return "web";
-}
-
 export function getClientDeviceInput(): ClientDeviceInput {
   return {
     device_id: getOrCreateClientDeviceId(),
     device_name: getDeviceName(),
-    device_type: getDeviceType(),
+    device_type: "web",
   };
 }
 
@@ -64,14 +60,6 @@ export function setServerDeviceId(deviceId: string): void {
   }
 
   window.localStorage.setItem(STORAGE_KEYS.serverDeviceId, deviceId);
-}
-
-export function getServerDeviceId(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return window.localStorage.getItem(STORAGE_KEYS.serverDeviceId);
 }
 
 export function clearDeviceState(): void {

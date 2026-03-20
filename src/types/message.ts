@@ -2,15 +2,7 @@ import type { Attachment, BackendMessageAttachment } from '@/types/upload';
 
 export type MessageType = 'TEXT' | 'AUDIO' | 'FILE' | 'POLL' | 'SYSTEM';
 export type DeliveryStatus = 'SENT' | 'DELIVERED' | 'READ' | 'PLAYED';
-
-export interface MessageSummary {
-  id: string;
-  sender_id: string;
-  kind: string;
-  created_at: string;
-  seq_id: number;
-  deleted_at?: string | null;
-}
+export type ClientMessageStatus = 'PENDING' | 'SENT' | 'FAILED';
 
 export interface MessageReceipt {
   user_id: string;
@@ -69,16 +61,7 @@ export interface BackendMessage {
 
 export interface Message extends Omit<BackendMessage, 'attachments'> {
   attachments: Attachment[];
-}
-
-export interface MessagesPayload {
-  items: Message[];
-}
-
-export interface MessageDraft {
-  text: string;
-  files: File[];
-  reply_to_message_id?: string;
+  client_status?: ClientMessageStatus;
 }
 
 export interface SendMessageFrameData {
@@ -96,10 +79,6 @@ export interface EditMessageFrameData {
   expires_at?: string;
 }
 
-export interface DeleteMessageFrameData {
-  message_id: string;
-}
-
 export interface ReceiptFrameData {
   message_ids: string[];
   up_to_seq_id?: number;
@@ -109,9 +88,3 @@ export interface ReactionFrameData {
   message_id: string;
   reaction_code: string;
 }
-
-export type MessagePayloadByKind =
-  | { kind: 'text'; text: string }
-  | { kind: 'file'; caption?: string; files: Attachment[] }
-  | { kind: 'audio'; transcript?: string; duration_ms?: number; clips: Attachment[] }
-  | { kind: 'system'; text: string };
