@@ -111,6 +111,13 @@ export function useSocketConnection() {
       return;
     }
 
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('[socket] connect attempt', {
+        baseUrl: env.socketUrl,
+        hasToken: Boolean(token),
+      });
+    }
+
     manualCloseRef.current = false;
 
     if (socketRef.current?.readyState === WebSocket.OPEN || socketRef.current?.readyState === WebSocket.CONNECTING) {
@@ -126,6 +133,9 @@ export function useSocketConnection() {
       reconnectAttemptRef.current = 0;
       lastActivityAtRef.current = Date.now();
       setState('connected');
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[socket] connected');
+      }
       startHeartbeat();
       flushQueue();
     };
@@ -137,6 +147,9 @@ export function useSocketConnection() {
 
       const envelope = safeParseSocketEnvelope(event.data);
       if (!envelope) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug('[socket] ignored unparsable frame', event.data);
+        }
         return;
       }
 
@@ -151,6 +164,13 @@ export function useSocketConnection() {
     socket.onclose = () => {
       setState('disconnected');
 
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[socket] closed', {
+          manualClose: manualCloseRef.current,
+          hasToken: Boolean(token),
+        });
+      }
+
        if (manualCloseRef.current || !token) {
         return;
       }
@@ -159,6 +179,9 @@ export function useSocketConnection() {
     };
 
     socket.onerror = () => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[socket] error');
+      }
       socket.close();
     };
   }, [flushQueue, scheduleReconnect, startHeartbeat, token]);
@@ -179,6 +202,9 @@ export function useSocketConnection() {
     const payload = serializeSocketFrame(frame);
 
     if (socketRef.current?.readyState === WebSocket.OPEN) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[socket] send immediate', frame.type, frame);
+      }
       socketRef.current.send(payload);
       return frame.request_id ?? null;
     }
@@ -187,6 +213,11 @@ export function useSocketConnection() {
       messageQueueRef.current.shift();
     }
     messageQueueRef.current.push(payload);
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('[socket] send queued', frame.type, {
+        queueSize: messageQueueRef.current.length,
+      });
+    }
     return frame.request_id ?? null;
   }, []);
 

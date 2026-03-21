@@ -3,7 +3,6 @@ import { API_ROUTES, MESSAGES_PER_PAGE, SOCKET_EVENT } from '@/lib/constants';
 import type {
   Attachment,
   BackendMessage,
-  ClientMessageStatus,
   ClientSocketFrame,
   Message,
   MessageReceipt,
@@ -101,6 +100,7 @@ export function mergeMessage(existing: Message | undefined, incoming: BackendMes
   return {
     ...existing,
     ...normalized,
+    client_status: existing.client_status,
     attachments: normalized.attachments.length > 0 ? normalized.attachments : existing.attachments,
     reactions: normalized.reactions ?? existing.reactions,
     receipts: Array.from(receipts.values()),
@@ -163,12 +163,6 @@ export function createOptimisticMessage(input: {
   };
 }
 
-export function withClientStatus(message: Message, status: ClientMessageStatus): Message {
-  return {
-    ...message,
-    client_status: status,
-  };
-}
 
 export function buildSendMessageFrame(
   conversationId: string,

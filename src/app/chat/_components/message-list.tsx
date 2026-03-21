@@ -5,7 +5,7 @@ import { Lock } from 'lucide-react';
 import { MessageBubble } from '@/components/shared/message-bubble';
 import { MessageListSkeleton } from '@/components/shared/message-skeleton';
 import { TypingBubble } from '@/components/shared/typing-indicator';
-import { useConversationMessages } from '@/hooks/use-conversation-messages';
+import { useMessages } from '@/queries/use-message-queries';
 import { useReceiptChannel } from '@/hooks/use-receipt-channel';
 import { useMessageChannel } from '@/hooks/use-message-channel';
 import { formatCalendarLabel, getOtherParticipant } from '@/lib/utils';
@@ -31,7 +31,12 @@ export function MessageList({
   onEdit,
 }: MessageListProps) {
   const conversationQuery = useConversation(conversationId);
-  const messagesQuery = useConversationMessages(conversationId);
+  const messagesRaw = useMessages(conversationId);
+  const messagesQuery = useMemo(() => ({
+    items: messagesRaw.data ?? [],
+    isLoading: messagesRaw.isLoading,
+    isError: messagesRaw.isError,
+  }), [messagesRaw.data, messagesRaw.isLoading, messagesRaw.isError]);
   const { sendDeliveredReceipt, sendReadReceipt, sendPlayedReceipt } =
     useReceiptChannel(conversationId);
   const { deleteMessage, reactToMessage } = useMessageChannel(conversationId);

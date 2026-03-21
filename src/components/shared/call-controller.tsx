@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { ActiveCallOverlay } from '@/components/shared/active-call-overlay';
 import { IncomingCallDialog } from '@/components/shared/incoming-call-dialog';
 import { useCallSignaling } from '@/hooks/use-call-signaling';
@@ -36,6 +36,7 @@ export function CallController() {
   const updateActiveCall = useCallStore((state) => state.updateActiveCall);
   const setLastQualityMetrics = useCallStore((state) => state.setLastQualityMetrics);
   const setReconnecting = useCallStore((state) => state.setReconnecting);
+  const signalingErrorHandledRef = useRef<string | null>(null);
 
   const handleConnectionLost = useCallback(() => {
     setReconnecting(true);
@@ -55,13 +56,37 @@ export function CallController() {
     [setCallStatus]
   );
 
+  const handleSignalingError = useCallback(
+    (error: CallError) => {
+      const callId = useCallStore.getState().activeCall?.call_id;
+      if (callId && signalingErrorHandledRef.current === callId) {
+        return;
+      }
+
+      if (callId) {
+        signalingErrorHandledRef.current = callId;
+      }
+
+      console.error('[CallController] Signaling error:', error.code, error.message);
+      setCallStatus('failed', error.message);
+    },
+    [setCallStatus]
+  );
+
+  const signalingOptions = useMemo(
+    () => ({
+      onSignalingError: handleSignalingError,
+    }),
+    [handleSignalingError]
+  );
+
   const {
     sendOffer,
     sendAnswer,
     sendIceCandidate,
     sendIceRestart,
     endCall,
-  } = useCallSignaling(activeCall?.conversation_id);
+  } = useCallSignaling(activeCall?.conversation_id, signalingOptions);
 
   // Use enhanced WebRTC hook with callbacks
   const {
@@ -84,6 +109,7 @@ export function CallController() {
     if (!activeCall) {
       startedOutgoingRef.current.clear();
       processingSignalIdsRef.current.clear();
+      signalingErrorHandledRef.current = null;
     }
   }, [activeCall]);
 

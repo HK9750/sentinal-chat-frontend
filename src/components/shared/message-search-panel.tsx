@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import { useConversationMessages } from '@/hooks/use-conversation-messages';
+import { useMessages } from '@/queries/use-message-queries';
 import { getMessageSearchText, getMessagePrimaryText } from '@/lib/message-payload';
 import { formatRelativeTime } from '@/lib/utils';
 
@@ -20,7 +20,12 @@ interface MessageSearchPanelProps {
 export function MessageSearchPanel({ conversationId, isOpen, onClose, onNavigateToMessage }: MessageSearchPanelProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const messages = useConversationMessages(conversationId);
+  const messagesRaw = useMessages(conversationId);
+  const messages = useMemo(() => ({
+    items: messagesRaw.data ?? [],
+    isLoading: messagesRaw.isLoading,
+    isError: messagesRaw.isError,
+  }), [messagesRaw.data, messagesRaw.isLoading, messagesRaw.isError]);
   const debouncedQuery = useDebouncedValue(query, 180);
 
   const results = useMemo(() => {

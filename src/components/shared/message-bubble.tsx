@@ -51,14 +51,6 @@ export function MessageBubble({
   };
 
   const deliveryState = useMemo(() => {
-    if (message.client_status === 'PENDING') {
-      return 'PENDING' as const;
-    }
-
-    if (message.client_status === 'FAILED') {
-      return 'FAILED' as const;
-    }
-
     const others = (message.receipts ?? []).filter(
       (receipt) => receipt.user_id !== message.sender_id
     );
@@ -75,18 +67,18 @@ export function MessageBubble({
       }
       return state;
     }, 'SENT');
-  }, [message.client_status, message.receipts, message.sender_id]);
+  }, [message.receipts, message.sender_id]);
 
   const receiptIcon = useMemo(() => {
     if (!isOwn) {
       return null;
     }
 
-    if (deliveryState === 'PENDING') {
+    if (message.client_status === 'PENDING') {
       return <span className="text-[11px] text-muted-foreground">...</span>;
     }
 
-    if (deliveryState === 'FAILED') {
+    if (message.client_status === 'FAILED') {
       return <span className="text-[11px] text-destructive">!</span>;
     }
 
@@ -104,7 +96,7 @@ export function MessageBubble({
         )}
       />
     );
-  }, [deliveryState, isOwn]);
+  }, [deliveryState, isOwn, message.client_status]);
 
   const shouldRenderAssetCards = message.attachments.length > 0;
   const hasReactions = (message.reactions?.length ?? 0) > 0;

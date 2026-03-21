@@ -11,7 +11,7 @@ import {
   removeParticipant,
 } from '@/services/conversation-service';
 import { queryKeys } from '@/queries/query-keys';
-import type { CreateConversationRequest } from '@/types';
+import type { ConversationListPayload, CreateConversationRequest } from '@/types';
 
 export function useConversationsQuery() {
   return useQuery({
@@ -52,8 +52,13 @@ export function useCreateConversationMutation() {
   return useMutation({
     mutationFn: async (input: CreateConversationRequest) => createConversation(input),
     onSuccess: (conversation) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
       queryClient.setQueryData(queryKeys.conversation(conversation.id), conversation);
+      queryClient.setQueryData<ConversationListPayload>(queryKeys.conversations, (old) => {
+        if (!old) return old;
+        const exists = old.items.some((c) => c.id === conversation.id);
+        if (exists) return old;
+        return { ...old, items: [conversation, ...old.items] };
+      });
     },
   });
 }
