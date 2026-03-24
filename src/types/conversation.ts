@@ -6,9 +6,14 @@ export interface ConversationMessageSummary {
   id: string;
   sender_id: string;
   kind: string;
+  content?: string | null;
+  attachment_mime_type?: string | null;
+  attachment_filename?: string | null;
+  duration_seconds?: number | null;
   created_at: string;
   seq_id: number;
   receipt_status?: 'SENT' | 'DELIVERED' | 'READ' | 'PLAYED' | null;
+  client_status?: 'PENDING' | 'SENT' | 'FAILED';
   deleted_at?: string | null;
 }
 

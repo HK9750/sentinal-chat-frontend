@@ -167,16 +167,21 @@ export function getMessagePreview(
   }
 
   const kind = "type" in message ? message.type : message.kind;
+  const content = "content" in message ? message.content : undefined;
 
   if (kind === "AUDIO") {
-    return "Voice note";
+    const duration = "duration_seconds" in message && message.duration_seconds 
+      ? ` (${message.duration_seconds}s)` : "";
+    return `Voice note${duration}`;
   }
 
   if (kind === "FILE") {
-    if ("attachments" in message) {
-      return `${message.attachments.length || 1} file${message.attachments.length === 1 ? "" : "s"}`;
+    if ("attachment_filename" in message && message.attachment_filename) {
+      return message.attachment_filename;
     }
-
+    if ("attachments" in message && message.attachments.length > 0) {
+      return message.attachments[0].filename || "File";
+    }
     return "File";
   }
 
@@ -184,8 +189,8 @@ export function getMessagePreview(
     return "Poll";
   }
 
-  if ("content" in message) {
-    return message.content ? message.content : "Empty message";
+  if (content) {
+    return content;
   }
 
   return "Message";

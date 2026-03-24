@@ -37,21 +37,27 @@ export function ConversationItem({ conversation, isSelected }: ConversationItemP
   const lastMessage = conversation.last_message ?? null;
 
   const lastMessageReceiptIcon = useMemo(() => {
-    if (!lastMessage || lastMessage.sender_id !== currentUserId) {
-      return null;
+    if (!lastMessage || lastMessage.sender_id !== currentUserId) return null;
+
+    if (lastMessage.client_status === 'PENDING') {
+      return <span className="text-[11px] font-bold text-muted-foreground/70">•••</span>;
+    }
+    if (lastMessage.client_status === 'FAILED') {
+      return <span className="text-[12px] font-bold text-destructive">!</span>;
     }
 
     if (!lastMessage.receipt_status || lastMessage.receipt_status === 'SENT') {
-      return <Check className="h-4 w-4 text-muted-foreground" />;
+      return <Check strokeWidth={2.5} className="mt-[1px] h-[15px] w-[15px] text-muted-foreground/70" />;
     }
 
     return (
       <CheckCheck
+        strokeWidth={2.5}
         className={cn(
-          'h-4 w-4',
+          'mt-[1px] h-[15px] w-[15px]',
           lastMessage.receipt_status === 'READ' || lastMessage.receipt_status === 'PLAYED'
-            ? 'text-[#53bdeb]'
-            : 'text-muted-foreground'
+            ? 'text-blue-500'
+            : 'text-muted-foreground/70'
         )}
       />
     );

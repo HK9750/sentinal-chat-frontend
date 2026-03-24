@@ -17,13 +17,29 @@ export function toConversationSummary(message: Message): ConversationMessageSumm
   const clientOverride: ConversationMessageSummary['receipt_status'] | null =
     message.client_status === 'PENDING' ? null : message.client_status === 'FAILED' ? 'SENT' : null;
 
+  let attachment_mime_type = null;
+  let attachment_filename = null;
+  let duration_seconds = null;
+
+  if (message.attachments && message.attachments.length > 0) {
+    const primary = message.attachments[0];
+    attachment_mime_type = primary.mime_type;
+    attachment_filename = primary.filename ?? null;
+    duration_seconds = primary.duration_seconds ?? null;
+  }
+
   return {
     id: message.id,
     sender_id: message.sender_id,
     kind: message.type,
+    content: message.content,
+    attachment_mime_type,
+    attachment_filename,
+    duration_seconds,
     created_at: message.created_at,
     seq_id: message.seq_id,
     receipt_status: clientOverride ?? receiptStatus,
+    client_status: message.client_status,
     deleted_at: message.deleted_at,
   };
 }
@@ -37,9 +53,17 @@ export function upsertMessage(current: Message[] | undefined, incoming: Message)
   );
   const merged = mergeMessage(existing, incoming);
 
-  // Determine client_status: keep incoming's status if it has one (optimistic = PENDING),
-  // otherwise if it's a server echo with a client_message_id, mark as SENT.
-  const clientStatus = incoming.client_status ?? existing?.client_status ?? (merged.client_message_id ? 'SENT' as const : undefined);
+  // If incoming has no client_status, it's a server echo. We should clear any PENDING state.
+  // FAILED state shouldn't be overridden by a generic update unless we specifically want to retry.
+  let clientStatus = incoming.client_status;
+  if (!clientStatus) {
+    if (existing?.client_status === 'PENDING') {
+      clientStatus = undefined; // Server has accepted it, no longer pending
+    } else {
+      clientStatus = existing?.client_status;
+    }
+  }
+
   const mergedWithStatus = clientStatus ? { ...merged, client_status: clientStatus } : merged;
 
   const next = (current ?? []).filter(

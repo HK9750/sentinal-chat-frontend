@@ -23,7 +23,7 @@ export function useReceiptChannel(conversationId?: string | null) {
 
   const sendReadReceipt = useCallback(
     (messageIds: string[], upToSeqId?: number) => {
-      if (!conversationId || messageIds.length === 0) {
+      if (!conversationId || (messageIds.length === 0 && typeof upToSeqId !== 'number')) {
         return;
       }
 

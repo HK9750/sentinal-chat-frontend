@@ -11,9 +11,9 @@ import {
 } from '@/lib/chat-helpers';
 import { SOCKET_EVENT } from '@/lib/constants';
 import { setServerDeviceId } from '@/lib/device';
-import { parseMessageRequestId } from '@/lib/request-id';
+import { createRequestId, parseMessageRequestId } from '@/lib/request-id';
 import { queryKeys } from '@/queries/query-keys';
-import { normalizeMessage, upsertReceiptState } from '@/services/message-service';
+import { buildReceiptFrame, normalizeMessage, upsertReceiptState } from '@/services/message-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { useCallStore } from '@/stores/call-store';
 import { useChatStore } from '@/stores/chat-store';
@@ -115,6 +115,18 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
         case SOCKET_EVENT.messageDeleted: {
           const message = (envelope.data as { message?: Message } | undefined)?.message;
           if (!message?.conversation_id) break;
+
+          // Automatically broadcast "DELIVERED" if we received another user's message globally
+          if (envelope.type === SOCKET_EVENT.messageNew && message.sender_id !== currentUserId) {
+            socket.send(
+              buildReceiptFrame(
+                message.conversation_id,
+                'delivered',
+                { message_ids: [message.id] },
+                createRequestId('delivered')
+              )
+            );
+          }
 
           const normalized = normalizeMessage(message as never);
           const currentMessage = queryClient

@@ -11,7 +11,9 @@ import { useMessageChannel } from '@/hooks/use-message-channel';
 import { formatCalendarLabel, getOtherParticipant } from '@/lib/utils';
 import { useConversation } from '@/queries/use-conversation-queries';
 import { useChatStore } from '@/stores/chat-store';
-import type { Message } from '@/types';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/queries/query-keys';
+import type { Message, Conversation, ConversationListPayload } from '@/types';
 
 interface MessageListProps {
   conversationId: string;
@@ -37,6 +39,8 @@ export function MessageList({
     isLoading: messagesRaw.isLoading,
     isError: messagesRaw.isError,
   }), [messagesRaw.data, messagesRaw.isLoading, messagesRaw.isError]);
+
+  const queryClient = useQueryClient();
   const { sendDeliveredReceipt, sendReadReceipt, sendPlayedReceipt } =
     useReceiptChannel(conversationId);
   const { deleteMessage, reactToMessage } = useMessageChannel(conversationId);
@@ -88,19 +92,70 @@ export function MessageList({
       return;
     }
 
-    const latestReadable = [...receivable]
-      .reverse()
-      .find((message) => !readSetRef.current.has(message.id));
+    const conversation = conversationQuery.data;
+    if (!conversation) return;
 
-    if (latestReadable) {
-      const readableIds = receivable
-        .map((message) => message.id)
-        .filter((messageId) => !readSetRef.current.has(messageId));
+    const unreadCount = conversation.unread_count;
 
-      readableIds.forEach((messageId) => readSetRef.current.add(messageId));
-      sendReadReceipt(readableIds, latestReadable.seq_id);
+    // Determine the highest seq_id of the incoming messages we currently see
+    const latestIncoming = [...receivable].reverse().find((m) => m);
+
+    // We send a read receipt if there are global unread messages OR we have local unread messages
+    const hasUnreadLocally = latestIncoming && !readSetRef.current.has(latestIncoming.id);
+    const hasUnreadGlobally = unreadCount > 0;
+
+    if (hasUnreadLocally || hasUnreadGlobally) {
+      const upToSeqId = latestIncoming?.seq_id ?? conversation.last_message?.seq_id;
+
+      if (upToSeqId) {
+        // Track the ones we see locally so we don't spam
+        if (latestIncoming) {
+          receivable.forEach((m) => readSetRef.current.add(m.id));
+        }
+
+        // Send one websocket frame: data.up_to_seq_id = last visible incoming seq
+        sendReadReceipt([], upToSeqId);
+
+        // Optimistically patch local UI
+        if (hasUnreadGlobally) {
+          // Update the specific conversation cache
+          queryClient.setQueryData<Conversation>(queryKeys.conversation(conversation.id), (old) => {
+            if (!old) return old;
+            return {
+              ...old,
+              unread_count: 0,
+              participants: old.participants.map((p) =>
+                p.user_id === currentUserId
+                  ? { ...p, last_read_sequence: Math.max(p.last_read_sequence, upToSeqId) }
+                  : p
+              ),
+            };
+          });
+
+          // Update the conversation list payload cache
+          queryClient.setQueryData<ConversationListPayload>(queryKeys.conversations, (old) => {
+            if (!old) return old;
+            return {
+              ...old,
+              items: old.items.map((c) =>
+                c.id === conversation.id
+                  ? {
+                    ...c,
+                    unread_count: 0,
+                    participants: c.participants.map((p) =>
+                      p.user_id === currentUserId
+                        ? { ...p, last_read_sequence: Math.max(p.last_read_sequence, upToSeqId) }
+                        : p
+                    ),
+                  }
+                  : c
+              ),
+            };
+          });
+        }
+      }
     }
-  }, [currentUserId, messagesQuery.items, sendDeliveredReceipt, sendReadReceipt]);
+  }, [currentUserId, messagesQuery.items, sendDeliveredReceipt, sendReadReceipt, conversationQuery.data, queryClient]);
 
   const setMessageRef = useCallback(
     (messageId: string, element: HTMLDivElement | null) => {
@@ -238,6 +293,9 @@ export function MessageList({
                 const isOwn = message.sender_id === currentUserId;
                 const isFirstFromSender = previous?.sender_id !== message.sender_id;
                 const author = authorLookup.get(message.sender_id);
+                const parentMessage = message.reply_to_msg_id
+                  ? messagesQuery.items.find((m) => m.id === message.reply_to_msg_id)
+                  : undefined;
 
                 return (
                   <div
@@ -250,6 +308,7 @@ export function MessageList({
                       showTail={isFirstFromSender}
                       authorLabel={author?.display_name ?? author?.username ?? 'Member'}
                       currentUserId={currentUserId}
+                      replyToMessage={parentMessage}
                       onPlayed={sendPlayedReceipt}
                       onReply={onReply}
                       onEdit={onEdit}

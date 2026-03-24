@@ -19,6 +19,7 @@ interface MessageBubbleProps {
   authorLabel?: string;
   avatarUrl?: string | null;
   currentUserId?: string;
+  replyToMessage?: Message;
   onPlayed?: (messageId: string) => void;
   onReply?: (message: Message) => void;
   onEdit?: (message: Message) => void;
@@ -32,6 +33,7 @@ export function MessageBubble({
   showTail = false,
   authorLabel,
   currentUserId,
+  replyToMessage,
   onPlayed,
   onReply,
   onEdit,
@@ -70,29 +72,28 @@ export function MessageBubble({
   }, [message.receipts, message.sender_id]);
 
   const receiptIcon = useMemo(() => {
-    if (!isOwn) {
-      return null;
-    }
+    if (!isOwn) return null;
 
     if (message.client_status === 'PENDING') {
-      return <span className="text-[11px] text-muted-foreground">...</span>;
+      return <span className="text-[11px] font-bold text-muted-foreground/70">•••</span>;
     }
 
     if (message.client_status === 'FAILED') {
-      return <span className="text-[11px] text-destructive">!</span>;
+      return <span className="text-[12px] font-bold text-destructive">!</span>;
     }
 
     if (deliveryState === 'SENT') {
-      return <Check className="h-[14px] w-[14px]" />;
+      return <Check strokeWidth={2.5} className="mt-[1px] h-[15px] w-[15px] text-muted-foreground/70" />;
     }
 
     return (
       <CheckCheck
+        strokeWidth={2.5}
         className={cn(
-          'h-[14px] w-[14px]',
+          'mt-[1px] h-[15px] w-[15px]',
           deliveryState === 'READ' || deliveryState === 'PLAYED'
-            ? 'text-[#53bdeb]'
-            : 'text-muted-foreground'
+            ? 'text-blue-500'
+            : 'text-muted-foreground/70'
         )}
       />
     );
@@ -200,6 +201,25 @@ export function MessageBubble({
           {/* Author label for group chats */}
           {!isOwn && showTail && authorLabel && (
             <p className="mb-0.5 text-xs font-medium text-primary">{authorLabel}</p>
+          )}
+
+          {/* Replied-to Quote Block */}
+          {replyToMessage && (
+            <div
+              className={cn(
+                'mb-1 flex min-w-[120px] max-w-full flex-col overflow-hidden rounded border-l-4 bg-background/20 p-1.5 px-2 text-xs',
+                replyToMessage.sender_id === currentUserId
+                  ? 'border-primary'
+                  : 'border-blue-500'
+              )}
+            >
+              <span className="font-semibold text-foreground/80">
+                {replyToMessage.sender_id === currentUserId ? 'You' : 'Participant'}
+              </span>
+              <span className="line-clamp-1 truncate text-foreground/70">
+                {getMessagePrimaryText(replyToMessage) || 'Attachment'}
+              </span>
+            </div>
           )}
 
           {/* Message content */}
