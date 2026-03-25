@@ -56,15 +56,20 @@ export function upsertMessage(current: Message[] | undefined, incoming: Message)
   // If incoming has no client_status, it's a server echo. We should clear any PENDING state.
   // FAILED state shouldn't be overridden by a generic update unless we specifically want to retry.
   let clientStatus = incoming.client_status;
+  let clearClientStatus = false;
   if (!clientStatus) {
     if (existing?.client_status === 'PENDING') {
-      clientStatus = undefined; // Server has accepted it, no longer pending
+      clearClientStatus = true; // Server has accepted it, no longer pending
     } else {
       clientStatus = existing?.client_status;
     }
   }
 
-  const mergedWithStatus = clientStatus ? { ...merged, client_status: clientStatus } : merged;
+  const mergedWithStatus = clearClientStatus
+    ? { ...merged, client_status: undefined }
+    : clientStatus
+      ? { ...merged, client_status: clientStatus }
+      : merged;
 
   const next = (current ?? []).filter(
     (item) => item.id !== incoming.id && item.client_message_id !== incoming.client_message_id

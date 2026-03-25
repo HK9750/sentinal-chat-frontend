@@ -254,8 +254,15 @@ export function upsertReceiptState(
   const messageIdSet = new Set(messageIds);
 
   return messages.map((message) => {
-    const targetById = messageIdSet.has(message.id);
-    const targetBySeq = typeof upToSeqId === 'number' && message.seq_id <= upToSeqId;
+    if (message.sender_id === userId || message.deleted_at) {
+      return message;
+    }
+
+    const targetById = messageIdSet.size > 0 && messageIdSet.has(message.id);
+    const targetBySeq =
+      messageIdSet.size === 0 &&
+      typeof upToSeqId === 'number' &&
+      message.seq_id <= upToSeqId;
     if (!targetById && !targetBySeq) {
       return message;
     }

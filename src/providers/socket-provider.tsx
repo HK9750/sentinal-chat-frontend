@@ -1,22 +1,32 @@
-'use client';
+"use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useSocketConnection } from '@/hooks/use-socket-connection';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useSocketConnection } from "@/hooks/use-socket-connection";
 import {
   getMostAdvancedReceiptStatus,
-  updateConversationLastMessageReceipt,
+  toConversationSummary,
   updateConversationPreview,
   upsertMessage,
-} from '@/lib/chat-helpers';
-import { SOCKET_EVENT } from '@/lib/constants';
-import { setServerDeviceId } from '@/lib/device';
-import { createRequestId, parseMessageRequestId } from '@/lib/request-id';
-import { queryKeys } from '@/queries/query-keys';
-import { buildReceiptFrame, normalizeMessage, upsertReceiptState } from '@/services/message-service';
-import { useAuthStore } from '@/stores/auth-store';
-import { useCallStore } from '@/stores/call-store';
-import { useChatStore } from '@/stores/chat-store';
+} from "@/lib/chat-helpers";
+import { SOCKET_EVENT } from "@/lib/constants";
+import { setServerDeviceId } from "@/lib/device";
+import { parseMessageRequestId } from "@/lib/request-id";
+import { queryKeys } from "@/queries/query-keys";
+import {
+  normalizeMessage,
+  upsertReceiptState,
+} from "@/services/message-service";
+import { useAuthStore } from "@/stores/auth-store";
+import { useCallStore } from "@/stores/call-store";
+import { useChatStore } from "@/stores/chat-store";
 import type {
   ConnectionReadyPayload,
   Contact,
@@ -26,7 +36,7 @@ import type {
   MessageReaction,
   Poll,
   SocketEnvelope,
-} from '@/types';
+} from "@/types";
 
 type SocketContextValue = ReturnType<typeof useSocketConnection>;
 
@@ -43,14 +53,79 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
   const resetCall = useCallStore((state) => state.resetCall);
   const readyLoggedRef = useRef(false);
 
+  const syncConversationPreviewFromMessages = useCallback(
+    (conversationId: string, messages: Message[]) => {
+      if (messages.length === 0) {
+        return;
+      }
+
+      const latest = [...messages].sort((a, b) => b.seq_id - a.seq_id)[0];
+      if (!latest) {
+        return;
+      }
+
+      queryClient.setQueryData<ConversationListPayload>(
+        queryKeys.conversations,
+        (convs) => {
+          if (!convs) {
+            return convs;
+          }
+
+          const latestOwn = currentUserId
+            ? [...messages]
+                .filter((m) => m.sender_id === currentUserId)
+                .sort((a, b) => b.seq_id - a.seq_id)[0]
+            : undefined;
+
+          return {
+            ...convs,
+            items: convs.items.map((conv) => {
+              if (conv.id !== conversationId) {
+                return conv;
+              }
+
+              const nextConv =
+                updateConversationPreview(
+                  { ...convs, items: [conv] },
+                  conversationId,
+                  latest
+                )?.items[0] ?? conv;
+
+              if (
+                !latestOwn ||
+                latestOwn.client_status === "FAILED" ||
+                !nextConv.last_message ||
+                nextConv.last_message.sender_id !== currentUserId
+              ) {
+                return nextConv;
+              }
+
+              return {
+                ...nextConv,
+                last_message:
+                  nextConv.last_message.id === latestOwn.id
+                    ? toConversationSummary(latestOwn)
+                    : {
+                        ...nextConv.last_message,
+                        receipt_status: getMostAdvancedReceiptStatus(latestOwn),
+                      },
+              };
+            }),
+          };
+        }
+      );
+    },
+    [currentUserId, queryClient]
+  );
+
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.debug('[socket] bridge mounted');
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[socket] bridge mounted");
     }
 
     return socket.subscribe((envelope: SocketEnvelope) => {
-      if (process.env.NODE_ENV !== 'production') {
-        console.debug('[socket] event', envelope.type, envelope);
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[socket] event", envelope.type, envelope);
       }
 
       switch (envelope.type) {
@@ -60,9 +135,12 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           if (payload?.device_id) {
             setServerDeviceId(payload.device_id);
           }
-          if (process.env.NODE_ENV !== 'production' && !readyLoggedRef.current) {
+          if (
+            process.env.NODE_ENV !== "production" &&
+            !readyLoggedRef.current
+          ) {
             readyLoggedRef.current = true;
-            console.debug('[socket] connection ready received');
+            console.debug("[socket] connection ready received");
           }
           break;
         }
@@ -71,39 +149,57 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
         case SOCKET_EVENT.typingStarted:
         case SOCKET_EVENT.typingStopped: {
           const conversationId = envelope.conversation_id;
-          const userId = (envelope.data as { user_id?: string } | undefined)?.user_id;
+          const userId = (envelope.data as { user_id?: string } | undefined)
+            ?.user_id;
           if (conversationId && userId) {
-            markTyping(conversationId, userId, envelope.type === SOCKET_EVENT.typingStarted);
+            markTyping(
+              conversationId,
+              userId,
+              envelope.type === SOCKET_EVENT.typingStarted,
+            );
           }
           break;
         }
 
         // ── Presence ──
         case SOCKET_EVENT.presenceUpdate: {
-          const payload = envelope.data as { user_id?: string; is_online?: boolean; last_seen_at?: string } | undefined;
+          const payload = envelope.data as
+            | { user_id?: string; is_online?: boolean; last_seen_at?: string }
+            | undefined;
           const targetUserId = payload?.user_id;
           const isOnline = payload?.is_online;
-          if (!targetUserId || typeof isOnline !== 'boolean') break;
+          if (!targetUserId || typeof isOnline !== "boolean") break;
 
-          queryClient.setQueryData<ConversationListPayload>(queryKeys.conversations, (current) => {
-            if (!current) return current;
-            return {
-              ...current,
-              items: current.items.map((conv) => ({
-                ...conv,
-                participants: conv.participants.map((p) =>
-                  p.user_id === targetUserId ? { ...p, is_online: isOnline } : p
-                ),
-              })),
-            };
-          });
+          queryClient.setQueryData<ConversationListPayload>(
+            queryKeys.conversations,
+            (current) => {
+              if (!current) return current;
+              return {
+                ...current,
+                items: current.items.map((conv) => ({
+                  ...conv,
+                  participants: conv.participants.map((p) =>
+                    p.user_id === targetUserId
+                      ? { ...p, is_online: isOnline }
+                      : p,
+                  ),
+                })),
+              };
+            },
+          );
 
           queryClient.setQueryData<Contact[]>(queryKeys.contacts, (current) => {
             if (!current) return current;
             return current.map((c) =>
               c.id === targetUserId
-                ? { ...c, is_online: isOnline, ...(payload.last_seen_at ? { last_seen_at: payload.last_seen_at } : {}) }
-                : c
+                ? {
+                    ...c,
+                    is_online: isOnline,
+                    ...(payload.last_seen_at
+                      ? { last_seen_at: payload.last_seen_at }
+                      : {}),
+                  }
+                : c,
             );
           });
           break;
@@ -113,39 +209,36 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
         case SOCKET_EVENT.messageNew:
         case SOCKET_EVENT.messageEdited:
         case SOCKET_EVENT.messageDeleted: {
-          const message = (envelope.data as { message?: Message } | undefined)?.message;
+          const message = (envelope.data as { message?: Message } | undefined)
+            ?.message;
           if (!message?.conversation_id) break;
-
-          // Automatically broadcast "DELIVERED" if we received another user's message globally
-          if (envelope.type === SOCKET_EVENT.messageNew && message.sender_id !== currentUserId) {
-            socket.send(
-              buildReceiptFrame(
-                message.conversation_id,
-                'delivered',
-                { message_ids: [message.id] },
-                createRequestId('delivered')
-              )
-            );
-          }
 
           const normalized = normalizeMessage(message as never);
           const currentMessage = queryClient
-            .getQueryData<Message[]>(queryKeys.messages(normalized.conversation_id))
+            .getQueryData<
+              Message[]
+            >(queryKeys.messages(normalized.conversation_id))
             ?.find(
               (item) =>
                 item.id === normalized.id ||
-                (normalized.client_message_id && item.client_message_id === normalized.client_message_id)
+                (normalized.client_message_id &&
+                  item.client_message_id === normalized.client_message_id),
             );
           const withClientState: Message =
-            currentMessage?.client_status === 'FAILED'
-              ? { ...normalized, client_status: 'FAILED' }
+            currentMessage?.client_status === "FAILED"
+              ? { ...normalized, client_status: "FAILED" }
               : normalized;
 
-          queryClient.setQueryData<Message[]>(queryKeys.messages(normalized.conversation_id), (current) =>
-            upsertMessage(current, withClientState)
-          );
-          queryClient.setQueryData<ConversationListPayload>(queryKeys.conversations, (payload) =>
-            updateConversationPreview(payload, normalized.conversation_id, withClientState)
+          queryClient.setQueryData<Message[]>(
+            queryKeys.messages(normalized.conversation_id),
+            (current) => {
+              const nextMessages = upsertMessage(current, withClientState);
+              syncConversationPreviewFromMessages(
+                normalized.conversation_id,
+                nextMessages
+              );
+              return nextMessages;
+            }
           );
           break;
         }
@@ -153,13 +246,19 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
         // ── Reactions (instant cache patch) ──
         case SOCKET_EVENT.messageReaction: {
           const conversationId = envelope.conversation_id;
-          const data = envelope.data as { message_id?: string; reactions?: MessageReaction[] } | undefined;
+          const data = envelope.data as
+            | { message_id?: string; reactions?: MessageReaction[] }
+            | undefined;
           if (!conversationId || !data?.message_id) break;
 
-          queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (current) =>
-            (current ?? []).map((msg) =>
-              msg.id === data.message_id ? { ...msg, reactions: data.reactions ?? [] } : msg
-            )
+          queryClient.setQueryData<Message[]>(
+            queryKeys.messages(conversationId),
+            (current) =>
+              (current ?? []).map((msg) =>
+                msg.id === data.message_id
+                  ? { ...msg, reactions: data.reactions ?? [] }
+                  : msg,
+              ),
           );
           break;
         }
@@ -168,13 +267,19 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
         case SOCKET_EVENT.messagePinned:
         case SOCKET_EVENT.messageUnpinned: {
           const conversationId = envelope.conversation_id;
-          const data = envelope.data as { message_id?: string; pinned?: boolean } | undefined;
+          const data = envelope.data as
+            | { message_id?: string; pinned?: boolean }
+            | undefined;
           if (!conversationId || !data?.message_id) break;
 
-          queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (current) =>
-            (current ?? []).map((msg) =>
-              msg.id === data.message_id ? { ...msg, pinned: data.pinned ?? false } : msg
-            )
+          queryClient.setQueryData<Message[]>(
+            queryKeys.messages(conversationId),
+            (current) =>
+              (current ?? []).map((msg) =>
+                msg.id === data.message_id
+                  ? { ...msg, pinned: data.pinned ?? false }
+                  : msg,
+              ),
           );
           break;
         }
@@ -185,10 +290,12 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           const poll = (envelope.data as { poll?: Poll } | undefined)?.poll;
           if (!conversationId || !poll?.id) break;
 
-          queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (current) =>
-            (current ?? []).map((msg) =>
-              msg.poll?.id === poll.id ? { ...msg, poll } : msg
-            )
+          queryClient.setQueryData<Message[]>(
+            queryKeys.messages(conversationId),
+            (current) =>
+              (current ?? []).map((msg) =>
+                msg.poll?.id === poll.id ? { ...msg, poll } : msg,
+              ),
           );
           break;
         }
@@ -197,75 +304,78 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
         case SOCKET_EVENT.receiptUpdate: {
           const conversationId = envelope.conversation_id;
           const payload = envelope.data as
-            | { message_ids?: string[]; user_id?: string; status?: string; up_to_seq_id?: number }
+            | {
+                message_ids?: string[];
+                user_id?: string;
+                status?: string;
+                up_to_seq_id?: number;
+              }
             | undefined;
           if (!conversationId || !payload?.user_id || !payload.status) break;
 
-          queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (current) => {
-            const next = upsertReceiptState(
-              current,
-              payload.user_id ?? '',
-              payload.status ?? 'DELIVERED',
-              payload.message_ids ?? [],
-              payload.up_to_seq_id
-            );
-
-            const latest = [...next].sort((a, b) => b.seq_id - a.seq_id)[0];
-            const latestOwn = [...next]
-              .filter((m) => m.sender_id === currentUserId)
-              .sort((a, b) => b.seq_id - a.seq_id)[0];
-
-            if (latest) {
-              queryClient.setQueryData<ConversationListPayload>(queryKeys.conversations, (convs) =>
-                updateConversationPreview(convs, conversationId, latest)
+          queryClient.setQueryData<Message[]>(
+            queryKeys.messages(conversationId),
+            (current) => {
+              const next = upsertReceiptState(
+                current,
+                payload.user_id ?? "",
+                payload.status ?? "DELIVERED",
+                payload.message_ids ?? [],
+                payload.up_to_seq_id,
               );
-            }
-            if (latestOwn && currentUserId && latestOwn.client_status !== 'FAILED') {
-              queryClient.setQueryData<ConversationListPayload>(queryKeys.conversations, (convs) =>
-                updateConversationLastMessageReceipt(
-                  convs,
-                  conversationId,
-                  currentUserId,
-                  getMostAdvancedReceiptStatus(latestOwn)
-                )
-              );
-            }
 
-            return next;
-          });
+              syncConversationPreviewFromMessages(conversationId, next);
+
+              return next;
+            },
+          );
           break;
         }
 
         // ── Send error → mark message as FAILED ──
         case SOCKET_EVENT.error: {
           const request = parseMessageRequestId(envelope.request_id);
-          if (!request || request.action !== 'send') break;
-          if (envelope.conversation_id && request.conversationId !== envelope.conversation_id) break;
+          if (!request || request.action !== "send") break;
+          if (
+            envelope.conversation_id &&
+            request.conversationId !== envelope.conversation_id
+          )
+            break;
 
-          queryClient.setQueryData<Message[]>(queryKeys.messages(request.conversationId), (current) =>
-            (current ?? []).map((msg) =>
-              msg.client_message_id === request.clientMessageId
-                ? { ...msg, client_status: 'FAILED' as const }
-                : msg
-            )
+          queryClient.setQueryData<Message[]>(
+            queryKeys.messages(request.conversationId),
+            (current) => {
+              const next = (current ?? []).map((msg) =>
+                msg.client_message_id === request.clientMessageId
+                  ? { ...msg, client_status: "FAILED" as const }
+                  : msg,
+              );
+              syncConversationPreviewFromMessages(request.conversationId, next);
+              return next;
+            }
           );
           queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
           break;
         }
 
         // ── Conversation lifecycle ──
-        case 'conversation:created':
-        case 'conversation:participant_added':
-        case 'conversation:participant_removed':
-        case 'conversation:cleared': {
+        case "conversation:created":
+        case "conversation:participant_added":
+        case "conversation:participant_removed":
+        case "conversation:cleared": {
           queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
           const targetId =
             envelope.conversation_id ??
-            (envelope.data as { conversation_id?: string } | undefined)?.conversation_id;
+            (envelope.data as { conversation_id?: string } | undefined)
+              ?.conversation_id;
           if (targetId) {
-            queryClient.invalidateQueries({ queryKey: queryKeys.conversation(targetId) });
-            if (envelope.type === 'conversation:cleared') {
-              queryClient.removeQueries({ queryKey: queryKeys.messages(targetId) });
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.conversation(targetId),
+            });
+            if (envelope.type === "conversation:cleared") {
+              queryClient.removeQueries({
+                queryKey: queryKeys.messages(targetId),
+              });
             }
           }
           break;
@@ -274,11 +384,19 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
         // ── Command undo/redo (simplified — just invalidate) ──
         case SOCKET_EVENT.commandUndone:
         case SOCKET_EVENT.commandRedone: {
-          const cmdConvId = (envelope.data as { command?: { conversation_id?: string } } | undefined)?.command?.conversation_id;
+          const cmdConvId = (
+            envelope.data as
+              | { command?: { conversation_id?: string } }
+              | undefined
+          )?.command?.conversation_id;
           queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
           if (cmdConvId) {
-            queryClient.invalidateQueries({ queryKey: queryKeys.conversation(cmdConvId) });
-            queryClient.invalidateQueries({ queryKey: queryKeys.messages(cmdConvId) });
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.conversation(cmdConvId),
+            });
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.messages(cmdConvId),
+            });
           }
           break;
         }
@@ -288,7 +406,9 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           const payload = envelope.data as IncomingCall | undefined;
           if (!payload?.call_id || !envelope.conversation_id) break;
 
-          const peerUserId = payload.participant_ids?.find((id) => id !== currentUserId);
+          const peerUserId = payload.participant_ids?.find(
+            (id) => id !== currentUserId,
+          );
 
           if (payload.initiated_by === currentUserId) {
             setActiveCall({
@@ -298,7 +418,7 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
               peer_user_id: peerUserId,
               initiator_id: payload.initiated_by,
               started_at: payload.started_at,
-              status: 'outgoing',
+              status: "outgoing",
               participant_ids: payload.participant_ids,
             });
           } else {
@@ -319,16 +439,20 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           if (!envelope.call_id) break;
           enqueueSignal({
             id: `${envelope.type}:${envelope.call_id}:${envelope.sent_at}`,
-            type: envelope.type as 'call:offer' | 'call:answer' | 'call:ice',
+            type: envelope.type as "call:offer" | "call:answer" | "call:ice",
             call_id: envelope.call_id,
             conversation_id: envelope.conversation_id,
-            signal: envelope.data as { from_user_id: string; payload: Record<string, unknown> },
+            signal: envelope.data as {
+              from_user_id: string;
+              payload: Record<string, unknown>;
+            },
           });
           break;
         }
         case SOCKET_EVENT.callEnded: {
-          const reason = (envelope.data as { reason?: string } | undefined)?.reason;
-          setCallStatus('ended', reason);
+          const reason = (envelope.data as { reason?: string } | undefined)
+            ?.reason;
+          setCallStatus("ended", reason);
           window.setTimeout(() => resetCall(), 1500);
           break;
         }
@@ -347,6 +471,7 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
     setCallStatus,
     setIncomingCall,
     socket,
+    syncConversationPreviewFromMessages,
   ]);
 
   return null;
@@ -368,7 +493,7 @@ export function useSocket() {
   const context = useContext(SocketContext);
 
   if (!context) {
-    throw new Error('useSocket must be used within SocketProvider.');
+    throw new Error("useSocket must be used within SocketProvider.");
   }
 
   return context;
