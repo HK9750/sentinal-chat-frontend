@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
+import { resolveRedirectPath } from '@/lib/routes';
 import { loginSchema } from '@/lib/validators';
 import { useLogin } from '@/queries/use-auth-queries';
 import { AuthShell } from '../auth-shell';
@@ -18,8 +19,7 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const loginMutation = useLogin();
   const [formError, setFormError] = useState<string | null>(null);
-  const redirectTarget = searchParams.get('redirect');
-  const redirectTo = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/chat';
+  const redirectTo = resolveRedirectPath(searchParams.get('redirect'));
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {

@@ -55,7 +55,7 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
   return (
     <div className="flex h-full flex-col">
       {/* Header - WhatsApp style */}
-      <header className="flex h-[60px] items-center justify-between bg-muted/50 px-4">
+      <header className="flex h-[59px] items-center justify-between border-b border-[#e9edef] bg-[#f0f2f5] px-4 dark:border-[#2a3942] dark:bg-[#202c33]">
         <UserMenu />
         
         <div className="flex items-center gap-1">
@@ -65,6 +65,7 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
             size="icon"
             className="h-10 w-10 rounded-full text-muted-foreground hover:bg-muted"
             onClick={() => setDialogOpen(true)}
+            aria-label="New group"
           >
             <Users className="h-5 w-5" />
           </Button>
@@ -74,6 +75,7 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
             size="icon"
             className="h-10 w-10 rounded-full text-muted-foreground hover:bg-muted"
             onClick={() => setDialogOpen(true)}
+            aria-label="New conversation"
           >
             <MessageSquarePlus className="h-5 w-5" />
           </Button>
@@ -84,6 +86,7 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
                 variant="ghost"
                 size="icon"
                 className="h-10 w-10 rounded-full text-muted-foreground hover:bg-muted"
+                aria-label="Conversation list actions"
               >
                 <MoreVertical className="h-5 w-5" />
               </Button>
@@ -106,7 +109,7 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
       </header>
 
       {/* Search bar */}
-      <div className="border-b border-border bg-sidebar px-3 py-2">
+      <div className="border-b border-[#e9edef] bg-[#f0f2f5] px-3 py-2 dark:border-[#2a3942] dark:bg-[#111b21]">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -114,13 +117,14 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search or start new chat"
-            className="input-whatsapp h-[35px] w-full rounded-lg bg-muted/70 pl-10 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="input-whatsapp h-[35px] w-full rounded-lg bg-white pl-10 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30 dark:bg-[#202c33]"
           />
           <Button
             type="button"
             variant="ghost"
             size="icon"
             className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground"
+            aria-label="Filter conversations"
           >
             <Filter className="h-4 w-4" />
           </Button>
@@ -128,7 +132,7 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
       </div>
 
       {/* Filter tabs - WhatsApp style */}
-      <div className="flex gap-2 border-b border-border bg-sidebar px-3 py-2">
+      <div className="flex gap-2 border-b border-[#e9edef] bg-white px-3 py-2 dark:border-[#2a3942] dark:bg-[#111b21]">
         <button className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
           All
         </button>
@@ -169,7 +173,7 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-[#f0f2f5] dark:divide-[#202c33]">
             {filteredConversations.map((conversation) => (
               <ConversationItem
                 key={conversation.id}

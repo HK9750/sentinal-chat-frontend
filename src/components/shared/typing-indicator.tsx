@@ -28,7 +28,11 @@ interface TypingBubbleProps {
 export function TypingBubble({ className }: TypingBubbleProps) {
   return (
     <div className={cn('flex justify-start px-1 py-0.5', className)}>
-      <div className="relative max-w-[65%] lg:max-w-[45%]">
+      <div className="mr-2 flex h-8 w-8 shrink-0 items-end">
+        <span aria-hidden className="block h-8 w-8" />
+      </div>
+
+      <div className="relative max-w-[82%] md:max-w-[76%] lg:max-w-[66%]">
         {/* WhatsApp style typing bubble with tail */}
         <div className="relative rounded-lg rounded-tl-none bg-message-in px-3 py-2 shadow-sm">
           {/* Tail */}

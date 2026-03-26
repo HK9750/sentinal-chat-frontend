@@ -1,5 +1,5 @@
 import { clsx, type ClassValue } from "clsx";
-import { formatDistanceToNowStrict, isToday, isYesterday } from "date-fns";
+import { isToday, isYesterday } from "date-fns";
 import { twMerge } from "tailwind-merge";
 import type {
   Conversation,
@@ -52,11 +52,35 @@ export function formatCalendarLabel(value?: string | Date | null): string {
 
 export function formatRelativeTime(value?: string | Date | null): string {
   if (!value) {
-    return "just now";
+    return "";
   }
 
   const date = value instanceof Date ? value : new Date(value);
-  return formatDistanceToNowStrict(date, { addSuffix: true });
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  if (isToday(date)) {
+    return formatTimestamp(date);
+  }
+
+  if (isYesterday(date)) {
+    return "Yesterday";
+  }
+
+  const diffMs = Date.now() - date.getTime();
+  const withinWeek = diffMs >= 0 && diffMs < 7 * 24 * 60 * 60 * 1000;
+
+  if (withinWeek) {
+    return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date);
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  }).format(date);
 }
 
 export function formatBytes(value: number): string {

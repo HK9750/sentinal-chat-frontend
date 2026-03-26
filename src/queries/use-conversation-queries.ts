@@ -65,13 +65,6 @@ export function useCreateConversationMutation() {
 
 export const useCreateConversation = useCreateConversationMutation;
 
-export function useGetOrCreateDM() {
-  return useMutation({
-    mutationFn: async ({ targetUserId }: { currentUserId: string; targetUserId: string }) =>
-      createConversation({ type: 'DM', participant_ids: [targetUserId] }),
-  });
-}
-
 export function useAddParticipantMutation(conversationId: string) {
   const queryClient = useQueryClient();
 

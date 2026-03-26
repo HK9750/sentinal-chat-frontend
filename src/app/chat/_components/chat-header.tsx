@@ -81,7 +81,7 @@ export function ChatHeader({
   const isTyping = typingUserIds.length > 0;
 
   return (
-    <header className="flex h-[60px] shrink-0 items-center gap-3 bg-muted/50 px-4">
+    <header className="flex h-[59px] shrink-0 items-center gap-3 border-b border-[#e9edef] bg-[#f0f2f5] px-4 dark:border-[#2a3942] dark:bg-[#202c33]">
       {/* Back button (mobile) */}
       {onBack && (
         <Button
@@ -90,6 +90,7 @@ export function ChatHeader({
           size="icon"
           className="h-10 w-10 shrink-0 rounded-full lg:hidden"
           onClick={onBack}
+          aria-label="Back to conversations"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
@@ -107,14 +108,14 @@ export function ChatHeader({
         />
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-medium text-foreground">{title}</p>
+          <p className="truncate text-[16px] font-medium text-foreground">{title}</p>
           <p
-            className={`truncate text-xs ${
+            className={`truncate text-[13px] ${
               isTyping
-                ? 'text-primary'
+                ? 'text-[#00a884]'
                 : isOnline
-                  ? 'text-primary'
-                  : 'text-muted-foreground'
+                  ? 'text-[#00a884]'
+                  : 'text-[#667781] dark:text-[#8696a0]'
             }`}
           >
             {subtitle}
@@ -133,6 +134,7 @@ export function ChatHeader({
               className="h-10 w-10 rounded-full text-muted-foreground hover:bg-muted"
               onClick={() => onStartCall('VIDEO')}
               disabled={!callsEnabled}
+              aria-label="Start video call"
             >
               <Video className="h-5 w-5" />
             </Button>
@@ -143,6 +145,7 @@ export function ChatHeader({
               className="h-10 w-10 rounded-full text-muted-foreground hover:bg-muted"
               onClick={() => onStartCall('AUDIO')}
               disabled={!callsEnabled}
+              aria-label="Start voice call"
             >
               <Phone className="h-5 w-5" />
             </Button>
@@ -156,6 +159,7 @@ export function ChatHeader({
           className="h-10 w-10 rounded-full text-muted-foreground hover:bg-muted"
           onClick={onOpenSearch}
           disabled={actionsDisabled}
+          aria-label="Search messages"
         >
           <Search className="h-5 w-5" />
         </Button>
@@ -167,6 +171,7 @@ export function ChatHeader({
               variant="ghost"
               size="icon"
               className="h-10 w-10 rounded-full text-muted-foreground hover:bg-muted"
+              aria-label="Conversation actions"
             >
               <MoreVertical className="h-5 w-5" />
             </Button>

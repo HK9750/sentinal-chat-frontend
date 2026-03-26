@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
+import { resolveRedirectPath } from '@/lib/routes';
 import { registerSchema } from '@/lib/validators';
 import { useRegister } from '@/queries/use-auth-queries';
 import type { RegisterRequest } from '@/types';
@@ -55,8 +56,7 @@ export function RegisterForm() {
   const searchParams = useSearchParams();
   const registerMutation = useRegister();
   const [formError, setFormError] = useState<string | null>(null);
-  const redirectTarget = searchParams.get('redirect');
-  const redirectTo = redirectTarget && redirectTarget.startsWith('/') ? redirectTarget : '/chat';
+  const redirectTo = resolveRedirectPath(searchParams.get('redirect'));
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {

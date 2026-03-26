@@ -1,68 +1,6 @@
-import { DEFAULT_PREFERENCES, STORAGE_KEYS } from '@/lib/constants';
 import { listSessions } from '@/services/auth-service';
 import { listConversations } from '@/services/conversation-service';
-import type { AuthSession, LocalUserPreferences, ProfileMetrics } from '@/types';
-
-interface StoredUiState {
-  state?: {
-    preferences?: Partial<LocalUserPreferences>;
-  };
-}
-
-function canUseStorage(): boolean {
-  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
-}
-
-export function readLocalPreferences(): LocalUserPreferences {
-  if (!canUseStorage()) {
-    return DEFAULT_PREFERENCES;
-  }
-
-  const value = window.localStorage.getItem(STORAGE_KEYS.ui);
-
-  if (!value) {
-    return DEFAULT_PREFERENCES;
-  }
-
-  try {
-    const parsed = JSON.parse(value) as StoredUiState | Partial<LocalUserPreferences>;
-    const preferences = 'state' in parsed ? parsed.state?.preferences : parsed;
-    return { ...DEFAULT_PREFERENCES, ...(preferences ?? {}) };
-  } catch {
-    return DEFAULT_PREFERENCES;
-  }
-}
-
-export function writeLocalPreferences(nextPreferences: LocalUserPreferences): LocalUserPreferences {
-  if (canUseStorage()) {
-    const existing = window.localStorage.getItem(STORAGE_KEYS.ui);
-
-    try {
-      const parsed = existing ? (JSON.parse(existing) as StoredUiState) : undefined;
-      window.localStorage.setItem(
-        STORAGE_KEYS.ui,
-        JSON.stringify({
-          ...(parsed ?? {}),
-          state: {
-            ...(parsed?.state ?? {}),
-            preferences: nextPreferences,
-          },
-        })
-      );
-    } catch {
-      window.localStorage.setItem(
-        STORAGE_KEYS.ui,
-        JSON.stringify({
-          state: {
-            preferences: nextPreferences,
-          },
-        })
-      );
-    }
-  }
-
-  return nextPreferences;
-}
+import type { AuthSession, ProfileMetrics } from '@/types';
 
 export async function getProfileMetrics(): Promise<ProfileMetrics> {
   const [sessionsPayload, conversationPayload] = await Promise.all([
@@ -79,9 +17,7 @@ export async function getProfileMetrics(): Promise<ProfileMetrics> {
 export async function updateProfile(input: {
   display_name?: string;
   email?: string;
-  username?: string;
   phone_number?: string;
-  avatar_url?: string | null;
 }): Promise<typeof input> {
   return input;
 }

@@ -3,7 +3,8 @@
 import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { updateConversationPreview, upsertMessage } from '@/lib/chat-helpers';
-import { SOCKET_EVENT } from '@/lib/constants';
+import { MESSAGE_SEND_ACK_TIMEOUT_MS, SOCKET_EVENT } from '@/lib/constants';
+import { schedulePendingMessageTimeout } from '@/lib/pending-message-timeouts';
 import { createClientMessageId, createMessageRequestId, createRequestId } from '@/lib/request-id';
 import {
   buildDeleteMessageFrame,
@@ -46,6 +47,44 @@ export function useMessageChannel(conversationId?: string | null) {
         queryClient.setQueryData<ConversationListPayload>(queryKeys.conversations, (payload) =>
           updateConversationPreview(payload, conversationId, optimistic)
         );
+
+        schedulePendingMessageTimeout({
+          conversationId,
+          clientMessageId,
+          timeoutMs: MESSAGE_SEND_ACK_TIMEOUT_MS,
+          onTimeout: () => {
+            queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (current) =>
+              (current ?? []).map((message) =>
+                message.client_message_id === clientMessageId && message.client_status === 'PENDING'
+                  ? { ...message, client_status: 'FAILED' as const }
+                  : message
+              )
+            );
+
+            queryClient.setQueryData<ConversationListPayload>(queryKeys.conversations, (payload) => {
+              if (!payload) {
+                return payload;
+              }
+
+              const optimisticMessageId = `optimistic:${clientMessageId}`;
+
+              return {
+                ...payload,
+                items: payload.items.map((conversation) =>
+                  conversation.id === conversationId && conversation.last_message?.id === optimisticMessageId
+                    ? {
+                        ...conversation,
+                        last_message: {
+                          ...conversation.last_message,
+                          client_status: 'FAILED',
+                        },
+                      }
+                    : conversation
+                ),
+              };
+            });
+          },
+        });
       }
 
       socket.send(

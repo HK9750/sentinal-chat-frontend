@@ -18,6 +18,7 @@ import {
 } from "@/lib/chat-helpers";
 import { SOCKET_EVENT } from "@/lib/constants";
 import { setServerDeviceId } from "@/lib/device";
+import { clearPendingMessageTimeout } from "@/lib/pending-message-timeouts";
 import { parseMessageRequestId } from "@/lib/request-id";
 import { queryKeys } from "@/queries/query-keys";
 import {
@@ -59,9 +60,21 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
         return;
       }
 
-      const latest = [...messages].sort((a, b) => b.seq_id - a.seq_id)[0];
-      if (!latest) {
-        return;
+      let latest = messages[0];
+      for (let index = 1; index < messages.length; index += 1) {
+        if (messages[index].seq_id > latest.seq_id) {
+          latest = messages[index];
+        }
+      }
+
+      let latestOwn: Message | undefined;
+      if (currentUserId) {
+        for (let index = messages.length - 1; index >= 0; index -= 1) {
+          if (messages[index].sender_id === currentUserId) {
+            latestOwn = messages[index];
+            break;
+          }
+        }
       }
 
       queryClient.setQueryData<ConversationListPayload>(
@@ -70,12 +83,6 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           if (!convs) {
             return convs;
           }
-
-          const latestOwn = currentUserId
-            ? [...messages]
-                .filter((m) => m.sender_id === currentUserId)
-                .sort((a, b) => b.seq_id - a.seq_id)[0]
-            : undefined;
 
           return {
             ...convs,
@@ -214,6 +221,9 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           if (!message?.conversation_id) break;
 
           const normalized = normalizeMessage(message as never);
+          if (normalized.client_message_id) {
+            clearPendingMessageTimeout(normalized.conversation_id, normalized.client_message_id);
+          }
           const currentMessage = queryClient
             .getQueryData<
               Message[]
@@ -345,6 +355,7 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           queryClient.setQueryData<Message[]>(
             queryKeys.messages(request.conversationId),
             (current) => {
+              clearPendingMessageTimeout(request.conversationId, request.clientMessageId);
               const next = (current ?? []).map((msg) =>
                 msg.client_message_id === request.clientMessageId
                   ? { ...msg, client_status: "FAILED" as const }

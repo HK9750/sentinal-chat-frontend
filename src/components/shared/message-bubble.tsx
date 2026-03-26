@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { AudioPlayer } from '@/components/shared/audio-player';
 import { MessageActions } from '@/components/shared/message-actions';
 import { MessageReactions } from '@/components/shared/message-reactions';
+import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
 import { cn, formatBytes, formatTimestamp, isImageMimeType } from '@/lib/utils';
 import { getMessagePrimaryText } from '@/lib/message-payload';
@@ -30,8 +31,10 @@ interface MessageBubbleProps {
 export function MessageBubble({
   message,
   isOwn,
+  showAvatar = false,
   showTail = false,
   authorLabel,
+  avatarUrl,
   currentUserId,
   replyToMessage,
   onPlayed,
@@ -41,6 +44,7 @@ export function MessageBubble({
   onReact,
 }: MessageBubbleProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [actionsVisible, setActionsVisible] = useState(false);
 
   const markViewed = (attachmentId: string, viewOnce: boolean) => {
     if (!viewOnce) {
@@ -124,7 +128,22 @@ export function MessageBubble({
   // Show deleted message placeholder
   if (isDeleted) {
     return (
-      <div className={cn('flex px-1 py-0.5', isOwn ? 'justify-end' : 'justify-start')}>
+      <div className={cn('flex items-end px-1 py-0.5', isOwn ? 'justify-end' : 'justify-start')}>
+        {!isOwn && (
+          <div className="mr-2 flex h-8 w-8 shrink-0 items-end">
+            {showAvatar ? (
+              <UserAvatar
+                src={avatarUrl}
+                alt={authorLabel ?? 'Participant'}
+                fallback={authorLabel?.[0] ?? 'U'}
+                size="sm"
+                className="h-8 w-8"
+              />
+            ) : (
+              <span aria-hidden className="block h-8 w-8" />
+            )}
+          </div>
+        )}
         <div
           className={cn(
             'rounded-lg border border-dashed px-3 py-2',
@@ -144,13 +163,40 @@ export function MessageBubble({
 
   return (
     <div
-      className={cn('group relative flex px-1 py-0.5', isOwn ? 'justify-end' : 'justify-start')}
+      className={cn(
+        'group relative flex items-end px-1 py-0.5',
+        isOwn ? 'justify-end' : 'justify-start'
+      )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="relative max-w-[65%] lg:max-w-[45%]">
+      {!isOwn && (
+        <div className="mr-2 flex h-8 w-8 shrink-0 items-end">
+          {showAvatar ? (
+            <UserAvatar
+              src={avatarUrl}
+              alt={authorLabel ?? 'Participant'}
+              fallback={authorLabel?.[0] ?? 'U'}
+              size="sm"
+              className="h-8 w-8"
+            />
+          ) : (
+            <span aria-hidden className="block h-8 w-8" />
+          )}
+        </div>
+      )}
+
+      <div
+        className="relative max-w-[82%] md:max-w-[76%] lg:max-w-[66%]"
+        onFocusCapture={() => setActionsVisible(true)}
+        onBlurCapture={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            setActionsVisible(false);
+          }
+        }}
+      >
         {/* Message actions - appear on hover */}
-        {isHovered && onReply && onEdit && onDelete && onReact && (
+        {(isHovered || actionsVisible) && onReply && onEdit && onDelete && onReact && (
           <MessageActions
             message={message}
             isOwn={isOwn}
@@ -167,7 +213,7 @@ export function MessageBubble({
         )}
 
         {/* Message bubble - WhatsApp style */}
-        <div
+        <article
           className={cn(
             'relative rounded-lg px-2.5 py-1.5 shadow-sm',
             isOwn ? 'bg-message-out' : 'bg-message-in',
@@ -175,6 +221,7 @@ export function MessageBubble({
             showTail && isOwn && 'rounded-tr-none',
             showTail && !isOwn && 'rounded-tl-none'
           )}
+          tabIndex={0}
         >
           {/* Tail SVG */}
           {showTail && (
@@ -315,7 +362,7 @@ export function MessageBubble({
           </div>
 
           {/* Timestamp and receipt */}
-          <div className="mt-0.5 flex items-center justify-end gap-1">
+          <div className="mt-0.5 flex items-center justify-end gap-1 pl-3">
             {message.edited_at && (
               <span className="text-[11px] text-muted-foreground">edited</span>
             )}
@@ -324,7 +371,7 @@ export function MessageBubble({
             </span>
             {receiptIcon}
           </div>
-        </div>
+        </article>
 
         {/* Reactions display */}
         {hasReactions && (

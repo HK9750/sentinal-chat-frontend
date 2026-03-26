@@ -19,7 +19,6 @@ type SocketState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disco
 export function useSocketConnection() {
   const token = useAuthStore((state) => state.tokens?.access_token);
   const [state, setState] = useState<SocketState>('idle');
-  const [lastEnvelope, setLastEnvelope] = useState<SocketEnvelope | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -126,7 +125,7 @@ export function useSocketConnection() {
 
     setState('connecting');
 
-    const socket = new WebSocket(buildSocketUrl(env.socketUrl, token));
+    const socket = new WebSocket(buildSocketUrl(env.socketUrl));
     socketRef.current = socket;
 
     socket.onopen = () => {
@@ -154,7 +153,6 @@ export function useSocketConnection() {
       }
 
       lastActivityAtRef.current = Date.now();
-      setLastEnvelope(envelope);
 
       for (const listener of listenersRef.current) {
         listener(envelope);
@@ -192,6 +190,7 @@ export function useSocketConnection() {
 
   const disconnect = useCallback(() => {
     clearTimers();
+    messageQueueRef.current = [];
     manualCloseRef.current = true;
     socketRef.current?.close();
     socketRef.current = null;
@@ -243,12 +242,11 @@ export function useSocketConnection() {
     () => ({
       state,
       connected: state === 'connected',
-      lastEnvelope,
       send,
       connect,
       disconnect,
       subscribe,
     }),
-    [connect, disconnect, lastEnvelope, send, state, subscribe]
+    [connect, disconnect, send, state, subscribe]
   );
 }

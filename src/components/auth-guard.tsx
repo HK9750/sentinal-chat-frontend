@@ -3,7 +3,6 @@
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Spinner } from '@/components/shared/spinner';
-import { getAuthCookie } from '@/lib/cookies';
 import { useAuthStore } from '@/stores/auth-store';
 
 function FullscreenLoader() {
@@ -17,11 +16,9 @@ function FullscreenLoader() {
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const isHydrated = useAuthStore((state) => state.isHydrated);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const tokens = useAuthStore((state) => state.tokens);
   const router = useRouter();
   const pathname = usePathname();
-  const hasCookieSession = Boolean(getAuthCookie());
-  const isRestoringSession = !isHydrated || (!isAuthenticated && hasCookieSession && !tokens);
+  const isRestoringSession = !isHydrated;
 
   useEffect(() => {
     if (isRestoringSession || isAuthenticated) {
@@ -46,10 +43,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 export function GuestGuard({ children }: { children: React.ReactNode }) {
   const isHydrated = useAuthStore((state) => state.isHydrated);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const tokens = useAuthStore((state) => state.tokens);
   const router = useRouter();
-  const hasCookieSession = Boolean(getAuthCookie());
-  const isRestoringSession = !isHydrated || (!isAuthenticated && hasCookieSession && !tokens);
+  const isRestoringSession = !isHydrated;
 
   useEffect(() => {
     if (isRestoringSession || !isAuthenticated) {

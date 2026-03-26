@@ -15,6 +15,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/queries/query-keys';
 import type { Message, Conversation, ConversationListPayload } from '@/types';
 
+const EMPTY_TYPING_USERS: Record<string, number> = {};
+const EMPTY_MESSAGES: Message[] = [];
+
 interface MessageListProps {
   conversationId: string;
   currentUserId: string | undefined;
@@ -34,25 +37,26 @@ export function MessageList({
 }: MessageListProps) {
   const conversationQuery = useConversation(conversationId);
   const messagesRaw = useMessages(conversationId);
-  const messagesQuery = useMemo(() => ({
-    items: messagesRaw.data ?? [],
-    isLoading: messagesRaw.isLoading,
-    isError: messagesRaw.isError,
-  }), [messagesRaw.data, messagesRaw.isLoading, messagesRaw.isError]);
+  const messages = useMemo(() => messagesRaw.data ?? EMPTY_MESSAGES, [messagesRaw.data]);
 
   const queryClient = useQueryClient();
   const { sendDeliveredReceipt, sendReadReceipt, sendPlayedReceipt } =
     useReceiptChannel(conversationId);
   const { deleteMessage, reactToMessage } = useMessageChannel(conversationId);
-  const typingByConversation = useChatStore((state) => state.typingByConversation);
+  const typingUsersByConversation = useChatStore(
+    (state) => state.typingByConversation[conversationId] ?? EMPTY_TYPING_USERS
+  );
   const deliveredSetRef = useRef(new Set<string>());
   const readSetRef = useRef(new Set<string>());
 
   // Get typing users for this conversation (excluding current user)
   const typingUserIds = useMemo(() => {
-    const typingUsers = typingByConversation[conversationId] ?? {};
-    return Object.keys(typingUsers).filter((userId) => userId !== currentUserId);
-  }, [conversationId, currentUserId, typingByConversation]);
+    return Object.keys(typingUsersByConversation).filter((userId) => userId !== currentUserId);
+  }, [currentUserId, typingUsersByConversation]);
+
+  const messageById = useMemo(() => {
+    return new Map(messages.map((message) => [message.id, message]));
+  }, [messages]);
 
   useEffect(() => {
     deliveredSetRef.current.clear();
@@ -60,28 +64,60 @@ export function MessageList({
   }, [conversationId]);
 
   useEffect(() => {
-    if (scrollRef.current && messagesQuery.items.length > 0) {
-      const scroller = scrollRef.current.parentElement;
-      const nearBottom = scroller
-        ? scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 160
-        : true;
+    if (!scrollRef.current || messages.length === 0) {
+      return;
+    }
 
-      if (!nearBottom) {
+    const scroller = scrollRef.current.parentElement;
+    if (!scroller) {
+      scrollRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      return;
+    }
+
+    const threshold = 120;
+    const nearBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight <= threshold;
+    if (!nearBottom) {
+      return;
+    }
+
+    scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'auto' });
+  }, [messages.length, scrollRef]);
+
+  useEffect(() => {
+    const scroller = scrollRef.current?.parentElement;
+    if (!scroller) {
+      return;
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') {
         return;
       }
 
-      scrollRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }
-  }, [messagesQuery.items.length, scrollRef]);
+      const threshold = 120;
+      const nearBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight <= threshold;
+      if (nearBottom) {
+        scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'auto' });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [scrollRef]);
 
   useEffect(() => {
-    const receivable = messagesQuery.items.filter(
+    const receivable = messages.filter(
       (message) => message.sender_id !== currentUserId && !message.deleted_at
     );
 
-    const deliverableIds = receivable
-      .map((message) => message.id)
-      .filter((messageId) => !deliveredSetRef.current.has(messageId));
+    const deliverableIds: string[] = [];
+    for (const message of receivable) {
+      if (!deliveredSetRef.current.has(message.id)) {
+        deliverableIds.push(message.id);
+      }
+    }
 
     if (deliverableIds.length > 0) {
       deliverableIds.forEach((messageId) => deliveredSetRef.current.add(messageId));
@@ -98,7 +134,7 @@ export function MessageList({
     const unreadCount = conversation.unread_count;
 
     // Determine the highest seq_id of the incoming messages we currently see
-    const latestIncoming = [...receivable].reverse().find((m) => m);
+    const latestIncoming = receivable[receivable.length - 1];
 
     // We send a read receipt if there are global unread messages OR we have local unread messages
     const hasUnreadLocally = latestIncoming && !readSetRef.current.has(latestIncoming.id);
@@ -155,7 +191,14 @@ export function MessageList({
         }
       }
     }
-  }, [currentUserId, messagesQuery.items, sendDeliveredReceipt, sendReadReceipt, conversationQuery.data, queryClient]);
+  }, [
+    currentUserId,
+    messages,
+    sendDeliveredReceipt,
+    sendReadReceipt,
+    conversationQuery.data,
+    queryClient,
+  ]);
 
   const setMessageRef = useCallback(
     (messageId: string, element: HTMLDivElement | null) => {
@@ -174,10 +217,9 @@ export function MessageList({
   }, [conversationQuery.data?.participants]);
 
   const groupedMessages = useMemo(() => {
-    const groups: Array<{ label: string; items: typeof messagesQuery.items }> = [];
-    const items = messagesQuery.items;
+    const groups: Array<{ label: string; items: typeof messages }> = [];
 
-    for (const item of items) {
+    for (const item of messages) {
       const label = formatCalendarLabel(item.created_at);
       const lastGroup = groups[groups.length - 1];
 
@@ -190,7 +232,7 @@ export function MessageList({
     }
 
     return groups;
-  }, [messagesQuery]);
+  }, [messages]);
 
   const handleDelete = useCallback(
     (message: Message) => {
@@ -206,7 +248,7 @@ export function MessageList({
     [reactToMessage]
   );
 
-  if (messagesQuery.isLoading || conversationQuery.isLoading) {
+  if (messagesRaw.isLoading || conversationQuery.isLoading) {
     return (
       <div className="flex-1 overflow-y-auto px-4 py-4 lg:px-16">
         <MessageListSkeleton />
@@ -229,7 +271,7 @@ export function MessageList({
     );
   }
 
-  if (messagesQuery.isError) {
+  if (messagesRaw.isError) {
     return (
       <div className="flex flex-1 items-center justify-center px-6">
         <div className="text-center">
@@ -242,7 +284,7 @@ export function MessageList({
     );
   }
 
-  if (messagesQuery.items.length === 0) {
+  if (messages.length === 0) {
     const otherParticipant = conversationQuery.data
       ? getOtherParticipant(conversationQuery.data, currentUserId)
       : null;
@@ -269,8 +311,8 @@ export function MessageList({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4 lg:px-16">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-1">
+    <div className="message-scroll flex-1 overflow-y-auto px-2 py-3 md:px-4 lg:px-10">
+      <div className="mx-auto flex w-full max-w-[980px] flex-col gap-1">
         {/* Encryption notice at top */}
         <div className="mb-4 flex items-center justify-center gap-2 rounded-lg bg-accent/30 px-4 py-2 text-center text-xs text-muted-foreground">
           <Lock className="h-3 w-3" />
@@ -280,7 +322,7 @@ export function MessageList({
         {groupedMessages.map((group) => (
           <div key={group.label} className="space-y-1">
             {/* Date separator - WhatsApp style */}
-            <div className="sticky top-2 z-10 flex justify-center py-2">
+            <div className="sticky top-2 z-10 flex justify-center py-1.5">
               <span className="rounded-lg bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm">
                 {group.label}
               </span>
@@ -290,11 +332,13 @@ export function MessageList({
             <div className="space-y-0.5">
               {group.items.map((message, index) => {
                 const previous = group.items[index - 1];
+                const next = group.items[index + 1];
                 const isOwn = message.sender_id === currentUserId;
                 const isFirstFromSender = previous?.sender_id !== message.sender_id;
+                const showAvatar = !isOwn && (next?.sender_id !== message.sender_id);
                 const author = authorLookup.get(message.sender_id);
                 const parentMessage = message.reply_to_msg_id
-                  ? messagesQuery.items.find((m) => m.id === message.reply_to_msg_id)
+                  ? messageById.get(message.reply_to_msg_id)
                   : undefined;
 
                 return (
@@ -305,8 +349,10 @@ export function MessageList({
                     <MessageBubble
                       message={message}
                       isOwn={isOwn}
+                      showAvatar={showAvatar}
                       showTail={isFirstFromSender}
                       authorLabel={author?.display_name ?? author?.username ?? 'Member'}
+                      avatarUrl={author?.avatar_url}
                       currentUserId={currentUserId}
                       replyToMessage={parentMessage}
                       onPlayed={sendPlayedReceipt}
@@ -323,7 +369,7 @@ export function MessageList({
         ))}
 
         {/* Typing indicator */}
-        {typingUserIds.length > 0 && <TypingBubble />}
+        {typingUserIds.length > 0 && <TypingBubble className="pl-10" />}
 
         <div ref={scrollRef} />
       </div>

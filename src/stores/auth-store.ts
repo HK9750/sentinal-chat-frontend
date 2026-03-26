@@ -1,8 +1,8 @@
 'use client';
 
 import { create } from 'zustand';
-import { clearAuthCookie, setAuthCookie } from '@/lib/cookies';
 import { clearDeviceState } from '@/lib/device';
+import { clearAllPendingMessageTimeouts } from '@/lib/pending-message-timeouts';
 import type { AuthPayload, AuthSession, AuthTokens, AuthUser } from '@/types';
 
 type AuthStatus = 'anonymous' | 'authenticated';
@@ -43,12 +43,9 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: true,
         isHydrated: true,
       });
-
-      setAuthCookie(payload.tokens.access_token, payload.tokens.expires_at);
     },
     updateTokens: (tokens) => {
       set({ tokens, status: 'authenticated', isAuthenticated: true, isHydrated: true });
-      setAuthCookie(tokens.access_token, tokens.expires_at);
     },
     updateUser: (patch) => {
       set((state) => ({
@@ -61,16 +58,16 @@ export const useAuthStore = create<AuthState>()(
       }));
     },
     clearAuth: () => {
-      clearAuthCookie();
       clearDeviceState();
+      clearAllPendingMessageTimeouts();
       set({
         ...anonymousState,
         isHydrated: true,
       });
     },
     resetAuth: () => {
-      clearAuthCookie();
       clearDeviceState();
+      clearAllPendingMessageTimeouts();
       set({
         ...anonymousState,
         isHydrated: true,

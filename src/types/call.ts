@@ -25,6 +25,7 @@ export interface ActiveCall {
   initiator_id?: string;
   status: CallStatus;
   started_at?: string;
+  connected_at?: string;
   ended_reason?: string;
   participant_ids?: string[];
 }

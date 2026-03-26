@@ -296,7 +296,7 @@ export function MessageInput({
   const hasText = text.trim().length > 0;
 
   return (
-    <div className="shrink-0 bg-muted/50 px-4 py-3">
+    <div className="shrink-0 border-t border-[#e9edef] bg-[#f0f2f5] px-3 py-2 dark:border-[#2a3942] dark:bg-[#202c33]">
       <UploadProgressList conversationId={conversationId} />
 
       {/* Reply/Edit context bar */}
@@ -334,13 +334,14 @@ export function MessageInput({
       )}
 
       {/* Input area - WhatsApp style */}
-      <form onSubmit={handleSubmit} className="flex items-end gap-2">
+      <form onSubmit={handleSubmit} className="flex items-end gap-1.5">
         {/* Emoji button */}
         <Button
           type="button"
           variant="ghost"
           size="icon"
           className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:bg-muted"
+          aria-label="Open emoji picker"
         >
           <Smile className="h-6 w-6" />
         </Button>
@@ -393,7 +394,7 @@ export function MessageInput({
                   ? "Type a reply"
                   : "Type a message"
             }
-            className="h-10 w-full rounded-lg bg-card px-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="h-10 w-full rounded-full bg-white px-4 text-[15px] focus:outline-none focus:ring-1 focus:ring-primary/30 dark:bg-[#2a3942]"
           />
         </div>
 
@@ -407,6 +408,7 @@ export function MessageInput({
               isEditing && "bg-amber-500 hover:bg-amber-600"
             )}
             disabled={!hasText || isBusy}
+            aria-label={isEditing ? "Save edited message" : "Send message"}
           >
             {isBusy ? (
               <LoaderCircle className="h-5 w-5 animate-spin" />
@@ -426,6 +428,7 @@ export function MessageInput({
             )}
             onClick={handleVoiceToggle}
             disabled={voiceUpload.isPending}
+            aria-label={voiceNote.isRecording ? "Stop recording and send" : "Record voice message"}
           >
             {voiceNote.isRecording ? (
               <StopCircle className="h-5 w-5" />

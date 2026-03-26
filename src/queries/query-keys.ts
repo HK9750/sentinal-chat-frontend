@@ -1,5 +1,6 @@
 export const queryKeys = {
-  sessions: ['auth', 'sessions'] as const,
+  sessionsPayload: ['auth', 'sessions', 'payload'] as const,
+  sessionsItems: ['auth', 'sessions', 'items'] as const,
   contacts: ['users', 'contacts'] as const,
   userSearch: (query: string) => ['users', 'search', query] as const,
   conversations: ['conversations'] as const,

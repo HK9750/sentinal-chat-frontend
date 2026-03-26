@@ -71,6 +71,7 @@ export function MessageActions({
               size="icon"
               className="size-8 rounded-lg hover:bg-muted"
               onClick={() => setShowReactions(!showReactions)}
+              aria-label="Add reaction"
             >
               <SmilePlus className="size-4" />
             </Button>
@@ -95,6 +96,7 @@ export function MessageActions({
                   onReact(message, emoji);
                   setShowReactions(false);
                 }}
+                aria-label={`React with ${emoji}`}
               >
                 {emoji}
               </button>
@@ -112,6 +114,7 @@ export function MessageActions({
             size="icon"
             className="size-8 rounded-lg hover:bg-muted"
             onClick={() => onReply(message)}
+            aria-label="Reply to message"
           >
             <CornerUpLeft className="size-4" />
           </Button>
@@ -129,6 +132,7 @@ export function MessageActions({
                 variant="ghost"
                 size="icon"
                 className="size-8 rounded-lg hover:bg-muted"
+                aria-label="More message actions"
               >
                 <MoreVertical className="size-4" />
               </Button>

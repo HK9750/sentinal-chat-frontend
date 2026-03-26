@@ -7,9 +7,7 @@ import { queryKeys } from '@/queries/query-keys';
 import {
   getProfileMetrics,
   mapSessionsToDevices,
-  readLocalPreferences,
   updateProfile,
-  writeLocalPreferences,
 } from '@/services/user-service';
 import { listSessions } from '@/services/auth-service';
 import { addContact, listContacts, removeContact, searchUsers } from '@/services/user-service-api';
@@ -24,29 +22,8 @@ export function useProfileMetricsQuery() {
 
 export function useDevicesQuery() {
   return useQuery({
-    queryKey: [...queryKeys.sessions, 'devices'],
+    queryKey: [...queryKeys.sessionsItems, 'devices'],
     queryFn: async () => mapSessionsToDevices((await listSessions()).items),
-  });
-}
-
-export function usePreferencesQuery() {
-  return useQuery({
-    queryKey: ['preferences'],
-    queryFn: () => readLocalPreferences(),
-    initialData: readLocalPreferences(),
-  });
-}
-
-export function useUpdatePreferencesMutation() {
-  const setPreference = useUiStore((state) => state.setPreference);
-
-  return useMutation({
-    mutationFn: async (preferences: LocalUserPreferences) => writeLocalPreferences(preferences),
-    onSuccess: (preferences: LocalUserPreferences) => {
-      for (const [key, value] of Object.entries(preferences)) {
-        setPreference(key as keyof LocalUserPreferences, value as LocalUserPreferences[keyof LocalUserPreferences]);
-      }
-    },
   });
 }
 
@@ -124,13 +101,11 @@ export function useUserSettings() {
 }
 
 export function useUpdateSettings() {
+  const preferences = useUiStore((state) => state.preferences);
   const setPreference = useUiStore((state) => state.setPreference);
 
   return useMutation({
-    mutationFn: async (payload: Partial<LocalUserPreferences>) => {
-      const merged = { ...readLocalPreferences(), ...payload };
-      return writeLocalPreferences(merged);
-    },
+    mutationFn: async (payload: Partial<LocalUserPreferences>) => ({ ...preferences, ...payload }),
     onSuccess: (preferences) => {
       for (const [key, value] of Object.entries(preferences)) {
         setPreference(key as keyof LocalUserPreferences, value as LocalUserPreferences[keyof LocalUserPreferences]);
@@ -145,7 +120,7 @@ export function useDevices() {
 
 export function useSessions() {
   return useQuery({
-    queryKey: queryKeys.sessions,
+    queryKey: queryKeys.sessionsItems,
     queryFn: async () => (await listSessions()).items,
     initialData: [] as AuthSession[],
   });

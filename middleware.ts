@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { resolveRedirectPath } from '@/lib/routes';
 
 const ACCESS_COOKIE = 'access_token';
 const REFRESH_COOKIE = 'refresh_token';
@@ -52,8 +53,7 @@ export function middleware(request: NextRequest) {
   const isProtected = isProtectedRoute(pathname);
 
   if (hasSession && (pathname === '/' || isAuthRoute(pathname))) {
-    const redirectParam = request.nextUrl.searchParams.get('redirect');
-    const target = redirectParam && redirectParam.startsWith('/') ? redirectParam : '/chat';
+    const target = resolveRedirectPath(request.nextUrl.searchParams.get('redirect'));
     return NextResponse.redirect(new URL(target, request.url));
   }
 

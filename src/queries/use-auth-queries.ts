@@ -2,7 +2,6 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getClientDeviceInput } from '@/lib/device';
-import { clearAuthCookie } from '@/lib/cookies';
 import {
   exchangeOAuthCode,
   getOAuthAuthorizeUrl,
@@ -68,7 +67,6 @@ export function useLogoutMutation() {
   return useMutation({
     mutationFn: (sessionId?: string) => logout(sessionId),
     onSettled: () => {
-      clearAuthCookie();
       clearAuth();
       queryClient.clear();
     },
@@ -84,7 +82,6 @@ export function useLogoutAllMutation() {
   return useMutation({
     mutationFn: () => logoutAll(),
     onSettled: () => {
-      clearAuthCookie();
       clearAuth();
       queryClient.clear();
     },
@@ -97,7 +94,7 @@ export function useSessionsQuery() {
   const isAuthenticated = useAuthStore((state) => state.status === 'authenticated');
 
   return useQuery({
-    queryKey: queryKeys.sessions,
+    queryKey: queryKeys.sessionsPayload,
     queryFn: () => listSessions(),
     enabled: isAuthenticated,
   });

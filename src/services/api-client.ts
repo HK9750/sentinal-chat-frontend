@@ -1,7 +1,6 @@
 import axios, { AxiosError, type AxiosProgressEvent, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 import { env } from '@/config/env';
 import { API_ROUTES } from '@/lib/constants';
-import { setAuthCookie } from '@/lib/cookies';
 import { useAuthStore } from '@/stores/auth-store';
 import type { ApiEnvelope, AuthPayload } from '@/types';
 
@@ -56,7 +55,6 @@ async function refreshAccessToken(): Promise<AuthPayload | null> {
       .then((response) => {
         const payload = response.data.data;
         useAuthStore.getState().setAuth(payload);
-        setAuthCookie(payload.tokens.access_token, payload.tokens.expires_at);
         return payload;
       })
       .catch(() => {

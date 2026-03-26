@@ -1,16 +1,25 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Phone, Video } from 'lucide-react';
+import { LoaderCircle, Phone, ShieldCheck, Video, X } from 'lucide-react';
 import { UserAvatar } from '@/components/shared/user-avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import { useCallSignaling } from '@/hooks/use-call-signaling';
 import { useConversation } from '@/queries/use-conversation-queries';
 import { useCallStore } from '@/stores/call-store';
@@ -93,32 +102,97 @@ export function CallModal({
     }
   };
 
+  const resolvedName = recipientName ?? otherParticipant?.display_name ?? 'Contact';
+  const subtitle = callType === 'VIDEO' ? 'Video call' : 'Voice call';
+  const helperCopy =
+    callType === 'VIDEO'
+      ? 'Your camera and microphone will be used.'
+      : 'Your microphone will be used.';
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => (!open ? onClose() : undefined)}>
-      <DialogContent className="border-border/70 bg-background/95 backdrop-blur-xl sm:max-w-md">
-        <DialogHeader className="items-center space-y-4 text-center">
-          <UserAvatar src={recipientAvatarUrl} alt={recipientName} fallback={recipientName?.[0] ?? 'C'} size="xl" />
-          <div>
-            <DialogTitle className="text-xl text-foreground">
-              Start {callType === 'VIDEO' ? 'video' : 'voice'} call
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              {recipientName ?? otherParticipant?.display_name ?? 'This contact'} will receive a ringing call in this direct chat.
-            </DialogDescription>
-          </div>
-        </DialogHeader>
+      <DialogContent
+        showCloseButton={false}
+        className="overflow-hidden border-border bg-card p-0 shadow-xl sm:max-w-[420px]"
+      >
+        <DialogTitle className="sr-only">Start {subtitle.toLowerCase()}</DialogTitle>
+        <DialogDescription className="sr-only">{resolvedName}</DialogDescription>
 
-        <div className="flex items-center justify-center gap-4 pt-4">
-          <Button type="button" variant="outline" onClick={onClose} className="rounded-full px-6">
-            Cancel
-          </Button>
-          <Button type="button" onClick={handleStart} disabled={!canStart} className="rounded-full px-6">
-            {callType === 'VIDEO' ? <Video className="size-4" /> : <Phone className="size-4" />}
-            {starting ? 'Calling...' : 'Start call'}
-          </Button>
-        </div>
+        <Card className="rounded-none border-0 bg-card py-0 shadow-none">
+          <CardHeader className="relative items-center overflow-hidden px-6 pb-4 pt-6 text-center">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-primary/10 to-transparent" />
 
-        {errorMessage ? <p className="text-center text-sm text-destructive">{errorMessage}</p> : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              onClick={onClose}
+              className="absolute right-4 top-4 rounded-full"
+              aria-label="Close call dialog"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+
+            <Badge
+              variant="secondary"
+              className="mb-3 rounded-full px-3 py-1 text-[11px] uppercase tracking-wide"
+            >
+              {subtitle}
+            </Badge>
+
+            <div className="rounded-full border border-border bg-background/60 p-1 shadow-sm">
+              <UserAvatar
+                src={recipientAvatarUrl ?? otherParticipant?.avatar_url}
+                alt={resolvedName}
+                fallback={resolvedName[0] ?? 'C'}
+                size="xl"
+                className="h-24 w-24"
+              />
+            </div>
+            <CardTitle className="mt-4 text-lg">{resolvedName}</CardTitle>
+            <CardDescription className="text-sm">{starting ? 'Dialing...' : helperCopy}</CardDescription>
+          </CardHeader>
+
+          <Separator />
+
+          <CardContent className="space-y-3 px-6 py-4 text-center">
+            <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+              End-to-end encrypted
+            </p>
+
+            {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
+          </CardContent>
+
+          <CardFooter className="justify-center gap-3 px-6 pb-6 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="h-11 min-w-[112px] rounded-full"
+              aria-label="Cancel"
+            >
+              Cancel
+            </Button>
+
+            <Button
+              type="button"
+              onClick={handleStart}
+              disabled={!canStart}
+              className="h-11 min-w-[160px] rounded-full"
+              aria-label={starting ? 'Starting call' : 'Start call'}
+            >
+              {starting ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : callType === 'VIDEO' ? (
+                <Video className="h-4 w-4" />
+              ) : (
+                <Phone className="h-4 w-4" />
+              )}
+              {starting ? 'Calling...' : 'Start call'}
+            </Button>
+          </CardFooter>
+        </Card>
       </DialogContent>
     </Dialog>
   );

@@ -265,20 +265,24 @@ export function CallController() {
               return;
             }
 
-            const connection = peerConnection;
+            const connection = useCallStore.getState().peerConnection;
             if (!connection || connection.remoteDescription) {
               removeSignal(pendingSignal.id);
               return;
             }
 
             await connection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-            updateActiveCall({ status: 'connected', peer_user_id: peerUserId });
+            updateActiveCall({
+              status: 'connected',
+              peer_user_id: peerUserId,
+              connected_at: useCallStore.getState().activeCall?.connected_at ?? new Date().toISOString(),
+            });
             removeSignal(pendingSignal.id);
             return;
           }
 
           if (pendingSignal.type === 'call:ice') {
-            const connection = peerConnection;
+            const connection = useCallStore.getState().peerConnection;
             if (!connection || !connection.remoteDescription || !payload.candidate) {
               // Queue ICE candidate if remote description not set yet
               if (payload.candidate && connection && !connection.remoteDescription) {

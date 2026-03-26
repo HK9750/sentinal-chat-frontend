@@ -34,6 +34,22 @@ function createWaveformBars(seed: string, length = 32): number[] {
   return values;
 }
 
+function clampPercentage(value: number): number {
+  if (Number.isNaN(value)) {
+    return 0;
+  }
+
+  if (value < 0) {
+    return 0;
+  }
+
+  if (value > 1) {
+    return 1;
+  }
+
+  return value;
+}
+
 export function AudioPlayer({ src, duration, onPlay, className }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -94,9 +110,57 @@ export function AudioPlayer({ src, duration, onPlay, className }: AudioPlayerPro
 
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - rect.left;
-    const percentage = x / rect.width;
+    const percentage = clampPercentage(x / rect.width);
     audio.currentTime = percentage * audioDuration;
   }, [audioDuration]);
+
+  const handleSeekWithKeyboard = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const audio = audioRef.current;
+      if (!audio || audioDuration === 0) {
+        return;
+      }
+
+      const smallStep = Math.min(5, Math.max(1, Math.round(audioDuration * 0.02)));
+      const largeStep = Math.min(10, Math.max(3, Math.round(audioDuration * 0.1)));
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        audio.currentTime = Math.max(0, audio.currentTime - smallStep);
+        return;
+      }
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        audio.currentTime = Math.min(audioDuration, audio.currentTime + smallStep);
+        return;
+      }
+
+      if (event.key === 'PageDown') {
+        event.preventDefault();
+        audio.currentTime = Math.max(0, audio.currentTime - largeStep);
+        return;
+      }
+
+      if (event.key === 'PageUp') {
+        event.preventDefault();
+        audio.currentTime = Math.min(audioDuration, audio.currentTime + largeStep);
+        return;
+      }
+
+      if (event.key === 'Home') {
+        event.preventDefault();
+        audio.currentTime = 0;
+        return;
+      }
+
+      if (event.key === 'End') {
+        event.preventDefault();
+        audio.currentTime = audioDuration;
+      }
+    },
+    [audioDuration]
+  );
 
   return (
     <div className={cn('flex items-center gap-3', className)}>
@@ -109,6 +173,7 @@ export function AudioPlayer({ src, duration, onPlay, className }: AudioPlayerPro
         size="icon"
         onClick={togglePlayPause}
         className="size-10 shrink-0 rounded-full"
+        aria-label={isPlaying ? 'Pause audio' : 'Play audio'}
       >
         {isPlaying ? (
           <Pause className="size-4" />
@@ -127,7 +192,9 @@ export function AudioPlayer({ src, duration, onPlay, className }: AudioPlayerPro
           aria-valuemin={0}
           aria-valuemax={audioDuration}
           aria-valuenow={currentTime}
+          aria-valuetext={`${formatDuration(currentTime)} of ${formatDuration(audioDuration)}`}
           tabIndex={0}
+          onKeyDown={handleSeekWithKeyboard}
         >
           {waveformBars.map((height, index) => {
             const barProgress = (index / waveformBars.length) * 100;

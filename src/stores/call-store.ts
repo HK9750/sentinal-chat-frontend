@@ -98,7 +98,15 @@ export const useCallStore = create<CallState>((set, get) => ({
   setCallStatus: (status, reason) =>
     set((state) => ({
       activeCall: state.activeCall
-        ? { ...state.activeCall, status, ended_reason: reason }
+        ? {
+            ...state.activeCall,
+            status,
+            ended_reason: reason,
+            connected_at:
+              status === 'connected'
+                ? state.activeCall.connected_at ?? new Date().toISOString()
+                : state.activeCall.connected_at,
+          }
         : state.activeCall,
     })),
 

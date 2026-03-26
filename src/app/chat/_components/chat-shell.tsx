@@ -12,13 +12,13 @@ export function ChatShell({ selectedConversationId }: ChatShellProps) {
   const hasConversation = Boolean(selectedConversationId);
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-[#00a884] dark:bg-[#111b21]">
+    <div className="flex h-dvh w-full overflow-hidden bg-[#d9dbd5] dark:bg-[#0b141a]">
       {/* WhatsApp-style header bar color at top */}
-      <div className="absolute inset-x-0 top-0 h-[127px] bg-[#00a884] dark:bg-[#1f2c34]" />
+      <div className="absolute inset-x-0 top-0 h-[127px] bg-[#00a884] dark:bg-[#111b21]" />
       
       {/* Main container */}
-      <div className="relative z-10 mx-auto flex h-full w-full max-w-[1600px] flex-col py-5 lg:px-5">
-        <div className="flex h-full flex-1 overflow-hidden rounded-none shadow-xl lg:rounded-sm">
+      <div className="relative z-10 mx-auto flex h-full w-full max-w-[1600px] flex-col lg:px-5 lg:py-5">
+        <div className="flex h-full flex-1 overflow-hidden bg-white shadow-xl lg:rounded-sm dark:bg-[#111b21]">
           {/* Sidebar / Conversation List */}
           <aside
             className={

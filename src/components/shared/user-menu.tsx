@@ -24,6 +24,7 @@ export function UserMenu() {
         <button
           type="button"
           className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label="Open user menu"
         >
           <UserAvatar user={user} size="lg" />
         </button>
