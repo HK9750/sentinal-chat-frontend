@@ -27,12 +27,13 @@ function normalizeSocketBaseUrl(baseUrl: string): string {
   return `${url.origin}${url.pathname}`;
 }
 
-export function buildSocketUrl(baseUrl: string): string {
+export function buildSocketUrl(baseUrl: string, token: string): string {
   const endpoint = normalizeSocketBaseUrl(baseUrl)
     .replace(/^http:/, 'ws:')
     .replace(/^https:/, 'wss:');
 
   const url = new URL(endpoint);
+  url.searchParams.set('token', token);
   return url.toString();
 }
 

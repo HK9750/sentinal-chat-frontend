@@ -125,7 +125,7 @@ export function useSocketConnection() {
 
     setState('connecting');
 
-    const socket = new WebSocket(buildSocketUrl(env.socketUrl));
+    const socket = new WebSocket(buildSocketUrl(env.socketUrl, token));
     socketRef.current = socket;
 
     socket.onopen = () => {
