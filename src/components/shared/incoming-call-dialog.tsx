@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
-import { Phone, PhoneOff, ShieldCheck, Video, Volume2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Phone, PhoneOff, ShieldCheck, Video } from 'lucide-react';
 import { useCallSignaling } from '@/hooks/use-call-signaling';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -21,10 +21,57 @@ import {
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { UserAvatar } from '@/components/shared/user-avatar';
-import { getOtherParticipant } from '@/lib/utils';
+import { cn, getOtherParticipant } from '@/lib/utils';
 import { useConversation } from '@/queries/use-conversation-queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { useCallStore } from '@/stores/call-store';
+
+// Ringtone simulation using Web Audio API
+function useRingtone(isRinging: boolean) {
+  useEffect(() => {
+    if (!isRinging) return;
+
+    let audioContext: AudioContext | null = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const playTone = () => {
+      if (!audioContext) {
+        audioContext = new AudioContext();
+      }
+
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.frequency.value = 440;
+      oscillator.type = 'sine';
+
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.4);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+    };
+
+    // Play ringtone pattern
+    playTone();
+    intervalId = setInterval(() => {
+      playTone();
+    }, 2000);
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      if (audioContext) {
+        audioContext.close();
+      }
+    };
+  }, [isRinging]);
+}
 
 export function IncomingCallDialog() {
   const currentUserId = useAuthStore((state) => state.user?.id);
@@ -34,11 +81,28 @@ export function IncomingCallDialog() {
   const resetCall = useCallStore((state) => state.resetCall);
   const { endCall } = useCallSignaling(incomingCall?.conversation_id);
   const conversationQuery = useConversation(incomingCall?.conversation_id);
+  const [pulseIndex, setPulseIndex] = useState(0);
+  
   const otherParticipant = useMemo(
     () => (conversationQuery.data ? getOtherParticipant(conversationQuery.data, currentUserId) : null),
     [conversationQuery.data, currentUserId]
   );
   const callerName = otherParticipant?.display_name ?? otherParticipant?.username ?? 'Incoming caller';
+  const isVideoCall = incomingCall?.type === 'VIDEO';
+
+  // Use ringtone
+  useRingtone(Boolean(incomingCall));
+
+  // Pulse animation index
+  useEffect(() => {
+    if (!incomingCall) return;
+    
+    const interval = setInterval(() => {
+      setPulseIndex((prev) => (prev + 1) % 3);
+    }, 400);
+
+    return () => clearInterval(interval);
+  }, [incomingCall]);
 
   const handleDecline = useCallback(() => {
     if (incomingCall) {
@@ -69,72 +133,148 @@ export function IncomingCallDialog() {
     <Dialog open={Boolean(incomingCall)} onOpenChange={(open) => (!open ? handleDecline() : undefined)}>
       <DialogContent
         showCloseButton={false}
-        className="overflow-hidden border-border bg-card p-0 shadow-xl sm:max-w-[420px]"
+        className="overflow-hidden border-border bg-card p-0 shadow-2xl sm:max-w-[400px]"
       >
         <DialogTitle className="sr-only">Incoming call</DialogTitle>
         <DialogDescription className="sr-only">{callerName}</DialogDescription>
 
         <Card className="rounded-none border-0 bg-card py-0 shadow-none">
-          <CardHeader className="items-center overflow-hidden px-6 pb-4 pt-6 text-center">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-primary/10 to-transparent" />
+          {/* Animated gradient background */}
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div 
+              className={cn(
+                "absolute -inset-[50%] opacity-30",
+                "animate-spin-slow",
+                isVideoCall 
+                  ? "bg-[conic-gradient(from_0deg,transparent,hsl(var(--primary)),transparent,hsl(var(--primary)),transparent)]"
+                  : "bg-[conic-gradient(from_0deg,transparent,hsl(var(--primary)/0.5),transparent,hsl(var(--primary)/0.5),transparent)]"
+              )}
+              style={{ animationDuration: '8s' }}
+            />
+          </div>
 
+          <CardHeader className="relative items-center overflow-hidden px-6 pb-4 pt-8 text-center">
+            {/* Call type badge */}
             <Badge
-              variant="secondary"
-              className="mb-3 rounded-full px-3 py-1 text-[11px] uppercase tracking-wide"
+              variant={isVideoCall ? "default" : "secondary"}
+              className={cn(
+                "mb-4 gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium uppercase tracking-wider",
+                isVideoCall && "bg-primary text-primary-foreground"
+              )}
             >
-              Incoming call
+              {isVideoCall ? (
+                <>
+                  <Video className="h-3.5 w-3.5" />
+                  Video Call
+                </>
+              ) : (
+                <>
+                  <Phone className="h-3.5 w-3.5" />
+                  Voice Call
+                </>
+              )}
             </Badge>
 
-            <div className="relative mt-1">
-              <span className="absolute inset-0 animate-ping rounded-full bg-primary/30" />
-              <div className="rounded-full border border-border bg-background/60 p-1 shadow-sm">
+            {/* Avatar with animated rings */}
+            <div className="relative mt-2">
+              {/* Pulsing rings */}
+              {[0, 1, 2].map((index) => (
+                <div
+                  key={index}
+                  className={cn(
+                    "absolute inset-0 rounded-full border-2",
+                    isVideoCall ? "border-primary" : "border-primary/50",
+                    "transition-all duration-500"
+                  )}
+                  style={{
+                    transform: `scale(${1 + (index + 1) * 0.15 + (pulseIndex === index ? 0.1 : 0)})`,
+                    opacity: pulseIndex === index ? 0.6 : 0.2,
+                  }}
+                />
+              ))}
+              
+              {/* Main avatar container */}
+              <div className={cn(
+                "relative rounded-full p-1",
+                "bg-gradient-to-br from-primary/20 to-primary/5",
+                "ring-2 ring-primary/30"
+              )}>
                 <UserAvatar
                   size="xl"
-                  className="relative h-24 w-24"
+                  className="relative h-28 w-28 shadow-xl"
                   src={otherParticipant?.avatar_url}
                   alt={callerName}
                   fallback={callerName[0] ?? 'C'}
                 />
+                
+                {/* Online indicator */}
+                <div className="absolute bottom-1 right-1 h-5 w-5 rounded-full bg-green-500 ring-4 ring-card" />
               </div>
             </div>
 
-            <CardTitle className="mt-4 text-lg">{callerName}</CardTitle>
-            <CardDescription className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Volume2 className="h-3.5 w-3.5" />
-              Ringing...
+            <CardTitle className="mt-5 text-xl font-semibold">{callerName}</CardTitle>
+            <CardDescription className="mt-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+              </span>
+              {isVideoCall ? 'Video calling you...' : 'Calling you...'}
             </CardDescription>
           </CardHeader>
 
-          <Separator />
+          <Separator className="opacity-50" />
 
-          <CardContent className="space-y-3 px-6 py-4 text-center">
-            <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-              <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-              End-to-end encrypted
+          <CardContent className="relative space-y-3 px-6 py-4 text-center">
+            <p className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              <span>End-to-end encrypted</span>
             </p>
           </CardContent>
 
-          <CardFooter className="justify-center gap-3 px-6 pb-6 pt-1">
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleDecline}
-              className="h-11 min-w-[112px] rounded-full"
-              aria-label="Decline call"
-            >
-              <PhoneOff className="h-4 w-4" />
-              Decline
-            </Button>
+          <CardFooter className="relative justify-center gap-4 px-6 pb-8 pt-2">
+            {/* Decline button */}
+            <div className="flex flex-col items-center gap-2">
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon"
+                onClick={handleDecline}
+                className={cn(
+                  "h-14 w-14 rounded-full shadow-lg",
+                  "hover:scale-105 active:scale-95",
+                  "transition-all duration-200"
+                )}
+                aria-label="Decline call"
+              >
+                <PhoneOff className="h-6 w-6" />
+              </Button>
+              <span className="text-xs text-muted-foreground">Decline</span>
+            </div>
 
-            <Button
-              type="button"
-              onClick={handleAccept}
-              className="h-11 min-w-[160px] rounded-full"
-              aria-label="Accept call"
-            >
-              {incomingCall?.type === 'VIDEO' ? <Video className="h-4 w-4" /> : <Phone className="h-4 w-4" />}
-              Accept
-            </Button>
+            {/* Accept button */}
+            <div className="flex flex-col items-center gap-2">
+              <Button
+                type="button"
+                size="icon"
+                onClick={handleAccept}
+                className={cn(
+                  "h-14 w-14 rounded-full shadow-lg",
+                  "bg-green-500 hover:bg-green-600",
+                  "hover:scale-105 active:scale-95",
+                  "transition-all duration-200",
+                  "animate-pulse"
+                )}
+                style={{ animationDuration: '1.5s' }}
+                aria-label="Accept call"
+              >
+                {isVideoCall ? (
+                  <Video className="h-6 w-6" />
+                ) : (
+                  <Phone className="h-6 w-6" />
+                )}
+              </Button>
+              <span className="text-xs text-muted-foreground">Accept</span>
+            </div>
           </CardFooter>
         </Card>
       </DialogContent>

@@ -14,18 +14,44 @@ export interface PendingCallSignal {
 
 export type CallQuality = 'excellent' | 'good' | 'fair' | 'poor' | 'unknown';
 
+export type ScreenShareMode = 'none' | 'local' | 'remote';
+
+export interface MediaDevice {
+  deviceId: string;
+  label: string;
+  kind: MediaDeviceKind;
+}
+
 interface CallState {
   // Core state
   activeCall: ActiveCall | null;
   incomingCall: IncomingCall | null;
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
+  screenStream: MediaStream | null;
   peerConnection: RTCPeerConnection | null;
   pendingSignals: PendingCallSignal[];
   
   // Media controls
   microphoneMuted: boolean;
   cameraMuted: boolean;
+  speakerEnabled: boolean;
+  
+  // Screen sharing
+  isScreenSharing: boolean;
+  screenShareMode: ScreenShareMode;
+  
+  // UI state
+  isFullscreen: boolean;
+  isPictureInPicture: boolean;
+  localVideoMinimized: boolean;
+  showControls: boolean;
+  
+  // Device selection
+  availableDevices: MediaDevice[];
+  selectedAudioInput: string | null;
+  selectedVideoInput: string | null;
+  selectedAudioOutput: string | null;
  
   // Quality tracking
   callQuality: CallQuality;
@@ -40,6 +66,7 @@ interface CallState {
   setActiveCall: (call: ActiveCall | null) => void;
   updateActiveCall: (patch: Partial<ActiveCall>) => void;
   setStreams: (localStream: MediaStream | null, remoteStream: MediaStream | null) => void;
+  setScreenStream: (screenStream: MediaStream | null) => void;
   setPeerConnection: (connection: RTCPeerConnection | null) => void;
   enqueueSignal: (signal: PendingCallSignal) => void;
   removeSignal: (signalId: string) => void;
@@ -48,6 +75,23 @@ interface CallState {
   // Actions - Media controls
   toggleMicrophone: () => void;
   toggleCamera: () => void;
+  toggleSpeaker: () => void;
+  
+  // Actions - Screen sharing
+  setScreenSharing: (isSharing: boolean) => void;
+  setScreenShareMode: (mode: ScreenShareMode) => void;
+  
+  // Actions - UI state
+  setFullscreen: (isFullscreen: boolean) => void;
+  setPictureInPicture: (isPip: boolean) => void;
+  setLocalVideoMinimized: (minimized: boolean) => void;
+  setShowControls: (show: boolean) => void;
+  
+  // Actions - Device selection
+  setAvailableDevices: (devices: MediaDevice[]) => void;
+  setSelectedAudioInput: (deviceId: string | null) => void;
+  setSelectedVideoInput: (deviceId: string | null) => void;
+  setSelectedAudioOutput: (deviceId: string | null) => void;
   
   // Actions - Quality
   setLastQualityMetrics: (metrics: CallQualityMetrics | null) => void;
@@ -65,10 +109,22 @@ export const useCallStore = create<CallState>((set, get) => ({
   incomingCall: null,
   localStream: null,
   remoteStream: null,
+  screenStream: null,
   peerConnection: null,
   pendingSignals: [],
   microphoneMuted: false,
   cameraMuted: false,
+  speakerEnabled: true,
+  isScreenSharing: false,
+  screenShareMode: 'none',
+  isFullscreen: false,
+  isPictureInPicture: false,
+  localVideoMinimized: false,
+  showControls: true,
+  availableDevices: [],
+  selectedAudioInput: null,
+  selectedVideoInput: null,
+  selectedAudioOutput: null,
   callQuality: 'unknown',
   lastQualityMetrics: null,
   isReconnecting: false,
@@ -84,6 +140,8 @@ export const useCallStore = create<CallState>((set, get) => ({
     })),
     
   setStreams: (localStream, remoteStream) => set({ localStream, remoteStream }),
+  
+  setScreenStream: (screenStream) => set({ screenStream }),
   
   setPeerConnection: (peerConnection) => set({ peerConnection }),
   
@@ -129,8 +187,34 @@ export const useCallStore = create<CallState>((set, get) => ({
     set({ cameraMuted: nextMuted });
   },
   
-  // Quality actions
+  toggleSpeaker: () => {
+    set((state) => ({ speakerEnabled: !state.speakerEnabled }));
+  },
   
+  // Screen sharing actions
+  setScreenSharing: (isScreenSharing) => set({ isScreenSharing }),
+  
+  setScreenShareMode: (screenShareMode) => set({ screenShareMode }),
+  
+  // UI state actions
+  setFullscreen: (isFullscreen) => set({ isFullscreen }),
+  
+  setPictureInPicture: (isPictureInPicture) => set({ isPictureInPicture }),
+  
+  setLocalVideoMinimized: (localVideoMinimized) => set({ localVideoMinimized }),
+  
+  setShowControls: (showControls) => set({ showControls }),
+  
+  // Device selection actions
+  setAvailableDevices: (availableDevices) => set({ availableDevices }),
+  
+  setSelectedAudioInput: (selectedAudioInput) => set({ selectedAudioInput }),
+  
+  setSelectedVideoInput: (selectedVideoInput) => set({ selectedVideoInput }),
+  
+  setSelectedAudioOutput: (selectedAudioOutput) => set({ selectedAudioOutput }),
+  
+  // Quality actions
   setLastQualityMetrics: (lastQualityMetrics) => {
     // Also derive quality level from metrics
     let quality: CallQuality = 'unknown';
@@ -157,7 +241,7 @@ export const useCallStore = create<CallState>((set, get) => ({
 
   // Reset
   resetCall: () => {
-    const { peerConnection, localStream, remoteStream } = get();
+    const { peerConnection, localStream, remoteStream, screenStream } = get();
     
     // Close peer connection
     if (peerConnection) {
@@ -167,16 +251,25 @@ export const useCallStore = create<CallState>((set, get) => ({
     // Stop all tracks
     localStream?.getTracks().forEach((track) => track.stop());
     remoteStream?.getTracks().forEach((track) => track.stop());
+    screenStream?.getTracks().forEach((track) => track.stop());
     
     set({
       activeCall: null,
       incomingCall: null,
       localStream: null,
       remoteStream: null,
+      screenStream: null,
       peerConnection: null,
       pendingSignals: [],
       microphoneMuted: false,
       cameraMuted: false,
+      speakerEnabled: true,
+      isScreenSharing: false,
+      screenShareMode: 'none',
+      isFullscreen: false,
+      isPictureInPicture: false,
+      localVideoMinimized: false,
+      showControls: true,
       callQuality: 'unknown',
       lastQualityMetrics: null,
       isReconnecting: false,

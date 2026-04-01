@@ -149,6 +149,98 @@ export async function getCallQualityMetrics(
 // Media Utilities
 // ============================================================================
 
+export interface ScreenShareOptions {
+  video?: {
+    cursor?: 'always' | 'motion' | 'never';
+    displaySurface?: 'monitor' | 'window' | 'browser';
+    logicalSurface?: boolean;
+    width?: { ideal?: number; max?: number };
+    height?: { ideal?: number; max?: number };
+    frameRate?: { ideal?: number; max?: number };
+  };
+  audio?: boolean | {
+    echoCancellation?: boolean;
+    noiseSuppression?: boolean;
+    autoGainControl?: boolean;
+  };
+  selfBrowserSurface?: 'exclude' | 'include';
+  surfaceSwitching?: 'include' | 'exclude';
+  systemAudio?: 'include' | 'exclude';
+}
+
+export async function getScreenShareStream(
+  options: ScreenShareOptions = {}
+): Promise<MediaStream> {
+  const defaultOptions: DisplayMediaStreamOptions = {
+    video: {
+      cursor: 'always',
+      displaySurface: 'monitor',
+      width: { ideal: 1920, max: 2560 },
+      height: { ideal: 1080, max: 1440 },
+      frameRate: { ideal: 30, max: 60 },
+      ...options.video,
+    } as MediaTrackConstraints,
+    audio: options.audio ?? {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    },
+  };
+
+  try {
+    const mediaOptions = {
+      ...defaultOptions,
+      selfBrowserSurface: options.selfBrowserSurface ?? 'exclude',
+      surfaceSwitching: options.surfaceSwitching ?? 'include',
+      systemAudio: options.systemAudio ?? 'include',
+    };
+    return await navigator.mediaDevices.getDisplayMedia(
+      mediaOptions as DisplayMediaStreamOptions
+    );
+  } catch (error) {
+    if (error instanceof DOMException) {
+      switch (error.name) {
+        case 'NotAllowedError':
+        case 'PermissionDeniedError':
+          throw new CallError(
+            'Screen sharing permission denied.',
+            'MEDIA_ACCESS_DENIED',
+            false
+          );
+
+        case 'NotFoundError':
+          throw new CallError(
+            'No screen or window available to share.',
+            'MEDIA_NOT_FOUND',
+            false
+          );
+
+        case 'NotReadableError':
+          throw new CallError(
+            'Could not access screen for sharing.',
+            'MEDIA_ACCESS_DENIED',
+            false
+          );
+
+        case 'AbortError':
+          throw new CallError(
+            'Screen sharing was cancelled.',
+            'MEDIA_ACCESS_DENIED',
+            false
+          );
+
+        default:
+          throw new CallError(
+            `Screen sharing failed: ${error.message}`,
+            'UNKNOWN',
+            false
+          );
+      }
+    }
+    throw error;
+  }
+}
+
 export async function getUserMediaWithFallback(
   mode: 'audio' | 'video'
 ): Promise<MediaStream> {
@@ -222,6 +314,97 @@ export async function getUserMediaWithFallback(
     }
     throw error;
   }
+}
+
+// ============================================================================
+// Device Enumeration
+// ============================================================================
+
+export interface MediaDeviceInfo {
+  deviceId: string;
+  label: string;
+  kind: MediaDeviceKind;
+  groupId: string;
+}
+
+export async function enumerateMediaDevices(): Promise<MediaDeviceInfo[]> {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    return devices.map((device) => ({
+      deviceId: device.deviceId,
+      label: device.label || `${device.kind} (${device.deviceId.slice(0, 8)})`,
+      kind: device.kind,
+      groupId: device.groupId,
+    }));
+  } catch (error) {
+    console.error('Failed to enumerate media devices:', error);
+    return [];
+  }
+}
+
+export function getDevicesByKind(
+  devices: MediaDeviceInfo[],
+  kind: MediaDeviceKind
+): MediaDeviceInfo[] {
+  return devices.filter((device) => device.kind === kind);
+}
+
+export async function getUserMediaWithDevice(
+  audioDeviceId?: string,
+  videoDeviceId?: string,
+  mode: 'audio' | 'video' = 'video'
+): Promise<MediaStream> {
+  const constraints: MediaStreamConstraints = {
+    audio: audioDeviceId
+      ? {
+          deviceId: { exact: audioDeviceId },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        }
+      : {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+    video:
+      mode === 'video'
+        ? videoDeviceId
+          ? {
+              deviceId: { exact: videoDeviceId },
+              width: { ideal: 1280, max: 1920 },
+              height: { ideal: 720, max: 1080 },
+              frameRate: { ideal: 30, max: 60 },
+            }
+          : {
+              width: { ideal: 1280, max: 1920 },
+              height: { ideal: 720, max: 1080 },
+              frameRate: { ideal: 30, max: 60 },
+              facingMode: 'user',
+            }
+        : false,
+  };
+
+  return navigator.mediaDevices.getUserMedia(constraints);
+}
+
+// Watch for device changes
+export function watchMediaDevices(
+  callback: (devices: MediaDeviceInfo[]) => void
+): () => void {
+  const handler = async () => {
+    const devices = await enumerateMediaDevices();
+    callback(devices);
+  };
+
+  navigator.mediaDevices.addEventListener('devicechange', handler);
+  
+  // Initial enumeration
+  void handler();
+
+  return () => {
+    navigator.mediaDevices.removeEventListener('devicechange', handler);
+  };
 }
 
 // ============================================================================

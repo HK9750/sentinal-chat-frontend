@@ -6,12 +6,15 @@ import {
   createNetworkMonitor,
   createPeerConnection,
   getCallQualityMetrics,
+  getScreenShareStream,
   getUserMediaWithFallback,
+  getUserMediaWithDevice,
   performIceRestart,
   waitForIceGathering,
   type CallQualityMetrics,
   type ConnectionEventHandlers,
   type NetworkMonitor,
+  type ScreenShareOptions,
 } from '@/services/call-service';
 import { useCallStore } from '@/stores/call-store';
 
@@ -24,15 +27,19 @@ interface UseWebRtcOptions {
   onConnectionLost?: () => void;
   onConnectionRestored?: () => void;
   onError?: (error: CallError) => void;
+  onScreenShareEnded?: () => void;
 }
 
 export function useWebRtc(options: UseWebRtcOptions = {}) {
   const setPeerConnection = useCallStore((state) => state.setPeerConnection);
   const setStreams = useCallStore((state) => state.setStreams);
+  const setScreenStream = useCallStore((state) => state.setScreenStream);
+  const setScreenSharing = useCallStore((state) => state.setScreenSharing);
   const setCallStatus = useCallStore((state) => state.setCallStatus);
   const peerConnection = useCallStore((state) => state.peerConnection);
   const activeCall = useCallStore((state) => state.activeCall);
   const localStream = useCallStore((state) => state.localStream);
+  const screenStream = useCallStore((state) => state.screenStream);
 
   // Refs for cleanup and state management
   const qualityIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -40,6 +47,7 @@ export function useWebRtc(options: UseWebRtcOptions = {}) {
   const reconnectAttemptsRef = useRef(0);
   const isReconnectingRef = useRef(false);
   const remoteStreamRef = useRef<MediaStream | null>(null);
+  const screenSenderRef = useRef<RTCRtpSender | null>(null);
 
   // Quality metrics history for averaging
   const metricsHistoryRef = useRef<CallQualityMetrics[]>([]);
@@ -58,6 +66,7 @@ export function useWebRtc(options: UseWebRtcOptions = {}) {
     reconnectAttemptsRef.current = 0;
     isReconnectingRef.current = false;
     remoteStreamRef.current = null;
+    screenSenderRef.current = null;
   }, []);
 
   // Cleanup on unmount
@@ -307,6 +316,193 @@ export function useWebRtc(options: UseWebRtcOptions = {}) {
     [options, setStreams]
   );
 
+  // Get local stream with specific devices
+  const getLocalStreamWithDevices = useCallback(
+    async (
+      audioDeviceId?: string,
+      videoDeviceId?: string,
+      mode: 'audio' | 'video' = 'video'
+    ): Promise<MediaStream> => {
+      try {
+        const stream = await getUserMediaWithDevice(audioDeviceId, videoDeviceId, mode);
+        setStreams(stream, useCallStore.getState().remoteStream);
+        return stream;
+      } catch (error) {
+        if (error instanceof CallError) {
+          options.onError?.(error);
+          throw error;
+        }
+        const callError = new CallError(
+          'Failed to access media devices',
+          'UNKNOWN',
+          false
+        );
+        options.onError?.(callError);
+        throw callError;
+      }
+    },
+    [options, setStreams]
+  );
+
+  // Stop screen sharing - defined first as it's used by other functions
+  const stopScreenShare = useCallback(() => {
+    const currentScreenStream = useCallStore.getState().screenStream;
+    const connection = useCallStore.getState().peerConnection;
+
+    // Stop all tracks
+    currentScreenStream?.getTracks().forEach((track) => track.stop());
+
+    // Remove sender from connection
+    if (connection && screenSenderRef.current) {
+      try {
+        connection.removeTrack(screenSenderRef.current);
+      } catch {
+        // Ignore error if track already removed
+      }
+      screenSenderRef.current = null;
+    }
+
+    setScreenStream(null);
+    setScreenSharing(false);
+  }, [setScreenStream, setScreenSharing]);
+
+  // Restore video from screen share - defined before replaceVideoWithScreenShare
+  const restoreVideoFromScreenShare = useCallback(async () => {
+    const connection = useCallStore.getState().peerConnection;
+    const currentLocalStream = useCallStore.getState().localStream;
+    const currentScreenStream = useCallStore.getState().screenStream;
+
+    // Stop screen share tracks
+    currentScreenStream?.getTracks().forEach((track) => track.stop());
+
+    if (connection && currentLocalStream) {
+      const cameraVideoTrack = currentLocalStream.getVideoTracks()[0];
+
+      if (cameraVideoTrack) {
+        // Re-enable camera track
+        cameraVideoTrack.enabled = true;
+
+        // Find the video sender and restore the camera track
+        const videoSender = connection.getSenders().find(
+          (sender) => sender.track?.kind === 'video' || !sender.track
+        );
+
+        if (videoSender) {
+          await videoSender.replaceTrack(cameraVideoTrack);
+        }
+      }
+    }
+
+    setScreenStream(null);
+    setScreenSharing(false);
+  }, [setScreenStream, setScreenSharing]);
+
+  // Start screen sharing
+  const startScreenShare = useCallback(
+    async (shareOptions?: ScreenShareOptions): Promise<MediaStream> => {
+      try {
+        const stream = await getScreenShareStream(shareOptions);
+        
+        // Set up track ended handler to detect when user stops sharing
+        const videoTrack = stream.getVideoTracks()[0];
+        if (videoTrack) {
+          videoTrack.onended = () => {
+            stopScreenShare();
+            options.onScreenShareEnded?.();
+          };
+        }
+
+        // If we have a peer connection, add the screen share track
+        const connection = useCallStore.getState().peerConnection;
+        if (connection && videoTrack) {
+          // Add screen share track to the connection
+          const sender = connection.addTrack(videoTrack, stream);
+          screenSenderRef.current = sender;
+        }
+
+        setScreenStream(stream);
+        setScreenSharing(true);
+        return stream;
+      } catch (error) {
+        if (error instanceof CallError) {
+          options.onError?.(error);
+          throw error;
+        }
+        const callError = new CallError(
+          'Failed to start screen sharing',
+          'UNKNOWN',
+          false
+        );
+        options.onError?.(callError);
+        throw callError;
+      }
+    },
+    [options, setScreenStream, setScreenSharing, stopScreenShare]
+  );
+
+  // Replace video track with screen share (instead of adding new track)
+  const replaceVideoWithScreenShare = useCallback(
+    async (shareOptions?: ScreenShareOptions): Promise<MediaStream | null> => {
+      const connection = useCallStore.getState().peerConnection;
+      const currentLocalStream = useCallStore.getState().localStream;
+
+      if (!connection) {
+        return startScreenShare(shareOptions);
+      }
+
+      try {
+        const stream = await getScreenShareStream(shareOptions);
+        const screenVideoTrack = stream.getVideoTracks()[0];
+
+        if (!screenVideoTrack) {
+          throw new CallError('No video track in screen share', 'UNKNOWN', false);
+        }
+
+        // Set up track ended handler
+        screenVideoTrack.onended = () => {
+          // Restore camera when screen share ends
+          restoreVideoFromScreenShare();
+          options.onScreenShareEnded?.();
+        };
+
+        // Find the video sender and replace its track
+        const videoSender = connection.getSenders().find(
+          (sender) => sender.track?.kind === 'video'
+        );
+
+        if (videoSender) {
+          await videoSender.replaceTrack(screenVideoTrack);
+        } else {
+          // No video sender, add the track
+          const sender = connection.addTrack(screenVideoTrack, stream);
+          screenSenderRef.current = sender;
+        }
+
+        // Disable local camera track (keep it for later)
+        currentLocalStream?.getVideoTracks().forEach((track) => {
+          track.enabled = false;
+        });
+
+        setScreenStream(stream);
+        setScreenSharing(true);
+        return stream;
+      } catch (error) {
+        if (error instanceof CallError) {
+          options.onError?.(error);
+          throw error;
+        }
+        const callError = new CallError(
+          'Failed to start screen sharing',
+          'UNKNOWN',
+          false
+        );
+        options.onError?.(callError);
+        throw callError;
+      }
+    },
+    [options, setScreenStream, setScreenSharing, startScreenShare, restoreVideoFromScreenShare]
+  );
+
   // Attach local tracks to connection
   const attachLocalTracks = useCallback(
     async (connection: RTCPeerConnection, stream: MediaStream) => {
@@ -337,6 +533,88 @@ export function useWebRtc(options: UseWebRtcOptions = {}) {
     []
   );
 
+  // Switch camera
+  const switchCamera = useCallback(
+    async (deviceId: string): Promise<void> => {
+      const connection = useCallStore.getState().peerConnection;
+      const currentLocalStream = useCallStore.getState().localStream;
+
+      if (!connection || !currentLocalStream) {
+        return;
+      }
+
+      try {
+        const newStream = await getUserMediaWithDevice(
+          undefined, // Keep current audio device
+          deviceId,
+          'video'
+        );
+
+        const newVideoTrack = newStream.getVideoTracks()[0];
+        const oldVideoTrack = currentLocalStream.getVideoTracks()[0];
+
+        if (newVideoTrack && oldVideoTrack) {
+          await replaceTrack(connection, oldVideoTrack, newVideoTrack);
+          oldVideoTrack.stop();
+
+          // Update local stream
+          currentLocalStream.removeTrack(oldVideoTrack);
+          currentLocalStream.addTrack(newVideoTrack);
+        }
+      } catch (error) {
+        if (error instanceof CallError) {
+          options.onError?.(error);
+        } else {
+          options.onError?.(
+            new CallError('Failed to switch camera', 'UNKNOWN', false)
+          );
+        }
+      }
+    },
+    [options, replaceTrack]
+  );
+
+  // Switch microphone
+  const switchMicrophone = useCallback(
+    async (deviceId: string): Promise<void> => {
+      const connection = useCallStore.getState().peerConnection;
+      const currentLocalStream = useCallStore.getState().localStream;
+
+      if (!connection || !currentLocalStream) {
+        return;
+      }
+
+      try {
+        const newStream = await getUserMediaWithDevice(
+          deviceId,
+          undefined, // Keep current video device
+          'audio'
+        );
+
+        const newAudioTrack = newStream.getAudioTracks()[0];
+        const oldAudioTrack = currentLocalStream.getAudioTracks()[0];
+
+        if (newAudioTrack && oldAudioTrack) {
+          await replaceTrack(connection, oldAudioTrack, newAudioTrack);
+          oldAudioTrack.stop();
+
+          // Update local stream
+          currentLocalStream.removeTrack(oldAudioTrack);
+          currentLocalStream.addTrack(newAudioTrack);
+        }
+      } catch (error) {
+        if (error instanceof CallError) {
+          options.onError?.(error);
+        } else {
+          options.onError?.(
+            new CallError('Failed to switch microphone', 'UNKNOWN', false)
+          );
+        }
+      }
+    },
+    [options, replaceTrack]
+  );
+
   // Get current quality metrics
   const getQualityMetrics = useCallback(async (): Promise<CallQualityMetrics | null> => {
     if (!peerConnection || peerConnection.connectionState !== 'connected') {
@@ -357,14 +635,24 @@ export function useWebRtc(options: UseWebRtcOptions = {}) {
   return {
     peerConnection,
     localStream,
+    screenStream,
     activeCall,
     // Connection management
     createPeerConnection: createPeerConnectionLegacy,
     createConnection,
     ensureLocalStream,
+    getLocalStreamWithDevices,
     attachLocalTracks,
     replaceTrack,
     cleanup,
+    // Screen sharing
+    startScreenShare,
+    stopScreenShare,
+    replaceVideoWithScreenShare,
+    restoreVideoFromScreenShare,
+    // Device switching
+    switchCamera,
+    switchMicrophone,
     // Recovery
     restartIce,
     // Quality
