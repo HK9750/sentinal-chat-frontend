@@ -73,3 +73,28 @@ export interface ConversationParticipantsPayload {
 export interface ConversationClearPayload {
   cleared: boolean;
 }
+
+export interface DeleteConversationPayload {
+  deleted: boolean;
+}
+
+export interface UpdateConversationRequest {
+  disappearing_mode: DisappearingMode;
+}
+
+export interface CallHistoryItem {
+  id: string;
+  conversation_id: string;
+  type: 'AUDIO' | 'VIDEO' | string;
+  initiated_by: string;
+  started_at: string;
+  connected_at?: string | null;
+  ended_at?: string | null;
+  end_reason?: string | null;
+  duration_seconds?: number | null;
+}
+
+export interface CallHistoryPayload {
+  items: CallHistoryItem[];
+  total: number;
+}

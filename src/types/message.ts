@@ -3,6 +3,7 @@ import type { Attachment, BackendMessageAttachment } from '@/types/upload';
 export type MessageType = 'TEXT' | 'AUDIO' | 'FILE' | 'POLL' | 'SYSTEM';
 export type DeliveryStatus = 'SENT' | 'DELIVERED' | 'READ' | 'PLAYED';
 export type ClientMessageStatus = 'PENDING' | 'SENT' | 'FAILED';
+export type MessageDeleteMode = 'FOR_ME' | 'FOR_EVERYONE';
 
 export interface MessageReceipt {
   user_id: string;

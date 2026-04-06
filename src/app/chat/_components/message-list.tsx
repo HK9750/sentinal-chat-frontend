@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Lock } from 'lucide-react';
 import { MessageBubble } from '@/components/shared/message-bubble';
+import { MessageSelectionToolbar } from '@/components/shared/chat-action-dialogs';
 import { MessageListSkeleton } from '@/components/shared/message-skeleton';
 import { TypingBubble } from '@/components/shared/typing-indicator';
 import { useMessages } from '@/queries/use-message-queries';
@@ -17,6 +18,7 @@ import type { Message, Conversation, ConversationListPayload } from '@/types';
 
 const EMPTY_TYPING_USERS: Record<string, number> = {};
 const EMPTY_MESSAGES: Message[] = [];
+const EMPTY_SELECTED_IDS: string[] = [];
 
 interface MessageListProps {
   conversationId: string;
@@ -25,6 +27,13 @@ interface MessageListProps {
   messageRefs: React.RefObject<Map<string, HTMLDivElement>>;
   onReply?: (message: Message) => void;
   onEdit?: (message: Message) => void;
+  selectionMode?: boolean;
+  selectedMessageIds?: string[];
+  selectionPending?: boolean;
+  onToggleSelected?: (message: Message) => void;
+  onCancelSelection?: () => void;
+  onDeleteSelectedForMe?: () => void;
+  onDeleteSelectedForEveryone?: () => void;
 }
 
 export function MessageList({
@@ -34,6 +43,13 @@ export function MessageList({
   messageRefs,
   onReply,
   onEdit,
+  selectionMode = false,
+  selectedMessageIds = EMPTY_SELECTED_IDS,
+  selectionPending = false,
+  onToggleSelected,
+  onCancelSelection,
+  onDeleteSelectedForMe,
+  onDeleteSelectedForEveryone,
 }: MessageListProps) {
   const conversationQuery = useConversation(conversationId);
   const messagesRaw = useMessages(conversationId);
@@ -216,6 +232,26 @@ export function MessageList({
     return new Map(participants.map((participant) => [participant.user_id, participant]));
   }, [conversationQuery.data?.participants]);
 
+  const selectedSet = useMemo(
+    () => new Set(selectedMessageIds),
+    [selectedMessageIds]
+  );
+
+  const canDeleteSelectedForEveryone = useMemo(() => {
+    if (!selectionMode || selectedSet.size === 0) {
+      return false;
+    }
+    for (const message of messages) {
+      if (!selectedSet.has(message.id)) {
+        continue;
+      }
+      if (message.sender_id !== currentUserId || !!message.deleted_at) {
+        return false;
+      }
+    }
+    return true;
+  }, [currentUserId, messages, selectedSet, selectionMode]);
+
   const groupedMessages = useMemo(() => {
     const groups: Array<{ label: string; items: typeof messages }> = [];
 
@@ -312,6 +348,17 @@ export function MessageList({
 
   return (
     <div className="message-scroll flex-1 overflow-y-auto px-2 py-3 md:px-4 lg:px-10">
+      {selectionMode && selectedSet.size > 0 && onCancelSelection && onDeleteSelectedForMe && onDeleteSelectedForEveryone && (
+        <MessageSelectionToolbar
+          selectedCount={selectedSet.size}
+          canDeleteForEveryone={canDeleteSelectedForEveryone}
+          pending={selectionPending}
+          onCancel={onCancelSelection}
+          onDeleteForMe={onDeleteSelectedForMe}
+          onDeleteForEveryone={onDeleteSelectedForEveryone}
+        />
+      )}
+
       <div className="mx-auto flex w-full max-w-[980px] flex-col gap-1">
         {/* Encryption notice at top */}
         <div className="mb-4 flex items-center justify-center gap-2 rounded-lg bg-accent/30 px-4 py-2 text-center text-xs text-muted-foreground">
@@ -360,6 +407,9 @@ export function MessageList({
                       onEdit={onEdit}
                       onDelete={handleDelete}
                       onReact={handleReact}
+                      selectionMode={selectionMode}
+                      selected={selectedSet.has(message.id)}
+                      onToggleSelected={onToggleSelected}
                     />
                   </div>
                 );

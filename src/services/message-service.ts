@@ -5,6 +5,7 @@ import type {
   BackendMessage,
   ClientSocketFrame,
   Message,
+  MessageDeleteMode,
   MessageReceipt,
   MessageType,
   ReceiptFrameData,
@@ -200,6 +201,23 @@ export function buildDeleteMessageFrame(
     request_id: requestId,
     conversation_id: conversationId,
     data: { message_id: messageId },
+  };
+}
+
+export function buildBulkDeleteMessagesFrame(
+  conversationId: string,
+  messageIds: string[],
+  deleteMode: MessageDeleteMode,
+  requestId?: string
+): ClientSocketFrame<{ message_ids: string[]; delete_mode: MessageDeleteMode }> {
+  return {
+    type: SOCKET_EVENT.messageDeleteBulk,
+    request_id: requestId,
+    conversation_id: conversationId,
+    data: {
+      message_ids: messageIds,
+      delete_mode: deleteMode,
+    },
   };
 }
 

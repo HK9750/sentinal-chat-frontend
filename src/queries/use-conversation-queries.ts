@@ -5,10 +5,13 @@ import {
   addParticipant,
   clearConversation,
   createConversation,
+  deleteConversation,
+  getConversationCallHistory,
   getConversation,
   listConversations,
   listParticipants,
   removeParticipant,
+  updateConversation,
 } from '@/services/conversation-service';
 import { queryKeys } from '@/queries/query-keys';
 import type { ConversationListPayload, CreateConversationRequest } from '@/types';
@@ -98,5 +101,41 @@ export function useClearConversationMutation(conversationId: string) {
       queryClient.removeQueries({ queryKey: queryKeys.messages(conversationId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
     },
+  });
+}
+
+export function useUpdateConversationMutation(conversationId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { disappearing_mode: 'OFF' | '24_HOURS' | '7_DAYS' | '90_DAYS' }) =>
+      updateConversation(conversationId, input),
+    onSuccess: (conversation) => {
+      queryClient.setQueryData(queryKeys.conversation(conversation.id), conversation);
+      queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+    },
+  });
+}
+
+export function useDeleteConversationMutation(conversationId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => deleteConversation(conversationId),
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: queryKeys.messages(conversationId) });
+      queryClient.removeQueries({ queryKey: queryKeys.conversation(conversationId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+    },
+  });
+}
+
+export function useConversationCallHistory(conversationId?: string | null) {
+  return useQuery({
+    queryKey: conversationId
+      ? queryKeys.conversationCalls(conversationId)
+      : ['conversations', 'calls', 'empty'],
+    queryFn: () => getConversationCallHistory(conversationId as string),
+    enabled: Boolean(conversationId),
   });
 }

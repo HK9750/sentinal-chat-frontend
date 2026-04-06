@@ -60,12 +60,16 @@ export const API_ROUTES = {
     list: "/v1/conversations",
     create: "/v1/conversations",
     detail: (conversationId: string) => `/v1/conversations/${conversationId}`,
+    update: (conversationId: string) => `/v1/conversations/${conversationId}`,
+    delete: (conversationId: string) => `/v1/conversations/${conversationId}`,
     participants: (conversationId: string) =>
       `/v1/conversations/${conversationId}/participants`,
     removeParticipant: (conversationId: string, userId: string) =>
       `/v1/conversations/${conversationId}/participants/${userId}`,
     clear: (conversationId: string) =>
       `/v1/conversations/${conversationId}/clear`,
+    calls: (conversationId: string) =>
+      `/v1/conversations/${conversationId}/calls`,
     messages: (conversationId: string) =>
       `/v1/conversations/${conversationId}/messages`,
   },
@@ -98,6 +102,7 @@ export const SOCKET_EVENT = {
   messageEdit: "message:edit",
   messageEdited: "message:edited",
   messageDelete: "message:delete",
+  messageDeleteBulk: "message:delete:bulk",
   messageDeleted: "message:deleted",
   reactionAdd: "message:reaction:add",
   reactionRemove: "message:reaction:remove",

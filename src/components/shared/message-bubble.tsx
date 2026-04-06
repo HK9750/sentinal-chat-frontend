@@ -7,6 +7,7 @@ import { MessageActions } from '@/components/shared/message-actions';
 import { MessageReactions } from '@/components/shared/message-reactions';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn, formatBytes, formatTimestamp, isImageMimeType } from '@/lib/utils';
 import { getMessagePrimaryText } from '@/lib/message-payload';
 import { markAttachmentViewed } from '@/services/upload-service';
@@ -26,6 +27,9 @@ interface MessageBubbleProps {
   onEdit?: (message: Message) => void;
   onDelete?: (message: Message) => void;
   onReact?: (messageId: string, emoji: string, mode: 'add' | 'remove') => void;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelected?: (message: Message) => void;
 }
 
 export function MessageBubble({
@@ -42,6 +46,9 @@ export function MessageBubble({
   onEdit,
   onDelete,
   onReact,
+  selectionMode = false,
+  selected = false,
+  onToggleSelected,
 }: MessageBubbleProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [actionsVisible, setActionsVisible] = useState(false);
@@ -170,6 +177,16 @@ export function MessageBubble({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {selectionMode && (
+        <div className={cn('mr-2 mb-2 shrink-0', isOwn ? 'order-2 ml-2 mr-0' : 'order-1')}>
+          <Checkbox
+            checked={selected}
+            onCheckedChange={() => onToggleSelected?.(message)}
+            aria-label="Select message"
+          />
+        </div>
+      )}
+
       {!isOwn && (
         <div className="mr-2 flex h-8 w-8 shrink-0 items-end">
           {showAvatar ? (
@@ -187,13 +204,17 @@ export function MessageBubble({
       )}
 
       <div
-        className="relative max-w-[82%] md:max-w-[76%] lg:max-w-[66%]"
+        className={cn(
+          'relative max-w-[82%] md:max-w-[76%] lg:max-w-[66%]',
+          selectionMode && 'cursor-pointer'
+        )}
         onFocusCapture={() => setActionsVisible(true)}
         onBlurCapture={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
             setActionsVisible(false);
           }
         }}
+        onClick={selectionMode ? () => onToggleSelected?.(message) : undefined}
       >
         {/* Message actions - appear on hover */}
         {(isHovered || actionsVisible) && onReply && onEdit && onDelete && onReact && (

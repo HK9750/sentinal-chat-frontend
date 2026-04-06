@@ -217,6 +217,30 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
         case SOCKET_EVENT.messageNew:
         case SOCKET_EVENT.messageEdited:
         case SOCKET_EVENT.messageDeleted: {
+          const deletePayload = envelope.data as
+            | { mode?: 'FOR_ME'; user_id?: string; message_ids?: string[] }
+            | undefined;
+
+          if (
+            envelope.type === SOCKET_EVENT.messageDeleted &&
+            deletePayload?.mode === 'FOR_ME'
+          ) {
+            if (!envelope.conversation_id) break;
+            if (deletePayload.user_id !== currentUserId) break;
+            const deleteIds = new Set(deletePayload.message_ids ?? []);
+            if (deleteIds.size === 0) break;
+
+            queryClient.setQueryData<Message[]>(
+              queryKeys.messages(envelope.conversation_id),
+              (current) => {
+                const next = (current ?? []).filter((message) => !deleteIds.has(message.id));
+                syncConversationPreviewFromMessages(envelope.conversation_id as string, next);
+                return next;
+              }
+            );
+            break;
+          }
+
           const message = (envelope.data as { message?: Message } | undefined)
             ?.message;
           if (!message?.conversation_id) break;
@@ -372,6 +396,7 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
 
         // ── Conversation lifecycle ──
         case "conversation:created":
+        case "conversation:updated":
         case "conversation:participant_added":
         case "conversation:participant_removed":
         case "conversation:cleared": {

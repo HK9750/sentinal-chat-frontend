@@ -23,6 +23,12 @@ interface ChatHeaderProps {
   onBack?: () => void;
   onStartCall: (callType: CallType) => void;
   onOpenSearch: () => void;
+  onOpenContactInfo: () => void;
+  onSelectMessages: () => void;
+  onOpenDisappearingMessages: () => void;
+  onClearChat: () => void;
+  onDeleteChat: () => void;
+  onOpenCallHistory: () => void;
 }
 
 export function ChatHeader({
@@ -30,6 +36,12 @@ export function ChatHeader({
   onBack,
   onStartCall,
   onOpenSearch,
+  onOpenContactInfo,
+  onSelectMessages,
+  onOpenDisappearingMessages,
+  onClearChat,
+  onDeleteChat,
+  onOpenCallHistory,
 }: ChatHeaderProps) {
   const socket = useSocket();
   const conversationQuery = useConversation(conversationId);
@@ -177,13 +189,14 @@ export function ChatHeader({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuItem>Contact info</DropdownMenuItem>
-            <DropdownMenuItem>Select messages</DropdownMenuItem>
-            <DropdownMenuItem>Mute notifications</DropdownMenuItem>
-            <DropdownMenuItem>Disappearing messages</DropdownMenuItem>
+            <DropdownMenuItem onClick={onOpenContactInfo}>Contact info</DropdownMenuItem>
+            <DropdownMenuItem onClick={onSelectMessages}>Select messages</DropdownMenuItem>
+            <DropdownMenuItem disabled>Mute notifications</DropdownMenuItem>
+            <DropdownMenuItem onClick={onOpenDisappearingMessages}>Disappearing messages</DropdownMenuItem>
+            <DropdownMenuItem onClick={onOpenCallHistory}>Call history</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Clear chat</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">Delete chat</DropdownMenuItem>
+            <DropdownMenuItem onClick={onClearChat}>Clear chat</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onClick={onDeleteChat}>Delete chat</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

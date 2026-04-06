@@ -39,7 +39,7 @@ export function ChatShell({ selectedConversationId }: ChatShellProps) {
             }
           >
             {selectedConversationId ? (
-              <ChatArea conversationId={selectedConversationId} />
+              <ChatArea key={selectedConversationId} conversationId={selectedConversationId} />
             ) : (
               <ChatEmptyState />
             )}

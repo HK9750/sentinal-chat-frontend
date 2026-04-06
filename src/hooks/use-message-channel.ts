@@ -7,6 +7,7 @@ import { MESSAGE_SEND_ACK_TIMEOUT_MS, SOCKET_EVENT } from '@/lib/constants';
 import { schedulePendingMessageTimeout } from '@/lib/pending-message-timeouts';
 import { createClientMessageId, createMessageRequestId, createRequestId } from '@/lib/request-id';
 import {
+  buildBulkDeleteMessagesFrame,
   buildDeleteMessageFrame,
   buildEditMessageFrame,
   buildReactionFrame,
@@ -18,7 +19,12 @@ import {
 import { queryKeys } from '@/queries/query-keys';
 import { useSocket } from '@/providers/socket-provider';
 import { useAuthStore } from '@/stores/auth-store';
-import type { ConversationListPayload, Message, MessageType } from '@/types';
+import type {
+  ConversationListPayload,
+  Message,
+  MessageDeleteMode,
+  MessageType,
+} from '@/types';
 
 export function useMessageChannel(conversationId?: string | null) {
   const socket = useSocket();
@@ -124,6 +130,21 @@ export function useMessageChannel(conversationId?: string | null) {
     [conversationId, socket]
   );
 
+  const deleteMessages = useCallback(
+    (messageIds: string[], mode: MessageDeleteMode) => {
+      if (!conversationId || messageIds.length === 0) return;
+      socket.send(
+        buildBulkDeleteMessagesFrame(
+          conversationId,
+          messageIds,
+          mode,
+          createRequestId('delete-bulk')
+        )
+      );
+    },
+    [conversationId, socket]
+  );
+
   const reactToMessage = useCallback(
     (messageId: string, reactionCode: string, mode: 'add' | 'remove') => {
       if (!conversationId) return;
@@ -180,6 +201,7 @@ export function useMessageChannel(conversationId?: string | null) {
     sendMessage,
     editMessage,
     deleteMessage,
+    deleteMessages,
     reactToMessage,
     pinMessage,
     votePoll,

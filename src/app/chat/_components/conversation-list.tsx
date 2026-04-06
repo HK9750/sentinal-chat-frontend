@@ -24,22 +24,33 @@ interface ConversationListProps {
   selectedConversationId: string | null;
 }
 
+type ConversationFilter = 'all' | 'unread' | 'groups';
+
 export function ConversationList({ selectedConversationId }: ConversationListProps) {
   const socket = useSocket();
   const currentUserId = useAuthStore((state) => state.user?.id);
   const [query, setQuery] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<ConversationFilter>('all');
   const conversationsQuery = useConversations();
 
   const filteredConversations = useMemo(() => {
     const conversations = conversationsQuery.data?.items ?? [];
     const normalizedQuery = query.trim().toLowerCase();
 
-    if (!normalizedQuery) {
-      return conversations;
-    }
-
     return conversations.filter((conversation) => {
+      if (activeFilter === 'unread' && conversation.unread_count <= 0) {
+        return false;
+      }
+
+      if (activeFilter === 'groups' && conversation.type !== 'GROUP') {
+        return false;
+      }
+
+      if (!normalizedQuery) {
+        return true;
+      }
+
       const haystack = [
         getConversationTitle(conversation, currentUserId),
         getConversationSubtitle(conversation, currentUserId),
@@ -50,7 +61,7 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
 
       return haystack.includes(normalizedQuery);
     });
-  }, [conversationsQuery.data?.items, currentUserId, query]);
+  }, [activeFilter, conversationsQuery.data?.items, currentUserId, query]);
 
   return (
     <div className="flex h-full flex-col">
@@ -133,13 +144,37 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
 
       {/* Filter tabs - WhatsApp style */}
       <div className="flex gap-2 border-b border-[#e9edef] bg-white px-3 py-2 dark:border-[#2a3942] dark:bg-[#111b21]">
-        <button className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
+        <button
+          type="button"
+          onClick={() => setActiveFilter('all')}
+          className={
+            activeFilter === 'all'
+              ? 'rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary'
+              : 'rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/80'
+          }
+        >
           All
         </button>
-        <button className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/80">
+        <button
+          type="button"
+          onClick={() => setActiveFilter('unread')}
+          className={
+            activeFilter === 'unread'
+              ? 'rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary'
+              : 'rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/80'
+          }
+        >
           Unread
         </button>
-        <button className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/80">
+        <button
+          type="button"
+          onClick={() => setActiveFilter('groups')}
+          className={
+            activeFilter === 'groups'
+              ? 'rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary'
+              : 'rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/80'
+          }
+        >
           Groups
         </button>
       </div>
