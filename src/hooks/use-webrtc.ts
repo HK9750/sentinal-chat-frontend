@@ -46,17 +46,55 @@ export function useWebRtc(options: UseWebRtcOptions = {}) {
   const networkMonitorRef = useRef<NetworkMonitor | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const isReconnectingRef = useRef(false);
+  const reconnectDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectionGenerationRef = useRef(0);
   const remoteStreamRef = useRef<MediaStream | null>(null);
   const screenSenderRef = useRef<RTCRtpSender | null>(null);
 
   // Quality metrics history for averaging
   const metricsHistoryRef = useRef<CallQualityMetrics[]>([]);
 
+  const canRecoverConnection = useCallback(
+    (connection?: RTCPeerConnection, generation?: number) => {
+      const state = useCallStore.getState();
+
+      if (!state.activeCall) {
+        return false;
+      }
+
+      if (
+        state.activeCall.status === 'ended' ||
+        state.activeCall.status === 'failed'
+      ) {
+        return false;
+      }
+
+      if (
+        typeof generation === 'number' &&
+        generation !== connectionGenerationRef.current
+      ) {
+        return false;
+      }
+
+      if (connection && state.peerConnection !== connection) {
+        return false;
+      }
+
+      return true;
+    },
+    []
+  );
+
   // Cleanup function
   const cleanup = useCallback(() => {
+    connectionGenerationRef.current++;
     if (qualityIntervalRef.current) {
       clearInterval(qualityIntervalRef.current);
       qualityIntervalRef.current = null;
+    }
+    if (reconnectDelayTimerRef.current) {
+      clearTimeout(reconnectDelayTimerRef.current);
+      reconnectDelayTimerRef.current = null;
     }
     if (networkMonitorRef.current) {
       networkMonitorRef.current.stop();
@@ -74,15 +112,24 @@ export function useWebRtc(options: UseWebRtcOptions = {}) {
     return cleanup;
   }, [cleanup]);
 
+  useEffect(() => {
+    if (!activeCall) {
+      cleanup();
+    }
+  }, [activeCall, cleanup]);
+
   // Start quality monitoring
   const startQualityMonitoring = useCallback(
-    (connection: RTCPeerConnection) => {
+    (connection: RTCPeerConnection, generation?: number) => {
       if (qualityIntervalRef.current) {
         clearInterval(qualityIntervalRef.current);
       }
 
       qualityIntervalRef.current = setInterval(async () => {
-        if (connection.connectionState !== 'connected') {
+        if (
+          connection.connectionState !== 'connected' ||
+          !canRecoverConnection(connection, generation)
+        ) {
           return;
         }
 
@@ -101,45 +148,72 @@ export function useWebRtc(options: UseWebRtcOptions = {}) {
         }
       }, QUALITY_CHECK_INTERVAL_MS);
     },
-    [options]
+    [canRecoverConnection, options]
   );
 
   // Handle ICE restart for recovery
   const attemptIceRestart = useCallback(
-    async (connection: RTCPeerConnection): Promise<RTCSessionDescriptionInit | null> => {
+    async (
+      connection: RTCPeerConnection,
+      generation?: number
+    ): Promise<RTCSessionDescriptionInit | null> => {
+      if (!canRecoverConnection(connection, generation)) {
+        return null;
+      }
+
       if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-        setCallStatus('failed', 'Connection could not be restored after multiple attempts.');
-        options.onError?.(
-          new CallError(
-            'Max reconnection attempts reached',
-            'ICE_CONNECTION_FAILED',
-            false
-          )
-        );
+        if (canRecoverConnection(connection, generation)) {
+          setCallStatus('failed', 'Connection could not be restored after multiple attempts.');
+          options.onError?.(
+            new CallError(
+              'Max reconnection attempts reached',
+              'ICE_CONNECTION_FAILED',
+              false
+            )
+          );
+        }
         return null;
       }
 
       reconnectAttemptsRef.current++;
       isReconnectingRef.current = true;
+
+      if (!canRecoverConnection(connection, generation)) {
+        isReconnectingRef.current = false;
+        return null;
+      }
+
       setCallStatus('connecting', `Reconnecting... (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`);
 
       try {
         const offer = await performIceRestart(connection);
+        if (!canRecoverConnection(connection, generation)) {
+          isReconnectingRef.current = false;
+          return null;
+        }
+
         await waitForIceGathering(connection);
+        if (!canRecoverConnection(connection, generation)) {
+          isReconnectingRef.current = false;
+          return null;
+        }
+
         return offer;
       } catch {
         isReconnectingRef.current = false;
-        options.onError?.(
-          new CallError(
-            'ICE restart failed',
-            'ICE_CONNECTION_FAILED',
-            reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS
-          )
-        );
+        if (canRecoverConnection(connection, generation)) {
+          options.onError?.(
+            new CallError(
+              'ICE restart failed',
+              'ICE_CONNECTION_FAILED',
+              reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS
+            )
+          );
+        }
         return null;
       }
     },
-    [options, setCallStatus]
+    [canRecoverConnection, options, setCallStatus]
   );
 
   // Create peer connection with all handlers
@@ -148,14 +222,29 @@ export function useWebRtc(options: UseWebRtcOptions = {}) {
       onIceCandidate: (candidate: RTCIceCandidate) => void,
       onIceRestart?: (offer: RTCSessionDescriptionInit) => void
     ): Promise<RTCPeerConnection> => {
+      const generation = connectionGenerationRef.current + 1;
+      connectionGenerationRef.current = generation;
+
       // Create remote stream container
       const remoteStream = new MediaStream();
       remoteStreamRef.current = remoteStream;
+
+      const connectionRef = { current: null as RTCPeerConnection | null };
+      const shouldHandleConnection = () => {
+        if (!connectionRef.current) {
+          return false;
+        }
+        return canRecoverConnection(connectionRef.current, generation);
+      };
 
       const handlers: ConnectionEventHandlers = {
         onIceCandidate,
 
         onTrack: (event) => {
+          if (!shouldHandleConnection()) {
+            return;
+          }
+
           for (const track of event.streams[0]?.getTracks() ?? []) {
             remoteStream.addTrack(track);
           }
@@ -163,6 +252,20 @@ export function useWebRtc(options: UseWebRtcOptions = {}) {
         },
 
         onConnectionStateChange: (state) => {
+          if (state === 'closed') {
+            if (
+              connectionRef.current &&
+              useCallStore.getState().peerConnection === connectionRef.current
+            ) {
+              cleanup();
+            }
+            return;
+          }
+
+          if (!shouldHandleConnection()) {
+            return;
+          }
+
           switch (state) {
             case 'connected':
               reconnectAttemptsRef.current = 0;
@@ -185,26 +288,34 @@ export function useWebRtc(options: UseWebRtcOptions = {}) {
                 );
               }
               break;
-
-            case 'closed':
-              cleanup();
-              break;
           }
         },
 
         onIceConnectionStateChange: (state) => {
+          if (!shouldHandleConnection()) {
+            return;
+          }
+
           switch (state) {
             case 'disconnected':
+              if (reconnectDelayTimerRef.current) {
+                clearTimeout(reconnectDelayTimerRef.current);
+              }
+
               // Network interruption - attempt ICE restart after delay
-              setTimeout(async () => {
+              reconnectDelayTimerRef.current = setTimeout(async () => {
+                if (!shouldHandleConnection()) {
+                  return;
+                }
+
                 const connection = useCallStore.getState().peerConnection;
                 if (
                   connection &&
                   connection.iceConnectionState === 'disconnected' &&
                   !isReconnectingRef.current
                 ) {
-                  const offer = await attemptIceRestart(connection);
-                  if (offer) {
+                  const offer = await attemptIceRestart(connection, generation);
+                  if (offer && shouldHandleConnection()) {
                     onIceRestart?.(offer);
                   }
                 }
@@ -216,8 +327,8 @@ export function useWebRtc(options: UseWebRtcOptions = {}) {
               const connection = useCallStore.getState().peerConnection;
               if (connection && !isReconnectingRef.current) {
                 void (async () => {
-                  const offer = await attemptIceRestart(connection);
-                  if (offer) {
+                  const offer = await attemptIceRestart(connection, generation);
+                  if (offer && shouldHandleConnection()) {
                     onIceRestart?.(offer);
                   }
                 })();
@@ -241,18 +352,27 @@ export function useWebRtc(options: UseWebRtcOptions = {}) {
       };
 
       const connection = createPeerConnection(handlers);
+      connectionRef.current = connection;
       setPeerConnection(connection);
 
       // Start quality monitoring
-      startQualityMonitoring(connection);
+      startQualityMonitoring(connection, generation);
 
       // Set up network monitoring
       networkMonitorRef.current = createNetworkMonitor();
       networkMonitorRef.current.onOffline(() => {
+        if (!shouldHandleConnection()) {
+          return;
+        }
+
         options.onConnectionLost?.();
         setCallStatus('connecting', 'Network disconnected, waiting for connection...');
       });
       networkMonitorRef.current.onOnline(() => {
+        if (!shouldHandleConnection()) {
+          return;
+        }
+
         // Network restored - attempt ICE restart
         const currentConnection = useCallStore.getState().peerConnection;
         if (
@@ -261,8 +381,8 @@ export function useWebRtc(options: UseWebRtcOptions = {}) {
           !isReconnectingRef.current
         ) {
           void (async () => {
-            const offer = await attemptIceRestart(currentConnection);
-            if (offer) {
+            const offer = await attemptIceRestart(currentConnection, generation);
+            if (offer && shouldHandleConnection()) {
               onIceRestart?.(offer);
             }
           })();
@@ -274,6 +394,7 @@ export function useWebRtc(options: UseWebRtcOptions = {}) {
     },
     [
       attemptIceRestart,
+      canRecoverConnection,
       cleanup,
       options,
       setCallStatus,
@@ -629,7 +750,7 @@ export function useWebRtc(options: UseWebRtcOptions = {}) {
       return null;
     }
     reconnectAttemptsRef.current = 0; // Reset counter for manual restart
-    return attemptIceRestart(peerConnection);
+    return attemptIceRestart(peerConnection, connectionGenerationRef.current);
   }, [attemptIceRestart, peerConnection]);
 
   return {

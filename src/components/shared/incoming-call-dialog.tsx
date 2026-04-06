@@ -106,6 +106,12 @@ export function IncomingCallDialog() {
 
   const handleDecline = useCallback(() => {
     if (incomingCall) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[CALL_END] incoming call declined locally', {
+          call_id: incomingCall.call_id,
+          conversation_id: incomingCall.conversation_id,
+        });
+      }
       endCall(incomingCall.call_id, 'declined');
     }
     resetCall();

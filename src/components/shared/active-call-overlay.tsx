@@ -500,6 +500,13 @@ export function ActiveCallOverlay() {
   })();
 
   const handleEnd = () => {
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[CALL_END] local hangup from overlay", {
+        call_id: activeCall.call_id,
+        status: activeCall.status,
+        type: activeCall.type,
+      });
+    }
     if (activeCall.status !== "ended") {
       endCall(activeCall.call_id, "hangup");
     }

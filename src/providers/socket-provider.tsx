@@ -53,6 +53,7 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
   const setCallStatus = useCallStore((state) => state.setCallStatus);
   const resetCall = useCallStore((state) => state.resetCall);
   const readyLoggedRef = useRef(false);
+  const endedCallIdsRef = useRef<Map<string, number>>(new Map());
 
   const syncConversationPreviewFromMessages = useCallback(
     (conversationId: string, messages: Message[]) => {
@@ -417,11 +418,57 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           const payload = envelope.data as IncomingCall | undefined;
           if (!payload?.call_id || !envelope.conversation_id) break;
 
+          if (process.env.NODE_ENV !== "production") {
+            console.debug("[CALL_END] recv call:incoming", {
+              call_id: payload.call_id,
+              initiated_by: payload.initiated_by,
+              conversation_id: envelope.conversation_id,
+              request_id: envelope.request_id,
+            });
+          }
+
+          const now = Date.now();
+          for (const [callId, endedAt] of endedCallIdsRef.current) {
+            if (now - endedAt > 60_000) {
+              endedCallIdsRef.current.delete(callId);
+            }
+          }
+
+          if (endedCallIdsRef.current.has(payload.call_id)) {
+            if (process.env.NODE_ENV !== "production") {
+              console.debug("[CALL_END] ignore stale call:incoming for ended call", {
+                call_id: payload.call_id,
+              });
+            }
+            break;
+          }
+
+          const { activeCall, incomingCall } = useCallStore.getState();
+          if (
+            activeCall?.call_id === payload.call_id ||
+            incomingCall?.call_id === payload.call_id
+          ) {
+            if (process.env.NODE_ENV !== "production") {
+              console.debug("[CALL_END] ignore duplicate call:incoming", {
+                call_id: payload.call_id,
+              });
+            }
+            break;
+          }
+
           const peerUserId = payload.participant_ids?.find(
             (id) => id !== currentUserId,
           );
 
           if (payload.initiated_by === currentUserId) {
+            if (!envelope.request_id) {
+              if (process.env.NODE_ENV !== "production") {
+                console.debug("[CALL_END] ignore broadcast echo call:incoming for self", {
+                  call_id: payload.call_id,
+                });
+              }
+              break;
+            }
             setActiveCall({
               call_id: payload.call_id,
               conversation_id: envelope.conversation_id,
@@ -463,8 +510,56 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
         case SOCKET_EVENT.callEnded: {
           const reason = (envelope.data as { reason?: string } | undefined)
             ?.reason;
+          const endedCallId = envelope.call_id;
+
+          if (process.env.NODE_ENV !== "production") {
+            console.debug("[CALL_END] recv call:ended", {
+              call_id: endedCallId,
+              reason,
+              actor_id: (envelope.data as { actor_id?: string } | undefined)
+                ?.actor_id,
+              conversation_id: envelope.conversation_id,
+            });
+          }
+
+          if (endedCallId) {
+            endedCallIdsRef.current.set(endedCallId, Date.now());
+          }
+          const { activeCall, incomingCall } = useCallStore.getState();
+
+          const matchesActiveCall =
+            !!activeCall &&
+            (!endedCallId || activeCall.call_id === endedCallId);
+          const matchesIncomingCall =
+            !!incomingCall &&
+            (!endedCallId || incomingCall.call_id === endedCallId);
+
+          if (matchesIncomingCall && !matchesActiveCall) {
+            if (process.env.NODE_ENV !== "production") {
+              console.debug("[CALL_END] closing incoming dialog", {
+                call_id: endedCallId,
+              });
+            }
+            resetCall();
+            break;
+          }
+
+          if (!matchesActiveCall) {
+            if (process.env.NODE_ENV !== "production") {
+              console.debug("[CALL_END] ignoring unrelated call:ended", {
+                call_id: endedCallId,
+              });
+            }
+            break;
+          }
+
           setCallStatus("ended", reason);
-          window.setTimeout(() => resetCall(), 1500);
+          if (process.env.NODE_ENV !== "production") {
+            console.debug("[CALL_END] closing active call overlay", {
+              call_id: endedCallId,
+            });
+          }
+          resetCall();
           break;
         }
 

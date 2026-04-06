@@ -208,7 +208,16 @@ export function useCallSignaling(
     (callId: string, reason = 'completed') => {
       clearCallTimeout();
       pendingCandidatesRef.current.delete(callId);
-      socket.send(buildCallEndFrame(callId, reason, conversationId ?? undefined, createRequestId('call-end')));
+      const requestId = createRequestId('call-end');
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[CALL_END] emit call:end', {
+          call_id: callId,
+          reason,
+          conversation_id: conversationId ?? null,
+          request_id: requestId,
+        });
+      }
+      socket.send(buildCallEndFrame(callId, reason, conversationId ?? undefined, requestId));
     },
     [conversationId, socket, clearCallTimeout]
   );

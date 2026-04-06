@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   LoaderCircle,
   Mic,
@@ -11,6 +11,11 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useMessageChannel } from "@/hooks/use-message-channel";
 import { useTypingChannel } from "@/hooks/use-typing-channel";
 import { useVoiceNote } from "@/hooks/use-voice-note";
@@ -32,6 +37,38 @@ interface MessageInputProps {
   onCancelEdit?: () => void;
 }
 
+const EMOJI_SECTIONS = [
+  {
+    title: "Smileys",
+    emojis: [
+      "😀",
+      "😁",
+      "😂",
+      "🤣",
+      "😊",
+      "😍",
+      "😘",
+      "😎",
+      "🤔",
+      "😭",
+      "😡",
+      "🥳",
+      "👍",
+      "👏",
+      "🙏",
+      "🔥",
+    ],
+  },
+  {
+    title: "Gestures",
+    emojis: ["💯", "✅", "❌", "👌", "🤝", "🙌", "👀", "💪"],
+  },
+  {
+    title: "Objects",
+    emojis: ["❤️", "🎉", "✨", "🎯", "🚀", "📌", "💡", "📎"],
+  },
+] as const;
+
 export function MessageInput({
   conversationId,
   replyToMessage,
@@ -51,12 +88,42 @@ export function MessageInput({
     editingMessage ? getMessagePrimaryText(editingMessage) : ""
   );
   const [error, setError] = useState<string | null>(null);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Clear text when cancelling edit
   const handleCancelEdit = useCallback(() => {
     setText("");
+    setIsEmojiPickerOpen(false);
     onCancelEdit?.();
   }, [onCancelEdit]);
+
+  const insertEmoji = useCallback(
+    (emoji: string) => {
+      const input = inputRef.current;
+      const start = input?.selectionStart ?? text.length;
+      const end = input?.selectionEnd ?? text.length;
+      const nextValue = `${text.slice(0, start)}${emoji}${text.slice(end)}`;
+
+      setText(nextValue);
+      sendTyping(nextValue.trim().length > 0);
+
+      window.requestAnimationFrame(() => {
+        const nextCursor = start + emoji.length;
+        inputRef.current?.focus();
+        inputRef.current?.setSelectionRange(nextCursor, nextCursor);
+      });
+    },
+    [sendTyping, text]
+  );
+
+  const handleEmojiSelect = useCallback(
+    (emoji: string) => {
+      insertEmoji(emoji);
+      setIsEmojiPickerOpen(false);
+    },
+    [insertEmoji]
+  );
 
   const markUploadsError = useCallback(
     (uploadIds: string[], message: string) => {
@@ -95,6 +162,7 @@ export function MessageInput({
         if (editingMessage) {
           editMessage(editingMessage.id, trimmed);
           setText("");
+          setIsEmojiPickerOpen(false);
           sendTyping(false);
           onCancelEdit?.();
           return;
@@ -103,6 +171,7 @@ export function MessageInput({
         // Handle reply mode or normal send
         await submitPayload(trimmed, "TEXT", [], replyToMessage?.id);
         setText("");
+        setIsEmojiPickerOpen(false);
         sendTyping(false);
         onCancelReply?.();
       } catch (submitError) {
@@ -336,15 +405,43 @@ export function MessageInput({
       {/* Input area - WhatsApp style */}
       <form onSubmit={handleSubmit} className="flex items-end gap-1.5">
         {/* Emoji button */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:bg-muted"
-          aria-label="Open emoji picker"
-        >
-          <Smile className="h-6 w-6" />
-        </Button>
+        <Popover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:bg-muted"
+              aria-label="Open emoji picker"
+            >
+              <Smile className="h-6 w-6" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" side="top" className="w-[320px] p-2">
+            <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
+              {EMOJI_SECTIONS.map((section) => (
+                <div key={section.title}>
+                  <p className="px-1 text-[11px] font-medium uppercase text-muted-foreground">
+                    {section.title}
+                  </p>
+                  <div className="mt-1 grid grid-cols-8 gap-1">
+                    {section.emojis.map((emoji) => (
+                      <button
+                        key={`${section.title}-${emoji}`}
+                        type="button"
+                        className="flex h-8 w-8 items-center justify-center rounded-md text-xl hover:bg-muted"
+                        onClick={() => handleEmojiSelect(emoji)}
+                        aria-label={`Insert ${emoji}`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
 
         {/* Attachment button */}
         {!isEditing && (
@@ -358,6 +455,7 @@ export function MessageInput({
         {/* Text input */}
         <div className="min-w-0 flex-1">
           <input
+            ref={inputRef}
             type="text"
             value={text}
             onChange={(event) => {
