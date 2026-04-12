@@ -29,6 +29,23 @@ export function NotificationsTab() {
       <CardContent className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
+            <Label>In-app Notifications</Label>
+            <p className="text-sm text-muted-foreground">
+              Receive notification cards inside Sentinel Chat
+            </p>
+          </div>
+          <Switch
+            checked={settings?.in_app_notifications ?? true}
+            onCheckedChange={(checked) =>
+              handleToggle('in_app_notifications', checked)
+            }
+          />
+        </div>
+
+        <Separator />
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
             <Label>Message Sounds</Label>
             <p className="text-sm text-muted-foreground">
               Play a sound for new messages in supported browsers
@@ -38,6 +55,23 @@ export function NotificationsTab() {
             checked={settings?.sound_enabled ?? true}
             onCheckedChange={(checked) =>
               handleToggle('sound_enabled', checked)
+            }
+          />
+        </div>
+
+        <Separator />
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>Message Preview</Label>
+            <p className="text-sm text-muted-foreground">
+              Show sender message text in notifications
+            </p>
+          </div>
+          <Switch
+            checked={settings?.show_message_preview ?? true}
+            onCheckedChange={(checked) =>
+              handleToggle('show_message_preview', checked)
             }
           />
         </div>

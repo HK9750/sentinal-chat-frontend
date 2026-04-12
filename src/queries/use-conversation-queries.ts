@@ -11,6 +11,7 @@ import {
   listConversations,
   listParticipants,
   removeParticipant,
+  updateConversationMute,
   updateConversation,
 } from '@/services/conversation-service';
 import { queryKeys } from '@/queries/query-keys';
@@ -125,6 +126,19 @@ export function useDeleteConversationMutation(conversationId: string) {
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: queryKeys.messages(conversationId) });
       queryClient.removeQueries({ queryKey: queryKeys.conversation(conversationId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+    },
+  });
+}
+
+export function useUpdateConversationMuteMutation(conversationId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { muted_until?: string | null }) =>
+      updateConversationMute(conversationId, input),
+    onSuccess: (conversation) => {
+      queryClient.setQueryData(queryKeys.conversation(conversation.id), conversation);
       queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
     },
   });

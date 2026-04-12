@@ -68,10 +68,18 @@ export const API_ROUTES = {
       `/v1/conversations/${conversationId}/participants/${userId}`,
     clear: (conversationId: string) =>
       `/v1/conversations/${conversationId}/clear`,
+    mute: (conversationId: string) =>
+      `/v1/conversations/${conversationId}/mute`,
     calls: (conversationId: string) =>
       `/v1/conversations/${conversationId}/calls`,
     messages: (conversationId: string) =>
       `/v1/conversations/${conversationId}/messages`,
+  },
+  notifications: {
+    list: '/v1/notifications',
+    markRead: (notificationId: string) => `/v1/notifications/${notificationId}/read`,
+    markAllRead: '/v1/notifications/read-all',
+    settings: '/v1/users/notification-settings',
   },
   messages: {
     detail: (messageId: string) => `/v1/messages/${messageId}`,
@@ -122,6 +130,11 @@ export const SOCKET_EVENT = {
   commandRedo: "command:redo",
   commandUndone: "command:undone",
   commandRedone: "command:redone",
+  notificationNew: "notification:new",
+  notificationRead: "notification:read",
+  notificationReadAll: "notification:read_all",
+  notificationBadge: "notification:badge",
+  notificationSettingsUpdated: "notification:settings:updated",
   callStart: "call:start",
   callIncoming: "call:incoming",
   callOffer: "call:offer",
@@ -135,6 +148,8 @@ export const DEFAULT_PREFERENCES: LocalUserPreferences = {
   theme: "system",
   read_receipts: true,
   sound_enabled: true,
+  in_app_notifications: true,
+  show_message_preview: true,
   enter_to_send: true,
   reduce_motion: false,
   compact_mode: false,

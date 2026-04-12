@@ -46,6 +46,13 @@ export async function updateConversation(conversationId: string, input: UpdateCo
   return unwrapData<Conversation>(apiClient.patch(API_ROUTES.conversations.update(conversationId), input));
 }
 
+export async function updateConversationMute(
+  conversationId: string,
+  input: { muted_until?: string | null }
+): Promise<Conversation> {
+  return unwrapData<Conversation>(apiClient.patch(API_ROUTES.conversations.mute(conversationId), input));
+}
+
 export async function deleteConversation(conversationId: string): Promise<DeleteConversationPayload> {
   return unwrapData<DeleteConversationPayload>(apiClient.delete(API_ROUTES.conversations.delete(conversationId)));
 }

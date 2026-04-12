@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { ArrowLeft, MoreVertical, Phone, Search, Video } from 'lucide-react';
+import { NotificationBell } from '@/components/shared/notification-bell';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,6 +30,8 @@ interface ChatHeaderProps {
   onClearChat: () => void;
   onDeleteChat: () => void;
   onOpenCallHistory: () => void;
+  onUpdateMute: (mutedUntil: string | null) => void;
+  mutePending: boolean;
 }
 
 export function ChatHeader({
@@ -42,6 +45,8 @@ export function ChatHeader({
   onClearChat,
   onDeleteChat,
   onOpenCallHistory,
+  onUpdateMute,
+  mutePending,
 }: ChatHeaderProps) {
   const socket = useSocket();
   const conversationQuery = useConversation(conversationId);
@@ -59,6 +64,12 @@ export function ChatHeader({
   const actionsDisabled =
     conversationQuery.isLoading || conversationQuery.isError || !conversation;
   const callsEnabled = !actionsDisabled && conversation?.type === 'DM';
+  const myParticipant = useMemo(
+    () => conversation?.participants.find((participant) => participant.user_id === currentUserId),
+    [conversation?.participants, currentUserId]
+  );
+  const mutedUntil = myParticipant?.muted_until ?? null;
+  const isMuted = Boolean(mutedUntil);
 
   const subtitle = useMemo(() => {
     if (!conversation) {
@@ -164,6 +175,8 @@ export function ChatHeader({
           </>
         )}
 
+        <NotificationBell buttonClassName="h-10 w-10" />
+
         <Button
           type="button"
           variant="ghost"
@@ -191,7 +204,41 @@ export function ChatHeader({
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuItem onClick={onOpenContactInfo}>Contact info</DropdownMenuItem>
             <DropdownMenuItem onClick={onSelectMessages}>Select messages</DropdownMenuItem>
-            <DropdownMenuItem disabled>Mute notifications</DropdownMenuItem>
+            {isMuted ? (
+              <DropdownMenuItem
+                disabled={actionsDisabled || mutePending}
+                onClick={() => onUpdateMute(null)}
+              >
+                Unmute notifications
+              </DropdownMenuItem>
+            ) : (
+              <>
+                <DropdownMenuItem
+                  disabled={actionsDisabled || mutePending}
+                  onClick={() => onUpdateMute(new Date(Date.now() + 60 * 60 * 1000).toISOString())}
+                >
+                  Mute for 1 hour
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={actionsDisabled || mutePending}
+                  onClick={() => onUpdateMute(new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString())}
+                >
+                  Mute for 8 hours
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={actionsDisabled || mutePending}
+                  onClick={() => onUpdateMute(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString())}
+                >
+                  Mute for 1 week
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={actionsDisabled || mutePending}
+                  onClick={() => onUpdateMute(new Date('2099-12-31T23:59:59.000Z').toISOString())}
+                >
+                  Mute always
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuItem onClick={onOpenDisappearingMessages}>Disappearing messages</DropdownMenuItem>
             <DropdownMenuItem onClick={onOpenCallHistory}>Call history</DropdownMenuItem>
             <DropdownMenuSeparator />

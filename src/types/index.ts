@@ -1,6 +1,7 @@
 export * from '@/types/call';
 export * from '@/types/conversation';
 export * from '@/types/message';
+export * from '@/types/notification';
 export * from '@/types/upload';
 export * from '@/types/user';
 

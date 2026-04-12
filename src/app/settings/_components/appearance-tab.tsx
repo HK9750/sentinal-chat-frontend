@@ -35,7 +35,6 @@ export function AppearanceTab() {
               onClick={() => handleThemeChange('light')}
               className="h-auto flex flex-col gap-2 border-border/70 py-4"
             >
-              <div className="h-8 w-8 rounded-full border border-border bg-background" />
               <span className="text-xs">Light</span>
             </Button>
             <Button
@@ -44,7 +43,6 @@ export function AppearanceTab() {
               onClick={() => handleThemeChange('dark')}
               className="h-auto flex flex-col gap-2 border-border/70 py-4"
             >
-              <div className="h-8 w-8 rounded-full border border-border bg-foreground" />
               <span className="text-xs">Dark</span>
             </Button>
             <Button
@@ -53,7 +51,6 @@ export function AppearanceTab() {
               onClick={() => handleThemeChange('system')}
               className="h-auto flex flex-col gap-2 border-border/70 py-4"
             >
-              <div className="h-8 w-8 rounded-full border border-border bg-muted" />
               <span className="text-xs">System</span>
             </Button>
           </div>

@@ -95,6 +95,8 @@ export interface LocalUserPreferences {
   theme: 'system' | 'light' | 'dark';
   read_receipts: boolean;
   sound_enabled: boolean;
+  in_app_notifications: boolean;
+  show_message_preview: boolean;
   enter_to_send: boolean;
   reduce_motion: boolean;
   compact_mode: boolean;

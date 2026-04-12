@@ -17,6 +17,7 @@ import {
   useConversation,
   useDeleteConversationMutation,
   useUpdateConversationMutation,
+  useUpdateConversationMuteMutation,
 } from '@/queries/use-conversation-queries';
 import { useMessages } from '@/queries/use-message-queries';
 import { useAuthStore } from '@/stores/auth-store';
@@ -39,6 +40,7 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
   const clearConversationMutation = useClearConversationMutation(conversationId);
   const deleteConversationMutation = useDeleteConversationMutation(conversationId);
   const updateConversationMutation = useUpdateConversationMutation(conversationId);
+  const updateMuteMutation = useUpdateConversationMuteMutation(conversationId);
 
   const selectionConversationId = useChatSelectionStore((state) => state.conversationId);
   const selectionEnabled = useChatSelectionStore((state) => state.enabled);
@@ -188,6 +190,13 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
     router.push('/chat', { scroll: false });
   }, [deleteConversationMutation, router]);
 
+  const handleUpdateMute = useCallback(
+    (mutedUntil: string | null) => {
+      void updateMuteMutation.mutateAsync({ muted_until: mutedUntil });
+    },
+    [updateMuteMutation]
+  );
+
   return (
     <div className="relative flex h-full flex-col">
       {/* Chat header */}
@@ -202,6 +211,8 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
         onClearChat={() => setClearChatOpen(true)}
         onDeleteChat={() => setDeleteChatOpen(true)}
         onOpenCallHistory={() => setCallHistoryOpen(true)}
+        onUpdateMute={handleUpdateMute}
+        mutePending={updateMuteMutation.isPending}
       />
 
       {/* Messages area with WhatsApp background pattern */}

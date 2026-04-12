@@ -5,13 +5,22 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useUiStore } from '@/stores/ui-store';
 import { queryKeys } from '@/queries/query-keys';
 import {
+  getNotificationSettings,
+  updateNotificationSettings,
+} from '@/services/notification-service';
+import {
   getProfileMetrics,
   mapSessionsToDevices,
   updateProfile,
 } from '@/services/user-service';
 import { listSessions } from '@/services/auth-service';
 import { addContact, listContacts, removeContact, searchUsers } from '@/services/user-service-api';
-import type { AuthSession, Contact, LocalUserPreferences } from '@/types';
+import type {
+  AuthSession,
+  Contact,
+  LocalUserPreferences,
+  NotificationSettings,
+} from '@/types';
 
 export function useProfileMetricsQuery() {
   return useQuery({
@@ -93,22 +102,77 @@ export function useRemoveContact() {
 export function useUserSettings() {
   const preferences = useUiStore((state) => state.preferences);
 
-  return {
-    data: preferences,
-    isLoading: false,
-    isError: false,
-  };
+  return useQuery({
+    queryKey: queryKeys.userPreferences,
+    queryFn: async () => {
+      try {
+        const remote = await getNotificationSettings();
+        return {
+          ...preferences,
+          sound_enabled: remote.sound_enabled,
+          in_app_notifications: remote.in_app_enabled,
+          show_message_preview: remote.show_message_preview,
+        };
+      } catch {
+        return preferences;
+      }
+    },
+    initialData: preferences,
+  });
+}
+
+function notificationSettingsPatchFromPreferences(
+  payload: Partial<LocalUserPreferences>,
+  next: LocalUserPreferences
+): Partial<NotificationSettings> {
+  const patch: Partial<NotificationSettings> = {};
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'in_app_notifications')) {
+    patch.in_app_enabled = next.in_app_notifications;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'sound_enabled')) {
+    patch.sound_enabled = next.sound_enabled;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'show_message_preview')) {
+    patch.show_message_preview = next.show_message_preview;
+  }
+
+  return patch;
 }
 
 export function useUpdateSettings() {
-  const preferences = useUiStore((state) => state.preferences);
   const setPreference = useUiStore((state) => state.setPreference);
+  const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (payload: Partial<LocalUserPreferences>) => ({ ...preferences, ...payload }),
-    onSuccess: (preferences) => {
-      for (const [key, value] of Object.entries(preferences)) {
+    mutationFn: async (payload: Partial<LocalUserPreferences>) => {
+      const current = useUiStore.getState().preferences;
+      const next = { ...current, ...payload };
+
+      const notificationPatch = notificationSettingsPatchFromPreferences(
+        payload,
+        next
+      );
+      let remoteSettings: NotificationSettings | undefined;
+      if (Object.keys(notificationPatch).length > 0) {
+        remoteSettings = await updateNotificationSettings(notificationPatch);
+        next.in_app_notifications = remoteSettings.in_app_enabled;
+        next.sound_enabled = remoteSettings.sound_enabled;
+        next.show_message_preview = remoteSettings.show_message_preview;
+      }
+
+      return {
+        nextPreferences: next,
+        remoteSettings,
+      };
+    },
+    onSuccess: ({ nextPreferences, remoteSettings }) => {
+      for (const [key, value] of Object.entries(nextPreferences)) {
         setPreference(key as keyof LocalUserPreferences, value as LocalUserPreferences[keyof LocalUserPreferences]);
+      }
+      queryClient.setQueryData(queryKeys.userPreferences, nextPreferences);
+      if (remoteSettings) {
+        queryClient.setQueryData(queryKeys.notificationSettings, remoteSettings);
       }
     },
   });

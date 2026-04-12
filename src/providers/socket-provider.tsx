@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSocketConnection } from "@/hooks/use-socket-connection";
+import { useNotificationSound } from "@/hooks/use-notification-sound";
 import {
   getMostAdvancedReceiptStatus,
   toConversationSummary,
@@ -22,12 +23,20 @@ import { clearPendingMessageTimeout } from "@/lib/pending-message-timeouts";
 import { parseMessageRequestId } from "@/lib/request-id";
 import { queryKeys } from "@/queries/query-keys";
 import {
+  markAllNotificationsReadState,
+  patchNotificationReadState,
+  prependNotification,
+  useNotificationBadgeCount,
+  setNotificationBadgeCount,
+} from "@/queries/use-notification-queries";
+import {
   normalizeMessage,
   upsertReceiptState,
 } from "@/services/message-service";
 import { useAuthStore } from "@/stores/auth-store";
 import { useCallStore } from "@/stores/call-store";
 import { useChatStore } from "@/stores/chat-store";
+import { useUiStore } from "@/stores/ui-store";
 import type {
   ConnectionReadyPayload,
   Contact,
@@ -35,6 +44,8 @@ import type {
   IncomingCall,
   Message,
   MessageReaction,
+  NotificationItem,
+  NotificationSettings,
   Poll,
   SocketEnvelope,
 } from "@/types";
@@ -46,6 +57,8 @@ const SocketContext = createContext<SocketContextValue | null>(null);
 function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
   const queryClient = useQueryClient();
   const currentUserId = useAuthStore((state) => state.user?.id);
+  const playNotificationSound = useNotificationSound().play;
+  const badgeCountQuery = useNotificationBadgeCount();
   const markTyping = useChatStore((state) => state.markTyping);
   const setIncomingCall = useCallStore((state) => state.setIncomingCall);
   const setActiveCall = useCallStore((state) => state.setActiveCall);
@@ -54,6 +67,12 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
   const resetCall = useCallStore((state) => state.resetCall);
   const readyLoggedRef = useRef(false);
   const endedCallIdsRef = useRef<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    if (typeof badgeCountQuery.data === "number") {
+      setNotificationBadgeCount(queryClient, badgeCountQuery.data);
+    }
+  }, [badgeCountQuery.data, queryClient]);
 
   const syncConversationPreviewFromMessages = useCallback(
     (conversationId: string, messages: Message[]) => {
@@ -143,6 +162,7 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
           if (payload?.device_id) {
             setServerDeviceId(payload.device_id);
           }
+          queryClient.invalidateQueries({ queryKey: queryKeys.notificationBadge });
           if (
             process.env.NODE_ENV !== "production" &&
             !readyLoggedRef.current
@@ -209,6 +229,83 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
                   }
                 : c,
             );
+          });
+          break;
+        }
+
+        // ── Notifications ──
+        case SOCKET_EVENT.notificationNew: {
+          const payload = envelope.data as
+            | { notification?: NotificationItem; sound_enabled?: boolean }
+            | undefined;
+          const incoming = payload?.notification;
+          if (!incoming?.id) {
+            break;
+          }
+
+          prependNotification(queryClient, incoming);
+
+          const uiPrefs = useUiStore.getState().preferences;
+          const remoteSettings = queryClient.getQueryData<NotificationSettings>(
+            queryKeys.notificationSettings
+          );
+          const inAppEnabled = remoteSettings
+            ? remoteSettings.in_app_enabled
+            : uiPrefs.in_app_notifications;
+          if (!inAppEnabled) {
+            break;
+          }
+
+          const soundEnabled = remoteSettings
+            ? remoteSettings.sound_enabled
+            : uiPrefs.sound_enabled;
+          const eventAllowsSound = payload?.sound_enabled !== false;
+          if (soundEnabled && eventAllowsSound) {
+            playNotificationSound(true);
+          }
+          break;
+        }
+        case SOCKET_EVENT.notificationBadge: {
+          const payload = envelope.data as { unread_count?: number } | undefined;
+          if (typeof payload?.unread_count !== "number") {
+            break;
+          }
+          setNotificationBadgeCount(queryClient, payload.unread_count);
+          break;
+        }
+        case SOCKET_EVENT.notificationRead: {
+          const payload = envelope.data as
+            | { notification_id?: string }
+            | undefined;
+          if (!payload?.notification_id) {
+            break;
+          }
+          patchNotificationReadState(queryClient, payload.notification_id);
+          break;
+        }
+        case SOCKET_EVENT.notificationReadAll: {
+          markAllNotificationsReadState(queryClient);
+          break;
+        }
+        case SOCKET_EVENT.notificationSettingsUpdated: {
+          const payload = envelope.data as
+            | { settings?: NotificationSettings }
+            | undefined;
+          if (!payload?.settings) {
+            break;
+          }
+
+          queryClient.setQueryData(queryKeys.notificationSettings, payload.settings);
+          const localPrefs = useUiStore.getState().preferences;
+          const setPreference = useUiStore.getState().setPreference;
+          setPreference("in_app_notifications", payload.settings.in_app_enabled);
+          setPreference("sound_enabled", payload.settings.sound_enabled);
+          setPreference("show_message_preview", payload.settings.show_message_preview);
+          queryClient.setQueryData(queryKeys.userPreferences, {
+            ...localPrefs,
+            in_app_notifications: payload.settings.in_app_enabled,
+            sound_enabled: payload.settings.sound_enabled,
+            show_message_preview: payload.settings.show_message_preview,
           });
           break;
         }
@@ -596,6 +693,7 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
     currentUserId,
     enqueueSignal,
     markTyping,
+    playNotificationSound,
     queryClient,
     resetCall,
     setActiveCall,
