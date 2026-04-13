@@ -305,7 +305,7 @@ export function MessageList({
 
   if (messagesRaw.isLoading || conversationQuery.isLoading) {
     return (
-      <div className="flex-1 overflow-y-auto px-4 py-4 lg:px-16">
+      <div className="h-full overflow-y-auto px-4 py-4 lg:px-16">
         <MessageListSkeleton />
       </div>
     );
@@ -313,7 +313,7 @@ export function MessageList({
 
   if (conversationQuery.isError) {
     return (
-      <div className="flex flex-1 items-center justify-center px-6">
+      <div className="flex h-full items-center justify-center px-6">
         <div className="text-center">
           <p className="text-base font-medium text-foreground">
             Unable to load this conversation
@@ -328,7 +328,7 @@ export function MessageList({
 
   if (messagesRaw.isError) {
     return (
-      <div className="flex flex-1 items-center justify-center px-6">
+      <div className="flex h-full items-center justify-center px-6">
         <div className="text-center">
           <p className="text-base font-medium text-foreground">Unable to load messages</p>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -345,7 +345,7 @@ export function MessageList({
       : null;
 
     return (
-      <div className="flex flex-1 flex-col items-center justify-center px-6">
+      <div className="flex h-full flex-col items-center justify-center px-6">
         {/* Encryption notice - WhatsApp style */}
         <div className="mb-8 flex max-w-md items-center gap-2 rounded-lg bg-accent/50 px-4 py-3 text-center text-xs text-accent-foreground">
           <Lock className="h-4 w-4 shrink-0" />
@@ -366,7 +366,7 @@ export function MessageList({
   }
 
   return (
-    <div className="message-scroll flex-1 overflow-y-auto px-2 py-3 md:px-4 lg:px-10">
+    <div className="message-scroll h-full overflow-y-auto px-2 py-3 md:px-4 lg:px-10">
       {selectionMode && selectedSet.size > 0 && onCancelSelection && onForwardSelected && onDeleteSelectedForMe && onDeleteSelectedForEveryone && (
         <MessageSelectionToolbar
           selectedCount={selectedSet.size}

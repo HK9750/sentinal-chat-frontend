@@ -34,8 +34,8 @@ export function ChatShell({ selectedConversationId }: ChatShellProps) {
           <section
             className={
               hasConversation
-                ? 'flex h-full min-w-0 flex-1 flex-col'
-                : 'hidden h-full min-w-0 flex-1 flex-col lg:flex'
+                ? 'flex h-full min-h-0 min-w-0 flex-1 flex-col'
+                : 'hidden h-full min-h-0 min-w-0 flex-1 flex-col lg:flex'
             }
           >
             {selectedConversationId ? (

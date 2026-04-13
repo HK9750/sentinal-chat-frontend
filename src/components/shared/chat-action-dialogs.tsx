@@ -386,11 +386,18 @@ export function ForwardMessagesDialog({
                     const title = getConversationTitle(conversation, currentUserId);
 
                     return (
-                      <button
+                      <div
                         key={conversation.id}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => toggleConversation(conversation.id)}
-                        className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-muted/40"
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            toggleConversation(conversation.id);
+                          }
+                        }}
+                        className="flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left hover:bg-muted/40"
                       >
                         <UserAvatar
                           src={conversation.avatar_url}
@@ -407,8 +414,8 @@ export function ForwardMessagesDialog({
                                 : 'No messages yet')}
                           </p>
                         </div>
-                        <Checkbox checked={selected} className="pointer-events-none" />
-                      </button>
+                        <Checkbox checked={selected} className="pointer-events-none" aria-hidden="true" />
+                      </div>
                     );
                   })}
                 </div>

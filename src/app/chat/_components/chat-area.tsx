@@ -282,7 +282,7 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
   );
 
   return (
-    <div className="relative flex h-full flex-col">
+    <div className="relative flex h-full min-h-0 flex-col">
       {/* Chat header */}
       <ChatHeader
         conversationId={conversationId}
@@ -300,7 +300,7 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
       />
 
       {/* Messages area with WhatsApp background pattern */}
-      <div className="chat-pattern relative flex-1 overflow-hidden">
+      <div className="chat-pattern relative min-h-0 flex-1 overflow-hidden">
         <MessageList
           conversationId={conversationId}
           currentUserId={currentUserId}
