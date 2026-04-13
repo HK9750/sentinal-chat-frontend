@@ -36,6 +36,7 @@ import {
 import { useAuthStore } from "@/stores/auth-store";
 import { useCallStore } from "@/stores/call-store";
 import { useChatStore } from "@/stores/chat-store";
+import { useNotificationStore } from "@/stores/notification-store";
 import { useUiStore } from "@/stores/ui-store";
 import type {
   ConnectionReadyPayload,
@@ -49,6 +50,32 @@ import type {
   Poll,
   SocketEnvelope,
 } from "@/types";
+
+const MUTE_FOREVER_THRESHOLD_YEAR = 2099;
+
+function extractMutedConversationIds(payload: ConversationListPayload | undefined, currentUserId?: string) {
+  if (!payload?.items || !currentUserId) {
+    return [] as string[];
+  }
+
+  const now = Date.now();
+  return payload.items
+    .filter((conversation) => {
+      const participant = conversation.participants.find((item) => item.user_id === currentUserId);
+      if (!participant?.muted_until) {
+        return false;
+      }
+      const mutedDate = new Date(participant.muted_until);
+      if (Number.isNaN(mutedDate.getTime())) {
+        return false;
+      }
+      if (mutedDate.getUTCFullYear() >= MUTE_FOREVER_THRESHOLD_YEAR) {
+        return true;
+      }
+      return mutedDate.getTime() > now;
+    })
+    .map((conversation) => conversation.id);
+}
 
 type SocketContextValue = ReturnType<typeof useSocketConnection>;
 
@@ -65,8 +92,34 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
   const enqueueSignal = useCallStore((state) => state.enqueueSignal);
   const setCallStatus = useCallStore((state) => state.setCallStatus);
   const resetCall = useCallStore((state) => state.resetCall);
+  const setMutedConversations = useNotificationStore((state) => state.setMutedConversations);
   const readyLoggedRef = useRef(false);
   const endedCallIdsRef = useRef<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    const syncMutedConversations = () => {
+      const mutedConversationIds = extractMutedConversationIds(
+        queryClient.getQueryData<ConversationListPayload>(queryKeys.conversations),
+        currentUserId
+      );
+      setMutedConversations(mutedConversationIds);
+    };
+
+    syncMutedConversations();
+
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      const key = event?.query?.queryKey;
+      if (!Array.isArray(key)) {
+        return;
+      }
+      if (key[0] !== queryKeys.conversations[0]) {
+        return;
+      }
+      syncMutedConversations();
+    });
+
+    return unsubscribe;
+  }, [currentUserId, queryClient, setMutedConversations]);
 
   useEffect(() => {
     if (typeof badgeCountQuery.data === "number") {
@@ -202,6 +255,7 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
             queryKeys.conversations,
             (current) => {
               if (!current) return current;
+
               return {
                 ...current,
                 items: current.items.map((conv) => ({
@@ -210,7 +264,7 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
                     p.user_id === targetUserId
                       ? { ...p, is_online: isOnline }
                       : p,
-                  ),
+                    ),
                 })),
               };
             },
@@ -260,8 +314,21 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
             ? remoteSettings.sound_enabled
             : uiPrefs.sound_enabled;
           const eventAllowsSound = payload?.sound_enabled !== false;
+          const mutedConversations = useNotificationStore.getState().mutedConversations;
+          const isConversationMuted =
+            !!incoming.conversation_id &&
+            mutedConversations.includes(incoming.conversation_id);
+          const panelOpen = useNotificationStore.getState().panelOpen;
           if (soundEnabled && eventAllowsSound) {
             playNotificationSound(true);
+          }
+
+          if (!panelOpen && !isConversationMuted && typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("notification:toast", {
+                detail: { notification: incoming },
+              })
+            );
           }
           break;
         }
@@ -512,6 +579,7 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
               });
             }
           }
+
           break;
         }
 
@@ -696,6 +764,7 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
     playNotificationSound,
     queryClient,
     resetCall,
+    setMutedConversations,
     setActiveCall,
     setCallStatus,
     setIncomingCall,

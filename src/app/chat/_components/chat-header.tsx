@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react';
 import { ArrowLeft, MoreVertical, Phone, Search, Video } from 'lucide-react';
-import { NotificationBell } from '@/components/shared/notification-bell';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +16,7 @@ import { useSocket } from '@/providers/socket-provider';
 import { useConversation } from '@/queries/use-conversation-queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { useChatStore } from '@/stores/chat-store';
+import { formatRelativeTime } from '@/lib/utils';
 import type { CallType } from '@/types';
 
 interface ChatHeaderProps {
@@ -70,6 +70,20 @@ export function ChatHeader({
   );
   const mutedUntil = myParticipant?.muted_until ?? null;
   const isMuted = Boolean(mutedUntil);
+  const muteSubtitle = useMemo(() => {
+    if (!mutedUntil) {
+      return null;
+    }
+
+    const mutedDate = new Date(mutedUntil);
+    if (Number.isNaN(mutedDate.getTime())) {
+      return 'Muted';
+    }
+    if (mutedDate.getUTCFullYear() >= 2099) {
+      return 'Muted forever';
+    }
+    return `Muted until ${formatRelativeTime(mutedUntil)}`;
+  }, [mutedUntil]);
 
   const subtitle = useMemo(() => {
     if (!conversation) {
@@ -175,8 +189,6 @@ export function ChatHeader({
           </>
         )}
 
-        <NotificationBell buttonClassName="h-10 w-10" />
-
         <Button
           type="button"
           variant="ghost"
@@ -241,6 +253,7 @@ export function ChatHeader({
             )}
             <DropdownMenuItem onClick={onOpenDisappearingMessages}>Disappearing messages</DropdownMenuItem>
             <DropdownMenuItem onClick={onOpenCallHistory}>Call history</DropdownMenuItem>
+            {muteSubtitle ? <DropdownMenuItem disabled>{muteSubtitle}</DropdownMenuItem> : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onClearChat}>Clear chat</DropdownMenuItem>
             <DropdownMenuItem className="text-destructive" onClick={onDeleteChat}>Delete chat</DropdownMenuItem>

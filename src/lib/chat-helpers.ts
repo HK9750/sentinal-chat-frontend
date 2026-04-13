@@ -28,11 +28,18 @@ export function toConversationSummary(message: Message): ConversationMessageSumm
     duration_seconds = primary.duration_seconds ?? null;
   }
 
+  const summaryContent = message.content
+    ? message.is_forwarded
+      ? `Forwarded: ${message.content}`
+      : message.content
+    : message.content;
+
   return {
     id: message.id,
     sender_id: message.sender_id,
     kind: message.type,
-    content: message.content,
+    content: summaryContent,
+    is_forwarded: message.is_forwarded,
     attachment_mime_type,
     attachment_filename,
     duration_seconds,

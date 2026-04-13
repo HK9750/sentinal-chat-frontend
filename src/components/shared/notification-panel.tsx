@@ -14,9 +14,11 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import {
+  flattenInfiniteNotifications,
+  useInfiniteNotifications,
+  useNotificationBadgeCount,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
-  useNotifications,
 } from '@/queries/use-notification-queries';
 import { formatRelativeTime } from '@/lib/utils';
 import { useNotificationStore } from '@/stores/notification-store';
@@ -37,11 +39,17 @@ export function NotificationPanel() {
   const panelOpen = useNotificationStore((state) => state.panelOpen);
   const setPanelOpen = useNotificationStore((state) => state.setPanelOpen);
   const badgeUnreadCount = useNotificationStore((state) => state.unreadCount);
-  const listQuery = useNotifications(false, panelOpen);
+  useNotificationBadgeCount();
+  const listQuery = useInfiniteNotifications(false, panelOpen);
   const markReadMutation = useMarkNotificationRead();
   const markAllReadMutation = useMarkAllNotificationsRead();
 
-  const items = useMemo(() => listQuery.data?.items ?? [], [listQuery.data?.items]);
+  const flatList = useMemo(
+    () => flattenInfiniteNotifications(listQuery.data),
+    [listQuery.data]
+  );
+  const items = flatList.items;
+  const total = flatList.total;
   const unreadCount = badgeUnreadCount;
 
   return (
@@ -83,58 +91,76 @@ export function NotificationPanel() {
             ) : items.length === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">No notifications yet.</div>
             ) : (
-              <div className="divide-y divide-border">
-                {items.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`space-y-2 px-4 py-3 ${item.is_read ? 'bg-background' : 'bg-primary/5'}`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-1 flex items-center gap-2">
-                          <Badge variant={item.is_read ? 'secondary' : 'default'} className="text-[10px] uppercase">
-                            {notificationLabel(item)}
-                          </Badge>
-                          {!item.is_read && <span className="h-2 w-2 rounded-full bg-primary" />}
+              <div>
+                <div className="divide-y divide-border">
+                  {items.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`space-y-2 px-4 py-3 ${item.is_read ? 'bg-background' : 'bg-primary/5'}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-1 flex items-center gap-2">
+                            <Badge variant={item.is_read ? 'secondary' : 'default'} className="text-[10px] uppercase">
+                              {notificationLabel(item)}
+                            </Badge>
+                            {!item.is_read && <span className="h-2 w-2 rounded-full bg-primary" />}
+                          </div>
+                          <p className="truncate text-sm font-semibold text-foreground">{item.title}</p>
+                          <p className="mt-0.5 text-sm text-muted-foreground">{item.body}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{formatRelativeTime(item.created_at)}</p>
                         </div>
-                        <p className="truncate text-sm font-semibold text-foreground">{item.title}</p>
-                        <p className="mt-0.5 text-sm text-muted-foreground">{item.body}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">{formatRelativeTime(item.created_at)}</p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="outline"
+                          disabled={item.is_read || markReadMutation.isPending}
+                          onClick={() => {
+                            void markReadMutation.mutateAsync(item.id);
+                          }}
+                        >
+                          Mark read
+                        </Button>
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="ghost"
+                          onClick={() => {
+                            void (async () => {
+                              if (!item.is_read) {
+                                await markReadMutation.mutateAsync(item.id);
+                              }
+                              setPanelOpen(false);
+                              router.push(item.deep_link || '/chat');
+                            })();
+                          }}
+                        >
+                          Open
+                          <ExternalLink className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
+                  ))}
+                </div>
 
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        size="xs"
-                        variant="outline"
-                        disabled={item.is_read || markReadMutation.isPending}
-                        onClick={() => {
-                          void markReadMutation.mutateAsync(item.id);
-                        }}
-                      >
-                        Mark read
-                      </Button>
-                      <Button
-                        type="button"
-                        size="xs"
-                        variant="ghost"
-                        onClick={() => {
-                          void (async () => {
-                            if (!item.is_read) {
-                              await markReadMutation.mutateAsync(item.id);
-                            }
-                            setPanelOpen(false);
-                            router.push(item.deep_link || '/chat');
-                          })();
-                        }}
-                      >
-                        Open
-                        <ExternalLink className="h-3 w-3" />
-                      </Button>
-                    </div>
+                {items.length < total ? (
+                  <div className="flex items-center justify-center border-t border-border px-4 py-3">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={listQuery.isFetchingNextPage}
+                      onClick={() => {
+                        void listQuery.fetchNextPage();
+                      }}
+                    >
+                      {listQuery.isFetchingNextPage ? 'Loading more...' : 'Load more'}
+                    </Button>
                   </div>
-                ))}
+                ) : null}
               </div>
             )}
           </ScrollArea>

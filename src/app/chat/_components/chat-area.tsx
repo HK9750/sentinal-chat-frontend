@@ -8,6 +8,7 @@ import {
   ConfirmActionDialog,
   ContactInfoDialog,
   DisappearingMessagesDialog,
+  ForwardMessagesDialog,
 } from '@/components/shared/chat-action-dialogs';
 import { MessageSearchPanel } from '@/components/shared/message-search-panel';
 import { getConversationTitle, getOtherParticipant } from '@/lib/utils';
@@ -36,7 +37,7 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
   const currentUserId = useAuthStore((state) => state.user?.id);
   const conversationQuery = useConversation(conversationId);
   const messagesQuery = useMessages(conversationId);
-  const { deleteMessages } = useMessageChannel(conversationId);
+  const { deleteMessages, sendMessage } = useMessageChannel(conversationId);
   const clearConversationMutation = useClearConversationMutation(conversationId);
   const deleteConversationMutation = useDeleteConversationMutation(conversationId);
   const updateConversationMutation = useUpdateConversationMutation(conversationId);
@@ -61,6 +62,10 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
   const [clearChatOpen, setClearChatOpen] = useState(false);
   const [deleteChatOpen, setDeleteChatOpen] = useState(false);
   const [callHistoryOpen, setCallHistoryOpen] = useState(false);
+  const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
+  const [forwardSessionId, setForwardSessionId] = useState(0);
+  const [forwardMessages, setForwardMessages] = useState<Message[]>([]);
+  const [forwardPending, setForwardPending] = useState(false);
 
   // Reply and edit state
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
@@ -80,6 +85,13 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
 
   const visibleMessageIds = useMemo(
     () => (messagesQuery.data ?? []).map((message) => message.id),
+    [messagesQuery.data]
+  );
+  const visibleMessagesById = useMemo(
+    () =>
+      new Map(
+        (messagesQuery.data ?? []).map((message) => [message.id, message])
+      ),
     [messagesQuery.data]
   );
 
@@ -169,6 +181,78 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
     stopSelection();
   }, [clearSelection, deleteMessages, isSelectionMode, selectedMessageIds, stopSelection]);
 
+  const handleForwardMessage = useCallback((message: Message) => {
+    if (message.deleted_at || message.type === 'SYSTEM' || message.type === 'POLL') {
+      return;
+    }
+    setForwardSessionId((current) => current + 1);
+    setForwardMessages([message]);
+    setForwardDialogOpen(true);
+  }, []);
+
+  const handleForwardSelected = useCallback(() => {
+    if (!isSelectionMode || selectedMessageIds.length === 0) {
+      return;
+    }
+
+    const selected = selectedMessageIds
+      .map((id) => visibleMessagesById.get(id))
+      .filter((message): message is Message => Boolean(message))
+      .filter((message) => !message.deleted_at && message.type !== 'SYSTEM' && message.type !== 'POLL')
+      .sort((a, b) => a.seq_id - b.seq_id);
+
+    if (selected.length === 0) {
+      return;
+    }
+
+    setForwardSessionId((current) => current + 1);
+    setForwardMessages(selected);
+    setForwardDialogOpen(true);
+  }, [isSelectionMode, selectedMessageIds, visibleMessagesById]);
+
+  const handleForwardToConversations = useCallback(
+    (targetConversationIds: string[]) => {
+      if (targetConversationIds.length === 0 || forwardMessages.length === 0) {
+        return;
+      }
+
+      setForwardPending(true);
+
+      try {
+        const ordered = [...forwardMessages].sort((a, b) => a.seq_id - b.seq_id);
+
+        for (const targetConversationId of targetConversationIds) {
+          for (const message of ordered) {
+            if (message.deleted_at || message.type === 'SYSTEM' || message.type === 'POLL') {
+              continue;
+            }
+
+            sendMessage(
+              message.content ?? '',
+              message.type,
+              message.attachments.map((attachment) => attachment.id),
+              undefined,
+              {
+                conversationId: targetConversationId,
+                isForwarded: true,
+              }
+            );
+          }
+        }
+
+        setForwardDialogOpen(false);
+        setForwardMessages([]);
+        if (isSelectionMode) {
+          clearSelection();
+          stopSelection();
+        }
+      } finally {
+        setForwardPending(false);
+      }
+    },
+    [clearSelection, forwardMessages, isSelectionMode, sendMessage, stopSelection]
+  );
+
   const handleUpdateDisappearingMode = useCallback(
     async (mode: DisappearingMode) => {
       await updateConversationMutation.mutateAsync({
@@ -224,10 +308,13 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
           messageRefs={messageRefs}
           onReply={handleReply}
           onEdit={handleEdit}
+          onForward={handleForwardMessage}
           selectionMode={isSelectionMode}
           selectedMessageIds={isSelectionMode ? selectedMessageIds : []}
+          selectionPending={forwardPending}
           onToggleSelected={handleToggleSelected}
           onCancelSelection={stopSelection}
+          onForwardSelected={handleForwardSelected}
           onDeleteSelectedForMe={handleDeleteSelectedForMe}
           onDeleteSelectedForEveryone={handleDeleteSelectedForEveryone}
         />
@@ -309,6 +396,20 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
         open={callHistoryOpen}
         onOpenChange={setCallHistoryOpen}
         conversationId={conversationId}
+      />
+
+      <ForwardMessagesDialog
+        key={forwardSessionId}
+        open={forwardDialogOpen}
+        onOpenChange={(open) => {
+          setForwardDialogOpen(open);
+          if (!open) {
+            setForwardMessages([]);
+          }
+        }}
+        messages={forwardMessages}
+        pending={forwardPending}
+        onForward={handleForwardToConversations}
       />
     </div>
   );

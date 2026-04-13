@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, CheckCheck, Download, FileAudio, FileText } from 'lucide-react';
+import { Check, CheckCheck, Download, FileAudio, FileText, Forward } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AudioPlayer } from '@/components/shared/audio-player';
 import { MessageActions } from '@/components/shared/message-actions';
@@ -26,6 +26,7 @@ interface MessageBubbleProps {
   onReply?: (message: Message) => void;
   onEdit?: (message: Message) => void;
   onDelete?: (message: Message) => void;
+  onForward?: (message: Message) => void;
   onReact?: (messageId: string, emoji: string, mode: 'add' | 'remove') => void;
   selectionMode?: boolean;
   selected?: boolean;
@@ -45,6 +46,7 @@ export function MessageBubble({
   onReply,
   onEdit,
   onDelete,
+  onForward,
   onReact,
   selectionMode = false,
   selected = false,
@@ -224,6 +226,7 @@ export function MessageBubble({
             onReply={onReply}
             onEdit={onEdit}
             onDelete={onDelete}
+            onForward={onForward}
             onReact={(msg, emoji) => onReact(msg.id, emoji, 'add')}
             onCopy={handleCopy}
             className={cn(
@@ -269,6 +272,13 @@ export function MessageBubble({
           {/* Author label for group chats */}
           {!isOwn && showTail && authorLabel && (
             <p className="mb-0.5 text-xs font-medium text-primary">{authorLabel}</p>
+          )}
+
+          {message.is_forwarded && (
+            <p className="mb-1 inline-flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              <Forward className="h-3 w-3" />
+              Forwarded
+            </p>
           )}
 
           {/* Replied-to Quote Block */}

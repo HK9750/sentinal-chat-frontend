@@ -7,6 +7,7 @@ export interface ConversationMessageSummary {
   sender_id: string;
   kind: string;
   content?: string | null;
+  is_forwarded?: boolean;
   attachment_mime_type?: string | null;
   attachment_filename?: string | null;
   duration_seconds?: number | null;

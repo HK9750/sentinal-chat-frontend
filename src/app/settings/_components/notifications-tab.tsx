@@ -6,10 +6,13 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { useUserSettings, useUpdateSettings } from '@/queries/use-user-queries';
+import { useNotificationStore } from '@/stores/notification-store';
 
 export function NotificationsTab() {
   const { data: settings } = useUserSettings();
   const updateSettings = useUpdateSettings();
+  const toastsEnabled = useNotificationStore((state) => state.toastsEnabled);
+  const setToastsEnabled = useNotificationStore((state) => state.setToastsEnabled);
 
   const handleToggle = useCallback(
     async (key: string, value: boolean | string) => {
@@ -40,6 +43,18 @@ export function NotificationsTab() {
               handleToggle('in_app_notifications', checked)
             }
           />
+        </div>
+
+        <Separator />
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>Desktop In-app Toasts</Label>
+            <p className="text-sm text-muted-foreground">
+              Show compact popups when new notifications arrive and the panel is closed
+            </p>
+          </div>
+          <Switch checked={toastsEnabled} onCheckedChange={setToastsEnabled} />
         </div>
 
         <Separator />

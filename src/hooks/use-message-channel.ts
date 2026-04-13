@@ -26,40 +26,53 @@ import type {
   MessageType,
 } from '@/types';
 
+interface SendMessageOptions {
+  conversationId?: string;
+  isForwarded?: boolean;
+}
+
 export function useMessageChannel(conversationId?: string | null) {
   const socket = useSocket();
   const queryClient = useQueryClient();
   const currentUserId = useAuthStore((state) => state.user?.id);
 
   const sendMessage = useCallback(
-    (content: string, type: MessageType, attachmentIds: string[] = [], replyToMessageId?: string) => {
-      if (!conversationId) return null;
+    (
+      content: string,
+      type: MessageType,
+      attachmentIds: string[] = [],
+      replyToMessageId?: string,
+      options?: SendMessageOptions
+    ) => {
+      const resolvedConversationId = options?.conversationId ?? conversationId;
+      if (!resolvedConversationId) return null;
 
       const clientMessageId = createClientMessageId();
 
       if (currentUserId) {
         const optimistic = createOptimisticMessage({
-          conversationId,
+          conversationId: resolvedConversationId,
           senderId: currentUserId,
           clientMessageId,
           type,
           content,
+          isForwarded: options?.isForwarded,
           replyToMessageId,
         });
 
-        queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (msgs) =>
+        queryClient.setQueryData<Message[]>(queryKeys.messages(resolvedConversationId), (msgs) =>
           upsertMessage(msgs, optimistic)
         );
         queryClient.setQueryData<ConversationListPayload>(queryKeys.conversations, (payload) =>
-          updateConversationPreview(payload, conversationId, optimistic)
+          updateConversationPreview(payload, resolvedConversationId, optimistic)
         );
 
         schedulePendingMessageTimeout({
-          conversationId,
+          conversationId: resolvedConversationId,
           clientMessageId,
           timeoutMs: MESSAGE_SEND_ACK_TIMEOUT_MS,
           onTimeout: () => {
-            queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (current) =>
+            queryClient.setQueryData<Message[]>(queryKeys.messages(resolvedConversationId), (current) =>
               (current ?? []).map((message) =>
                 message.client_message_id === clientMessageId && message.client_status === 'PENDING'
                   ? { ...message, client_status: 'FAILED' as const }
@@ -77,7 +90,7 @@ export function useMessageChannel(conversationId?: string | null) {
               return {
                 ...payload,
                 items: payload.items.map((conversation) =>
-                  conversation.id === conversationId && conversation.last_message?.id === optimisticMessageId
+                  conversation.id === resolvedConversationId && conversation.last_message?.id === optimisticMessageId
                     ? {
                         ...conversation,
                         last_message: {
@@ -95,15 +108,16 @@ export function useMessageChannel(conversationId?: string | null) {
 
       socket.send(
         buildSendMessageFrame(
-          conversationId,
+          resolvedConversationId,
           {
             client_message_id: clientMessageId,
             type,
             content,
             attachment_ids: attachmentIds.length > 0 ? attachmentIds : undefined,
             reply_to_msg_id: replyToMessageId,
+            is_forwarded: options?.isForwarded,
           },
-          createMessageRequestId('send', conversationId, clientMessageId)
+          createMessageRequestId('send', resolvedConversationId, clientMessageId)
         )
       );
 

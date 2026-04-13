@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
-import { Clock3, PhoneCall, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Clock3, Forward, PhoneCall, Search, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -20,9 +22,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { UserAvatar } from '@/components/shared/user-avatar';
-import { formatRelativeTime, formatTimestamp } from '@/lib/utils';
-import { useConversationCallHistory } from '@/queries/use-conversation-queries';
-import type { Conversation, DisappearingMode } from '@/types';
+import { getMessagePrimaryText } from '@/lib/message-payload';
+import { formatRelativeTime, formatTimestamp, getConversationTitle } from '@/lib/utils';
+import { useConversationCallHistory, useConversations } from '@/queries/use-conversation-queries';
+import { useAuthStore } from '@/stores/auth-store';
+import type { Conversation, DisappearingMode, Message } from '@/types';
 
 interface ContactInfoDialogProps {
   open: boolean;
@@ -277,20 +281,181 @@ export function CallHistoryDialog({
   );
 }
 
+interface ForwardMessagesDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  messages: Message[];
+  pending: boolean;
+  onForward: (conversationIds: string[]) => void;
+}
+
+export function ForwardMessagesDialog({
+  open,
+  onOpenChange,
+  messages,
+  pending,
+  onForward,
+}: ForwardMessagesDialogProps) {
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const conversationsQuery = useConversations();
+  const [query, setQuery] = useState('');
+  const [selectedConversationIds, setSelectedConversationIds] = useState<string[]>([]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setQuery('');
+      setSelectedConversationIds([]);
+    }
+    onOpenChange(nextOpen);
+  };
+
+  const selectedCount = selectedConversationIds.length;
+  const summaryLine = useMemo(() => {
+    if (messages.length === 0) {
+      return 'No messages selected.';
+    }
+    if (messages.length === 1) {
+      return getMessagePrimaryText(messages[0]);
+    }
+    return `${messages.length} messages selected`;
+  }, [messages]);
+
+  const filteredConversations = useMemo(() => {
+    const raw = conversationsQuery.data?.items ?? [];
+    const normalized = query.trim().toLowerCase();
+
+    if (!normalized) {
+      return raw;
+    }
+
+    return raw.filter((conversation) => {
+      const title = getConversationTitle(conversation, currentUserId).toLowerCase();
+      const subject = (conversation.subject ?? '').toLowerCase();
+      const description = (conversation.description ?? '').toLowerCase();
+      return `${title} ${subject} ${description}`.includes(normalized);
+    });
+  }, [conversationsQuery.data?.items, currentUserId, query]);
+
+  const toggleConversation = (conversationId: string) => {
+    setSelectedConversationIds((current) => {
+      if (current.includes(conversationId)) {
+        return current.filter((id) => id !== conversationId);
+      }
+      return [...current, conversationId];
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Forward messages</DialogTitle>
+          <DialogDescription>
+            Choose one or more chats to forward to.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="rounded-xl border border-border bg-background px-3 py-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Selection</p>
+            <p className="mt-1 line-clamp-2 text-sm text-foreground">{summaryLine}</p>
+          </div>
+
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search chats"
+              className="pl-9"
+            />
+          </div>
+
+          <div className="rounded-xl border border-border bg-background">
+            <ScrollArea className="max-h-80">
+              {conversationsQuery.isLoading ? (
+                <div className="p-5 text-center text-sm text-muted-foreground">Loading chats...</div>
+              ) : conversationsQuery.isError ? (
+                <div className="p-5 text-center text-sm text-destructive">Unable to load chats.</div>
+              ) : filteredConversations.length === 0 ? (
+                <div className="p-5 text-center text-sm text-muted-foreground">No chats match your search.</div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {filteredConversations.map((conversation) => {
+                    const selected = selectedConversationIds.includes(conversation.id);
+                    const title = getConversationTitle(conversation, currentUserId);
+
+                    return (
+                      <button
+                        key={conversation.id}
+                        type="button"
+                        onClick={() => toggleConversation(conversation.id)}
+                        className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-muted/40"
+                      >
+                        <UserAvatar
+                          src={conversation.avatar_url}
+                          alt={title}
+                          fallback={title[0] ?? 'C'}
+                          size="sm"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-foreground">{title}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {conversation.last_message?.content ??
+                              (conversation.type === 'GROUP'
+                                ? `${conversation.participants.length} participants`
+                                : 'No messages yet')}
+                          </p>
+                        </div>
+                        <Checkbox checked={selected} className="pointer-events-none" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={pending || selectedCount === 0 || messages.length === 0}
+            onClick={() => onForward(selectedConversationIds)}
+          >
+            {pending
+              ? 'Forwarding...'
+              : selectedCount === 1
+                ? 'Forward to 1 chat'
+                : `Forward to ${selectedCount} chats`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 interface SelectionToolbarProps {
   selectedCount: number;
+  canForward: boolean;
   canDeleteForEveryone: boolean;
   pending: boolean;
   onCancel: () => void;
+  onForward: () => void;
   onDeleteForMe: () => void;
   onDeleteForEveryone: () => void;
 }
 
 export function MessageSelectionToolbar({
   selectedCount,
+  canForward,
   canDeleteForEveryone,
   pending,
   onCancel,
+  onForward,
   onDeleteForMe,
   onDeleteForEveryone,
 }: SelectionToolbarProps) {
@@ -309,6 +474,16 @@ export function MessageSelectionToolbar({
       <div className="flex items-center gap-2">
         <Button type="button" size="sm" variant="outline" onClick={onCancel}>
           Cancel
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={onForward}
+          disabled={pending || !canForward}
+        >
+          <Forward className="h-4 w-4" />
+          Forward
         </Button>
         <Button type="button" size="sm" variant="secondary" onClick={onDeleteForMe} disabled={pending}>
           <Trash2 className="h-4 w-4" />

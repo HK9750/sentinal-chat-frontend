@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   Copy,
   CornerUpLeft,
+  Forward,
   MoreVertical,
   Pencil,
   SmilePlus,
@@ -34,6 +35,7 @@ interface MessageActionsProps {
   onReply: (message: Message) => void;
   onEdit: (message: Message) => void;
   onDelete: (message: Message) => void;
+  onForward?: (message: Message) => void;
   onReact: (message: Message, emoji: string) => void;
   onCopy: (message: Message) => void;
   className?: string;
@@ -45,6 +47,7 @@ export function MessageActions({
   onReply,
   onEdit,
   onDelete,
+  onForward,
   onReact,
   onCopy,
   className,
@@ -53,6 +56,7 @@ export function MessageActions({
 
   const canEdit = isOwn && message.type === 'TEXT' && !message.deleted_at;
   const canDelete = isOwn && !message.deleted_at;
+  const canForward = !message.deleted_at && message.type !== 'SYSTEM' && message.type !== 'POLL';
 
   return (
     <div
@@ -149,6 +153,13 @@ export function MessageActions({
             <Copy className="size-4" />
             Copy
           </DropdownMenuItem>
+
+          {canForward && onForward && (
+            <DropdownMenuItem onClick={() => onForward(message)}>
+              <Forward className="size-4" />
+              Forward
+            </DropdownMenuItem>
+          )}
 
           {canEdit && (
             <DropdownMenuItem onClick={() => onEdit(message)}>

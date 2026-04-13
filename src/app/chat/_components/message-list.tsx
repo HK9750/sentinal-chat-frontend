@@ -27,11 +27,13 @@ interface MessageListProps {
   messageRefs: React.RefObject<Map<string, HTMLDivElement>>;
   onReply?: (message: Message) => void;
   onEdit?: (message: Message) => void;
+  onForward?: (message: Message) => void;
   selectionMode?: boolean;
   selectedMessageIds?: string[];
   selectionPending?: boolean;
   onToggleSelected?: (message: Message) => void;
   onCancelSelection?: () => void;
+  onForwardSelected?: () => void;
   onDeleteSelectedForMe?: () => void;
   onDeleteSelectedForEveryone?: () => void;
 }
@@ -43,11 +45,13 @@ export function MessageList({
   messageRefs,
   onReply,
   onEdit,
+  onForward,
   selectionMode = false,
   selectedMessageIds = EMPTY_SELECTED_IDS,
   selectionPending = false,
   onToggleSelected,
   onCancelSelection,
+  onForwardSelected,
   onDeleteSelectedForMe,
   onDeleteSelectedForEveryone,
 }: MessageListProps) {
@@ -252,6 +256,21 @@ export function MessageList({
     return true;
   }, [currentUserId, messages, selectedSet, selectionMode]);
 
+  const canForwardSelected = useMemo(() => {
+    if (!selectionMode || selectedSet.size === 0) {
+      return false;
+    }
+    for (const message of messages) {
+      if (!selectedSet.has(message.id)) {
+        continue;
+      }
+      if (!!message.deleted_at || message.type === 'SYSTEM' || message.type === 'POLL') {
+        return false;
+      }
+    }
+    return true;
+  }, [messages, selectedSet, selectionMode]);
+
   const groupedMessages = useMemo(() => {
     const groups: Array<{ label: string; items: typeof messages }> = [];
 
@@ -348,12 +367,14 @@ export function MessageList({
 
   return (
     <div className="message-scroll flex-1 overflow-y-auto px-2 py-3 md:px-4 lg:px-10">
-      {selectionMode && selectedSet.size > 0 && onCancelSelection && onDeleteSelectedForMe && onDeleteSelectedForEveryone && (
+      {selectionMode && selectedSet.size > 0 && onCancelSelection && onForwardSelected && onDeleteSelectedForMe && onDeleteSelectedForEveryone && (
         <MessageSelectionToolbar
           selectedCount={selectedSet.size}
+          canForward={canForwardSelected}
           canDeleteForEveryone={canDeleteSelectedForEveryone}
           pending={selectionPending}
           onCancel={onCancelSelection}
+          onForward={onForwardSelected}
           onDeleteForMe={onDeleteSelectedForMe}
           onDeleteForEveryone={onDeleteSelectedForEveryone}
         />
@@ -406,6 +427,7 @@ export function MessageList({
                       onReply={onReply}
                       onEdit={onEdit}
                       onDelete={handleDelete}
+                      onForward={onForward}
                       onReact={handleReact}
                       selectionMode={selectionMode}
                       selected={selectedSet.has(message.id)}

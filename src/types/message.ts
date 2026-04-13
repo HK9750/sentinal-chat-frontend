@@ -71,6 +71,7 @@ export interface SendMessageFrameData {
   content: string;
   attachment_ids?: string[];
   reply_to_msg_id?: string;
+  is_forwarded?: boolean;
   expires_at?: string;
 }
 

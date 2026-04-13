@@ -9,6 +9,8 @@ export const queryKeys = {
   conversationCalls: (conversationId: string) => ['conversations', conversationId, 'calls'] as const,
   messages: (conversationId: string) => ['conversations', conversationId, 'messages'] as const,
   notifications: (unreadOnly: boolean) => ['notifications', { unreadOnly }] as const,
+  infiniteNotifications: (unreadOnly: boolean) =>
+    ['notifications', 'infinite', { unreadOnly }] as const,
   notificationSettings: ['notifications', 'settings'] as const,
   notificationBadge: ['notifications', 'badge'] as const,
   profileMetrics: ['profile', 'metrics'] as const,

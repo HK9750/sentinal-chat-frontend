@@ -134,6 +134,7 @@ export function createOptimisticMessage(input: {
   clientMessageId: string;
   type: MessageType;
   content: string;
+  isForwarded?: boolean;
   attachments?: Attachment[];
   replyToMessageId?: string;
 }): Message {
@@ -147,7 +148,7 @@ export function createOptimisticMessage(input: {
     seq_id: Date.now(),
     type: input.type,
     content: input.content,
-    is_forwarded: false,
+    is_forwarded: input.isForwarded ?? false,
     reply_to_msg_id: input.replyToMessageId ?? null,
     mention_count: 0,
     created_at: now,

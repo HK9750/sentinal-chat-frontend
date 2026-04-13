@@ -192,6 +192,7 @@ export function getMessagePreview(
 
   const kind = "type" in message ? message.type : message.kind;
   const content = "content" in message ? message.content : undefined;
+  const isForwarded = "is_forwarded" in message ? Boolean(message.is_forwarded) : false;
 
   if (kind === "AUDIO") {
     const duration = "duration_seconds" in message && message.duration_seconds 
@@ -214,6 +215,9 @@ export function getMessagePreview(
   }
 
   if (content) {
+    if (isForwarded) {
+      return `Forwarded: ${content}`;
+    }
     return content;
   }
 
