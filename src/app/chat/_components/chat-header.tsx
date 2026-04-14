@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { ArrowLeft, MoreVertical, Phone, Search, Video } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Phone, Redo2, Search, Undo2, Video } from 'lucide-react';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,6 +30,8 @@ interface ChatHeaderProps {
   onClearChat: () => void;
   onDeleteChat: () => void;
   onOpenCallHistory: () => void;
+  onUndoAction: () => void;
+  onRedoAction: () => void;
   onUpdateMute: (mutedUntil: string | null) => void;
   mutePending: boolean;
 }
@@ -45,6 +47,8 @@ export function ChatHeader({
   onClearChat,
   onDeleteChat,
   onOpenCallHistory,
+  onUndoAction,
+  onRedoAction,
   onUpdateMute,
   mutePending,
 }: ChatHeaderProps) {
@@ -199,6 +203,30 @@ export function ChatHeader({
           aria-label="Search messages"
         >
           <Search className="h-5 w-5" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 rounded-full text-muted-foreground hover:bg-muted"
+          onClick={onUndoAction}
+          disabled={actionsDisabled}
+          aria-label="Undo"
+        >
+          <Undo2 className="h-5 w-5" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 rounded-full text-muted-foreground hover:bg-muted"
+          onClick={onRedoAction}
+          disabled={actionsDisabled}
+          aria-label="Redo"
+        >
+          <Redo2 className="h-5 w-5" />
         </Button>
 
         <DropdownMenu>

@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { clearDeviceState } from '@/lib/device';
 import { clearAllPendingMessageTimeouts } from '@/lib/pending-message-timeouts';
+import { useCommandStore } from '@/stores/command-store';
 import type { AuthPayload, AuthSession, AuthTokens, AuthUser } from '@/types';
 
 type AuthStatus = 'anonymous' | 'authenticated';
@@ -60,6 +61,7 @@ export const useAuthStore = create<AuthState>()(
     clearAuth: () => {
       clearDeviceState();
       clearAllPendingMessageTimeouts();
+      useCommandStore.getState().clear();
       set({
         ...anonymousState,
         isHydrated: true,
@@ -68,6 +70,7 @@ export const useAuthStore = create<AuthState>()(
     resetAuth: () => {
       clearDeviceState();
       clearAllPendingMessageTimeouts();
+      useCommandStore.getState().clear();
       set({
         ...anonymousState,
         isHydrated: true,

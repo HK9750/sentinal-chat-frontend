@@ -54,7 +54,7 @@ export function NotificationPanel() {
 
   return (
     <Dialog open={panelOpen} onOpenChange={setPanelOpen}>
-      <DialogContent className="max-h-[85vh] sm:max-w-xl">
+      <DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BellRing className="h-5 w-5" />
@@ -82,8 +82,8 @@ export function NotificationPanel() {
           </Button>
         </div>
 
-        <div className="rounded-xl border border-border bg-background">
-          <ScrollArea className="max-h-[60vh]">
+        <div className="min-h-0 rounded-xl border border-border bg-background">
+          <ScrollArea className="h-[60vh] max-h-[60vh]">
             {listQuery.isLoading ? (
               <div className="p-6 text-center text-sm text-muted-foreground">Loading notifications...</div>
             ) : listQuery.isError ? (

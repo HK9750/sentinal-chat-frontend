@@ -43,7 +43,7 @@ export function ContactInfoDialog({
 }: ContactInfoDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Contact info</DialogTitle>
           <DialogDescription>Members and chat details.</DialogDescription>
@@ -70,11 +70,11 @@ export function ContactInfoDialog({
               </div>
             </div>
 
-            <div className="rounded-xl border border-border bg-background">
+            <div className="min-h-0 rounded-xl border border-border bg-background">
               <div className="border-b border-border px-4 py-3">
                 <p className="text-sm font-semibold text-foreground">Participants</p>
               </div>
-              <ScrollArea className="max-h-64">
+              <ScrollArea className="h-64 max-h-64">
                 <div className="space-y-2 p-3">
                   {conversation.participants.map((participant) => (
                     <div
@@ -235,14 +235,14 @@ export function CallHistoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Call history</DialogTitle>
           <DialogDescription>Recent voice/video calls in this chat.</DialogDescription>
         </DialogHeader>
 
-        <div className="rounded-xl border border-border bg-background">
-          <ScrollArea className="max-h-96">
+        <div className="min-h-0 rounded-xl border border-border bg-background">
+          <ScrollArea className="h-96 max-h-96">
             {historyQuery.isLoading ? (
               <div className="p-6 text-center text-sm text-muted-foreground">Loading call history...</div>
             ) : historyQuery.isError ? (

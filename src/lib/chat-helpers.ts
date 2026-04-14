@@ -30,7 +30,7 @@ export function toConversationSummary(message: Message): ConversationMessageSumm
 
   const summaryContent = message.content
     ? message.is_forwarded
-      ? `Forwarded: ${message.content}`
+      ? `${message.content}`
       : message.content
     : message.content;
 

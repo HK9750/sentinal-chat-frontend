@@ -22,6 +22,7 @@ import {
 } from '@/queries/use-conversation-queries';
 import { useMessages } from '@/queries/use-message-queries';
 import { useAuthStore } from '@/stores/auth-store';
+import { useCommandStore } from '@/stores/command-store';
 import { useChatSelectionStore } from '@/stores/chat-selection-store';
 import type { CallType, DisappearingMode, Message } from '@/types';
 import { ChatHeader } from './chat-header';
@@ -37,7 +38,7 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
   const currentUserId = useAuthStore((state) => state.user?.id);
   const conversationQuery = useConversation(conversationId);
   const messagesQuery = useMessages(conversationId);
-  const { deleteMessages, sendMessage } = useMessageChannel(conversationId);
+  const { deleteMessages, redoCommand, sendMessage, undoLatest } = useMessageChannel(conversationId);
   const clearConversationMutation = useClearConversationMutation(conversationId);
   const deleteConversationMutation = useDeleteConversationMutation(conversationId);
   const updateConversationMutation = useUpdateConversationMutation(conversationId);
@@ -46,6 +47,9 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
   const selectionConversationId = useChatSelectionStore((state) => state.conversationId);
   const selectionEnabled = useChatSelectionStore((state) => state.enabled);
   const selectedMessageIds = useChatSelectionStore((state) => state.selectedMessageIds);
+  const lastUndoneCommand = useCommandStore(
+    (state) => state.byConversation[conversationId]?.lastUndone ?? null
+  );
   const startSelection = useChatSelectionStore((state) => state.startSelection);
   const stopSelection = useChatSelectionStore((state) => state.stopSelection);
   const toggleMessage = useChatSelectionStore((state) => state.toggleMessage);
@@ -295,6 +299,8 @@ export function ChatArea({ conversationId }: ChatAreaProps) {
         onClearChat={() => setClearChatOpen(true)}
         onDeleteChat={() => setDeleteChatOpen(true)}
         onOpenCallHistory={() => setCallHistoryOpen(true)}
+        onUndoAction={undoLatest}
+        onRedoAction={() => redoCommand(lastUndoneCommand?.command_id)}
         onUpdateMute={handleUpdateMute}
         mutePending={updateMuteMutation.isPending}
       />

@@ -20,12 +20,13 @@ import {
 import { SOCKET_EVENT } from "@/lib/constants";
 import { setServerDeviceId } from "@/lib/device";
 import { clearPendingMessageTimeout } from "@/lib/pending-message-timeouts";
-import { parseMessageRequestId } from "@/lib/request-id";
+import { parseCommandRequestId, parseMessageRequestId } from "@/lib/request-id";
 import { queryKeys } from "@/queries/query-keys";
 import {
   markAllNotificationsReadState,
   patchNotificationReadState,
   prependNotification,
+  syncNotificationSnapshot,
   useNotificationBadgeCount,
   setNotificationBadgeCount,
 } from "@/queries/use-notification-queries";
@@ -36,9 +37,11 @@ import {
 import { useAuthStore } from "@/stores/auth-store";
 import { useCallStore } from "@/stores/call-store";
 import { useChatStore } from "@/stores/chat-store";
+import { useCommandStore } from '@/stores/command-store';
 import { useNotificationStore } from "@/stores/notification-store";
 import { useUiStore } from "@/stores/ui-store";
 import type {
+  CommandResult,
   ConnectionReadyPayload,
   Contact,
   ConversationListPayload,
@@ -92,7 +95,10 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
   const enqueueSignal = useCallStore((state) => state.enqueueSignal);
   const setCallStatus = useCallStore((state) => state.setCallStatus);
   const resetCall = useCallStore((state) => state.resetCall);
+  const setLastUndone = useCommandStore((state) => state.setLastUndone);
+  const setLastRedone = useCommandStore((state) => state.setLastRedone);
   const setMutedConversations = useNotificationStore((state) => state.setMutedConversations);
+  const setLastSyncedAt = useNotificationStore((state) => state.setLastSyncedAt);
   const readyLoggedRef = useRef(false);
   const endedCallIdsRef = useRef<Map<string, number>>(new Map());
 
@@ -216,6 +222,14 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
             setServerDeviceId(payload.device_id);
           }
           queryClient.invalidateQueries({ queryKey: queryKeys.notificationBadge });
+          void (async () => {
+            try {
+              await syncNotificationSnapshot(queryClient, 50);
+              setLastSyncedAt(Date.now());
+            } catch {
+              // Keep realtime flow alive even when notification sync fails.
+            }
+          })();
           if (
             process.env.NODE_ENV !== "production" &&
             !readyLoggedRef.current
@@ -319,7 +333,7 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
             !!incoming.conversation_id &&
             mutedConversations.includes(incoming.conversation_id);
           const panelOpen = useNotificationStore.getState().panelOpen;
-          if (soundEnabled && eventAllowsSound) {
+          if (soundEnabled && eventAllowsSound && !isConversationMuted) {
             playNotificationSound(true);
           }
 
@@ -533,6 +547,20 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
 
         // ── Send error → mark message as FAILED ──
         case SOCKET_EVENT.error: {
+          const commandRequest = parseCommandRequestId(envelope.request_id);
+          if (commandRequest) {
+            queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+            if (commandRequest.conversationId) {
+              queryClient.invalidateQueries({
+                queryKey: queryKeys.conversation(commandRequest.conversationId),
+              });
+              queryClient.invalidateQueries({
+                queryKey: queryKeys.messages(commandRequest.conversationId),
+              });
+            }
+            break;
+          }
+
           const request = parseMessageRequestId(envelope.request_id);
           if (!request || request.action !== "send") break;
           if (
@@ -586,11 +614,21 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
         // ── Command undo/redo (simplified — just invalidate) ──
         case SOCKET_EVENT.commandUndone:
         case SOCKET_EVENT.commandRedone: {
-          const cmdConvId = (
+          const command = (
             envelope.data as
-              | { command?: { conversation_id?: string } }
+              | { command?: CommandResult }
               | undefined
-          )?.command?.conversation_id;
+          )?.command;
+
+          if (command?.command_id) {
+            if (envelope.type === SOCKET_EVENT.commandUndone) {
+              setLastUndone(command);
+            } else {
+              setLastRedone(command);
+            }
+          }
+
+          const cmdConvId = command?.conversation_id;
           queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
           if (cmdConvId) {
             queryClient.invalidateQueries({
@@ -764,9 +802,12 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
     playNotificationSound,
     queryClient,
     resetCall,
+    setLastRedone,
+    setLastUndone,
     setMutedConversations,
     setActiveCall,
     setCallStatus,
+    setLastSyncedAt,
     setIncomingCall,
     socket,
     syncConversationPreviewFromMessages,

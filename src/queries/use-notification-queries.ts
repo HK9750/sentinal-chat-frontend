@@ -21,6 +21,8 @@ import type { NotificationItem, NotificationListPayload, NotificationSettings } 
 
 const DEFAULT_PAGE_SIZE = 20;
 
+type NotificationInfiniteData = InfiniteData<NotificationListPayload & { page: number }>;
+
 function setUnreadStoreCount(count: number) {
   useNotificationStore.getState().setUnreadCount(Math.max(0, count));
 }
@@ -53,6 +55,56 @@ export function useInfiniteNotifications(unreadOnly = false, enabled = true) {
     enabled,
     staleTime: 10_000,
   });
+}
+
+function toInfiniteNotificationsData(payload: NotificationListPayload): NotificationInfiniteData {
+  return {
+    pages: [
+      {
+        ...payload,
+        page: 1,
+      },
+    ],
+    pageParams: [1],
+  };
+}
+
+export function hydrateNotificationSnapshots(
+  queryClient: ReturnType<typeof useQueryClient>,
+  all: NotificationListPayload,
+  unread: NotificationListPayload
+) {
+  const allSorted: NotificationListPayload = {
+    items: sortNotifications(all.items),
+    total: Math.max(0, all.total),
+  };
+  const unreadSorted: NotificationListPayload = {
+    items: sortNotifications(unread.items).filter((item) => !item.is_read),
+    total: Math.max(0, unread.total),
+  };
+
+  queryClient.setQueryData<NotificationInfiniteData>(
+    queryKeys.infiniteNotifications(false),
+    toInfiniteNotificationsData(allSorted)
+  );
+  queryClient.setQueryData<NotificationInfiniteData>(
+    queryKeys.infiniteNotifications(true),
+    toInfiniteNotificationsData(unreadSorted)
+  );
+  setNotificationBadgeCount(queryClient, unreadSorted.total);
+}
+
+export async function syncNotificationSnapshot(
+  queryClient: ReturnType<typeof useQueryClient>,
+  pageSize = 50
+) {
+  const [all, unread] = await Promise.all([
+    listNotifications(1, pageSize, false),
+    listNotifications(1, pageSize, true),
+  ]);
+
+  hydrateNotificationSnapshots(queryClient, all, unread);
+  return { all, unread };
 }
 
 export function flattenInfiniteNotifications(

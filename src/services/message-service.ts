@@ -330,3 +330,11 @@ export function buildRedoFrame(commandId: string, requestId?: string): ClientSoc
     data: { command_id: commandId },
   };
 }
+
+export function buildRedoLatestFrame(conversationId?: string, requestId?: string): ClientSocketFrame {
+  return {
+    type: SOCKET_EVENT.commandRedo,
+    request_id: requestId,
+    conversation_id: conversationId,
+  };
+}

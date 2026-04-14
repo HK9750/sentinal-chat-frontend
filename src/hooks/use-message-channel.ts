@@ -5,12 +5,18 @@ import { useQueryClient } from '@tanstack/react-query';
 import { updateConversationPreview, upsertMessage } from '@/lib/chat-helpers';
 import { MESSAGE_SEND_ACK_TIMEOUT_MS, SOCKET_EVENT } from '@/lib/constants';
 import { schedulePendingMessageTimeout } from '@/lib/pending-message-timeouts';
-import { createClientMessageId, createMessageRequestId, createRequestId } from '@/lib/request-id';
+import {
+  createClientMessageId,
+  createCommandRequestId,
+  createMessageRequestId,
+  createRequestId,
+} from '@/lib/request-id';
 import {
   buildBulkDeleteMessagesFrame,
   buildDeleteMessageFrame,
   buildEditMessageFrame,
   buildReactionFrame,
+  buildRedoLatestFrame,
   buildRedoFrame,
   buildSendMessageFrame,
   buildUndoFrame,
@@ -201,14 +207,19 @@ export function useMessageChannel(conversationId?: string | null) {
   );
 
   const undoLatest = useCallback(() => {
-    socket.send(buildUndoFrame(conversationId ?? undefined, createRequestId('undo')));
+    socket.send(buildUndoFrame(conversationId ?? undefined, createCommandRequestId('undo', conversationId ?? undefined)));
   }, [conversationId, socket]);
 
   const redoCommand = useCallback(
-    (commandId: string) => {
-      socket.send(buildRedoFrame(commandId, createRequestId('redo')));
+    (commandId?: string | null) => {
+      if (commandId && commandId.trim().length > 0) {
+        socket.send(buildRedoFrame(commandId, createCommandRequestId('redo', conversationId ?? undefined)));
+        return;
+      }
+
+      socket.send(buildRedoLatestFrame(conversationId ?? undefined, createCommandRequestId('redo', conversationId ?? undefined)));
     },
-    [socket]
+    [conversationId, socket]
   );
 
   return {
