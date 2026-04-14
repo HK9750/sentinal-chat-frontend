@@ -51,6 +51,7 @@ export const API_ROUTES = {
     oauthExchange: (provider: string) => `/v1/auth/oauth/${provider}/exchange`,
   },
   users: {
+    me: "/v1/users/me",
     search: "/v1/users/search",
     contacts: "/v1/users/contacts",
     removeContact: (contactUserId: string) =>

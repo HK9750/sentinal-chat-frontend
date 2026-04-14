@@ -1,6 +1,33 @@
 import { apiClient, unwrapData } from '@/services/api-client';
 import { API_ROUTES } from '@/lib/constants';
-import type { Contact, ItemsPayload, ListPayload, UserSearchResult } from '@/types';
+import type { AuthUser, Contact, ItemsPayload, ListPayload, UserSearchResult } from '@/types';
+
+type ProfileUpdatePayload = {
+  display_name?: string;
+  email?: string;
+  phone_number?: string;
+  avatar_url?: string;
+};
+
+function normalizeAuthUser(user: AuthUser): AuthUser {
+  return {
+    ...user,
+    email: user.email ?? null,
+    username: user.username ?? null,
+    phone_number: user.phone_number ?? null,
+    avatar_url: user.avatar_url ?? null,
+  };
+}
+
+export async function getMyProfile(): Promise<AuthUser> {
+  const user = await unwrapData<AuthUser>(apiClient.get(API_ROUTES.users.me));
+  return normalizeAuthUser(user);
+}
+
+export async function updateMyProfile(input: ProfileUpdatePayload): Promise<AuthUser> {
+  const user = await unwrapData<AuthUser>(apiClient.patch(API_ROUTES.users.me, input));
+  return normalizeAuthUser(user);
+}
 
 export async function listContacts(): Promise<ItemsPayload<Contact>> {
   return unwrapData<ItemsPayload<Contact>>(apiClient.get(API_ROUTES.users.contacts));

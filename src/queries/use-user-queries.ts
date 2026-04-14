@@ -14,7 +14,13 @@ import {
   updateProfile,
 } from '@/services/user-service';
 import { listSessions } from '@/services/auth-service';
-import { addContact, listContacts, removeContact, searchUsers } from '@/services/user-service-api';
+import {
+  addContact,
+  getMyProfile,
+  listContacts,
+  removeContact,
+  searchUsers,
+} from '@/services/user-service-api';
 import type {
   AuthSession,
   Contact,
@@ -37,22 +43,24 @@ export function useDevicesQuery() {
 }
 
 export function useUserProfile() {
-  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
-  return {
-    data: user,
-    isLoading: false,
-    isError: false,
-  };
+  return useQuery({
+    queryKey: queryKeys.userProfile,
+    queryFn: getMyProfile,
+    enabled: isAuthenticated,
+  });
 }
 
 export function useUpdateProfile() {
   const updateUser = useAuthStore((state) => state.updateUser);
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: updateProfile,
     onSuccess: (payload) => {
       updateUser(payload);
+      queryClient.setQueryData(queryKeys.userProfile, payload);
     },
   });
 }

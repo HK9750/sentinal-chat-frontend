@@ -1,5 +1,6 @@
 import { listSessions } from '@/services/auth-service';
 import { listConversations } from '@/services/conversation-service';
+import { updateMyProfile } from '@/services/user-service-api';
 import type { AuthSession, ProfileMetrics } from '@/types';
 
 export async function getProfileMetrics(): Promise<ProfileMetrics> {
@@ -18,8 +19,17 @@ export async function updateProfile(input: {
   display_name?: string;
   email?: string;
   phone_number?: string;
-}): Promise<typeof input> {
-  return input;
+  avatar_url?: string;
+}): Promise<{
+  id: string;
+  display_name: string;
+  email?: string | null;
+  username?: string | null;
+  phone_number?: string | null;
+  avatar_url?: string | null;
+  is_verified: boolean;
+}> {
+  return updateMyProfile(input);
 }
 
 export function mapSessionsToDevices(sessions: AuthSession[]) {

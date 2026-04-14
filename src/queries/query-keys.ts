@@ -13,5 +13,6 @@ export const queryKeys = {
     ['notifications', 'infinite', { unreadOnly }] as const,
   notificationSettings: ['notifications', 'settings'] as const,
   notificationBadge: ['notifications', 'badge'] as const,
+  userProfile: ['users', 'me'] as const,
   profileMetrics: ['profile', 'metrics'] as const,
 };
