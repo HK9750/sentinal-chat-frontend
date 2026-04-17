@@ -4,6 +4,7 @@ import { Check, CheckCheck, Download, FileAudio, FileText, Forward } from 'lucid
 import { useMemo, useState } from 'react';
 import { AudioPlayer } from '@/components/shared/audio-player';
 import { MessageActions } from '@/components/shared/message-actions';
+import { PollMessage } from '@/components/shared/poll-message';
 import { MessageReactions } from '@/components/shared/message-reactions';
 import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ interface MessageBubbleProps {
   onDelete?: (message: Message) => void;
   onForward?: (message: Message) => void;
   onReact?: (messageId: string, emoji: string, mode: 'add' | 'remove') => void;
+  onVotePoll?: (pollId: string, optionIds: string[]) => void;
   selectionMode?: boolean;
   selected?: boolean;
   onToggleSelected?: (message: Message) => void;
@@ -48,6 +50,7 @@ export function MessageBubble({
   onDelete,
   onForward,
   onReact,
+  onVotePoll,
   selectionMode = false,
   selected = false,
   onToggleSelected,
@@ -116,6 +119,7 @@ export function MessageBubble({
   const hasReactions = (message.reactions?.length ?? 0) > 0;
   const isDeleted = !!message.deleted_at;
   const messageText = getMessagePrimaryText(message);
+  const shouldRenderText = !!messageText && !(message.type === 'POLL' && message.poll);
 
   const handleCopy = (msg: Message) => {
     const text = getMessagePrimaryText(msg);
@@ -302,10 +306,19 @@ export function MessageBubble({
 
           {/* Message content */}
           <div className="space-y-1.5">
-            {messageText && (
+            {shouldRenderText && (
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                 {messageText}
               </p>
+            )}
+
+            {message.poll && (
+              <PollMessage
+                poll={message.poll}
+                isOwn={isOwn}
+                disabled={selectionMode}
+                onVote={onVotePoll}
+              />
             )}
 
             {/* Attachments */}

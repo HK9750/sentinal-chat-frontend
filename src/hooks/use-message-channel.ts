@@ -29,12 +29,14 @@ import type {
   ConversationListPayload,
   Message,
   MessageDeleteMode,
+  PollCreatePayload,
   MessageType,
 } from '@/types';
 
 interface SendMessageOptions {
   conversationId?: string;
   isForwarded?: boolean;
+  poll?: PollCreatePayload;
 }
 
 export function useMessageChannel(conversationId?: string | null) {
@@ -117,11 +119,12 @@ export function useMessageChannel(conversationId?: string | null) {
           resolvedConversationId,
           {
             client_message_id: clientMessageId,
-            type,
+            type: options?.poll ? 'POLL' : type,
             content,
             attachment_ids: attachmentIds.length > 0 ? attachmentIds : undefined,
             reply_to_msg_id: replyToMessageId,
             is_forwarded: options?.isForwarded,
+            poll: options?.poll,
           },
           createMessageRequestId('send', resolvedConversationId, clientMessageId)
         )
@@ -196,11 +199,16 @@ export function useMessageChannel(conversationId?: string | null) {
   const votePoll = useCallback(
     (pollId: string, optionIds: string[]) => {
       if (!conversationId) return;
+
+      const nextVotes = Array.from(
+        new Set(optionIds.map((id) => id.trim()).filter((id) => id.length > 0))
+      );
+
       socket.send({
         type: SOCKET_EVENT.pollVote,
         request_id: createRequestId('poll-vote'),
         conversation_id: conversationId,
-        data: { poll_id: pollId, option_ids: optionIds },
+        data: { poll_id: pollId, option_ids: nextVotes },
       });
     },
     [conversationId, socket]

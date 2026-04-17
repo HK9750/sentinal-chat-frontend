@@ -37,6 +37,13 @@ export interface Poll {
   my_votes?: string[];
 }
 
+export interface PollCreatePayload {
+  question: string;
+  allows_multiple: boolean;
+  closes_at?: string;
+  options: string[];
+}
+
 export interface BackendMessage {
   id: string;
   conversation_id: string;
@@ -73,6 +80,7 @@ export interface SendMessageFrameData {
   reply_to_msg_id?: string;
   is_forwarded?: boolean;
   expires_at?: string;
+  poll?: PollCreatePayload;
 }
 
 export interface EditMessageFrameData {

@@ -2,20 +2,31 @@
 
 import { useCallback, useRef, useState } from "react";
 import {
+  BarChart3,
   LoaderCircle,
   Mic,
+  Paperclip,
   Pencil,
+  Plus,
   Send,
   Smile,
   StopCircle,
   X,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { PollComposer, isPollCreatePayload } from "@/components/shared/poll-message";
 import { useMessageChannel } from "@/hooks/use-message-channel";
 import { useTypingChannel } from "@/hooks/use-typing-channel";
 import { useVoiceNote } from "@/hooks/use-voice-note";
@@ -25,9 +36,8 @@ import { useUploadStore } from "@/stores/upload-store";
 import { createClientMessageId } from "@/lib/request-id";
 import { getMessagePrimaryText } from "@/lib/message-payload";
 import { cn } from "@/lib/utils";
-import { FileUploadButton } from "@/components/shared/file-upload-button";
 import { UploadProgressList } from "@/components/shared/upload-progress-list";
-import type { Message } from "@/types";
+import type { Message, PollCreatePayload } from "@/types";
 
 interface MessageInputProps {
   conversationId: string;
@@ -89,7 +99,10 @@ export function MessageInput({
   );
   const [error, setError] = useState<string | null>(null);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+  const [pollComposerOpen, setPollComposerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Clear text when cancelling edit
   const handleCancelEdit = useCallback(() => {
@@ -360,6 +373,23 @@ export function MessageInput({
     voiceUpload,
   ]);
 
+  const handleCreatePoll = useCallback(
+    async (payload: PollCreatePayload) => {
+      if (!isPollCreatePayload(payload)) {
+        return;
+      }
+      setError(null);
+      try {
+        await sendMessage("", "POLL", [], replyToMessage?.id, { poll: payload });
+        setPollComposerOpen(false);
+        onCancelReply?.();
+      } catch (pollError) {
+        setError(pollError instanceof Error ? pollError.message : "Unable to send the poll.");
+      }
+    },
+    [onCancelReply, replyToMessage, sendMessage]
+  );
+
   const isEditing = !!editingMessage;
   const isReplying = !!replyToMessage;
   const hasText = text.trim().length > 0;
@@ -402,6 +432,20 @@ export function MessageInput({
         </div>
       )}
 
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+          if (files.length > 0) {
+            void handleFilesSelected(files);
+          }
+          event.currentTarget.value = "";
+        }}
+      />
+
       {/* Input area - WhatsApp style */}
       <form onSubmit={handleSubmit} className="flex items-end gap-1.5">
         {/* Emoji button */}
@@ -443,13 +487,47 @@ export function MessageInput({
           </PopoverContent>
         </Popover>
 
-        {/* Attachment button */}
         {!isEditing && (
-          <FileUploadButton
-            onFilesSelected={handleFilesSelected}
-            disabled={isBusy}
-            className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:bg-muted [&_svg]:h-6 [&_svg]:w-6"
-          />
+          <Popover open={attachmentMenuOpen} onOpenChange={setAttachmentMenuOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:bg-muted"
+                disabled={isBusy}
+                aria-label="Open attachments"
+              >
+                <Plus className="h-6 w-6" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" side="top" className="w-56 rounded-2xl p-2">
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                onClick={() => {
+                  setAttachmentMenuOpen(false);
+                  fileInputRef.current?.click();
+                }}
+                disabled={isBusy}
+              >
+                <Paperclip className="h-4 w-4" />
+                Attach files
+              </button>
+              <button
+                type="button"
+                className="mt-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                onClick={() => {
+                  setAttachmentMenuOpen(false);
+                  setPollComposerOpen(true);
+                }}
+                disabled={isBusy}
+              >
+                <BarChart3 className="h-4 w-4" />
+                Create poll
+              </button>
+            </PopoverContent>
+          </Popover>
         )}
 
         {/* Text input */}
@@ -547,6 +625,35 @@ export function MessageInput({
           Recording... Tap to send
         </div>
       )}
+
+      {!isEditing && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Use <span className="font-medium">+</span> to attach files or create a poll.
+        </p>
+      )}
+
+      <Dialog open={pollComposerOpen} onOpenChange={setPollComposerOpen}>
+        <DialogContent className="max-w-xl rounded-2xl p-0">
+          <DialogHeader>
+            <div className="border-b border-border px-5 py-4">
+              <DialogTitle className="text-base">New poll</DialogTitle>
+              <DialogDescription className="mt-1 text-xs">
+                Create a poll message. Participants vote in chat.
+              </DialogDescription>
+            </div>
+          </DialogHeader>
+          <div className="max-h-[75vh] overflow-y-auto px-5 py-4">
+            <PollComposer
+              initialQuestion={text}
+              disabled={isBusy}
+              onCreate={(payload) => {
+                void handleCreatePoll(payload);
+              }}
+              onCancel={() => setPollComposerOpen(false)}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

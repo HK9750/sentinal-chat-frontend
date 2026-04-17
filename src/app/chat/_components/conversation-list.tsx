@@ -80,7 +80,7 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
           >
             <Users className="h-5 w-5" />
           </Button>
-          <Button
+          {/* <Button
             type="button"
             variant="ghost"
             size="icon"
@@ -115,7 +115,7 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
               </DropdownMenuItem>
               <DropdownMenuItem>Log out</DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu> */}
         </div>
       </header>
 
@@ -130,15 +130,6 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
             placeholder="Search or start new chat"
             className="input-whatsapp h-[35px] w-full rounded-lg bg-white pl-10 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30 dark:bg-[#202c33]"
           />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground"
-            aria-label="Filter conversations"
-          >
-            <Filter className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 

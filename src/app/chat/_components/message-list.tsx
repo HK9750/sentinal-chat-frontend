@@ -62,7 +62,7 @@ export function MessageList({
   const queryClient = useQueryClient();
   const { sendDeliveredReceipt, sendReadReceipt, sendPlayedReceipt } =
     useReceiptChannel(conversationId);
-  const { deleteMessage, reactToMessage } = useMessageChannel(conversationId);
+  const { deleteMessage, reactToMessage, votePoll } = useMessageChannel(conversationId);
   const typingUsersByConversation = useChatStore(
     (state) => state.typingByConversation[conversationId] ?? EMPTY_TYPING_USERS
   );
@@ -303,6 +303,13 @@ export function MessageList({
     [reactToMessage]
   );
 
+  const handlePollVote = useCallback(
+    (pollId: string, optionIds: string[]) => {
+      votePoll(pollId, optionIds);
+    },
+    [votePoll]
+  );
+
   if (messagesRaw.isLoading || conversationQuery.isLoading) {
     return (
       <div className="h-full overflow-y-auto px-4 py-4 lg:px-16">
@@ -382,10 +389,10 @@ export function MessageList({
 
       <div className="mx-auto flex w-full max-w-[980px] flex-col gap-1">
         {/* Encryption notice at top */}
-        <div className="mb-4 flex items-center justify-center gap-2 rounded-lg bg-accent/30 px-4 py-2 text-center text-xs text-muted-foreground">
+        {/* <div className="mb-4 flex items-center justify-center gap-2 rounded-lg bg-accent/30 px-4 py-2 text-center text-xs text-muted-foreground">
           <Lock className="h-3 w-3" />
           <span>Messages are end-to-end encrypted</span>
-        </div>
+        </div> */}
 
         {groupedMessages.map((group) => (
           <div key={group.label} className="space-y-1">
@@ -429,6 +436,7 @@ export function MessageList({
                       onDelete={handleDelete}
                       onForward={onForward}
                       onReact={handleReact}
+                      onVotePoll={handlePollVote}
                       selectionMode={selectionMode}
                       selected={selectedSet.has(message.id)}
                       onToggleSelected={onToggleSelected}

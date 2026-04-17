@@ -505,10 +505,27 @@ function SocketEventBridge({ socket }: { socket: SocketContextValue }) {
 
           queryClient.setQueryData<Message[]>(
             queryKeys.messages(conversationId),
-            (current) =>
-              (current ?? []).map((msg) =>
-                msg.poll?.id === poll.id ? { ...msg, poll } : msg,
-              ),
+            (current) => {
+              const updated = (current ?? []).map((msg) => {
+                if (msg.poll?.id !== poll.id) {
+                  return msg;
+                }
+
+                const mergedPoll: Poll = {
+                  ...msg.poll,
+                  ...poll,
+                  my_votes: poll.my_votes ?? msg.poll?.my_votes,
+                };
+
+                return {
+                  ...msg,
+                  poll: mergedPoll,
+                };
+              });
+
+              syncConversationPreviewFromMessages(conversationId, updated);
+              return updated;
+            },
           );
           break;
         }
