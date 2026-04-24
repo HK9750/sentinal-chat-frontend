@@ -66,7 +66,7 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
   return (
     <div className="flex h-full flex-col">
       {/* Header - WhatsApp style */}
-      <header className="flex h-[59px] items-center justify-between border-b border-[#e9edef] bg-[#f0f2f5] px-4 dark:border-[#2a3942] dark:bg-[#202c33]">
+      <header className="flex h-[59px] items-center justify-between border-b border-border bg-sidebar px-4  ">
         <UserMenu />
         
         <div className="flex items-center gap-1">
@@ -120,7 +120,7 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
       </header>
 
       {/* Search bar */}
-      <div className="border-b border-[#e9edef] bg-[#f0f2f5] px-3 py-2 dark:border-[#2a3942] dark:bg-[#111b21]">
+      <div className="border-b border-border bg-sidebar px-3 py-2  ">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -128,13 +128,13 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search or start new chat"
-            className="input-whatsapp h-[35px] w-full rounded-lg bg-white pl-10 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30 dark:bg-[#202c33]"
+            className="input-whatsapp h-[35px] w-full rounded-lg bg-background pl-10 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30 text-foreground"
           />
         </div>
       </div>
 
       {/* Filter tabs - WhatsApp style */}
-      <div className="flex gap-2 border-b border-[#e9edef] bg-white px-3 py-2 dark:border-[#2a3942] dark:bg-[#111b21]">
+      <div className="flex gap-2 border-b border-border bg-sidebar px-3 py-2  ">
         <button
           type="button"
           onClick={() => setActiveFilter('all')}
@@ -172,8 +172,8 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
 
       {/* Connection status indicator */}
       {!socket.connected && (
-        <div className="flex items-center gap-2 bg-amber-500/10 px-4 py-2 text-xs text-amber-600 dark:text-amber-400">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
+        <div className="flex items-center gap-2 bg-accent/50 px-4 py-2 text-xs text-accent-foreground ">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
           Connecting...
         </div>
       )}
@@ -199,7 +199,7 @@ export function ConversationList({ selectedConversationId }: ConversationListPro
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-[#f0f2f5] dark:divide-[#202c33]">
+          <div className="divide-y divide-border">
             {filteredConversations.map((conversation) => (
               <ConversationItem
                 key={conversation.id}

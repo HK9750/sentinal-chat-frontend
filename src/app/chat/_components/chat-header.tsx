@@ -122,7 +122,7 @@ export function ChatHeader({
   const isTyping = typingUserIds.length > 0;
 
   return (
-    <header className="flex h-[59px] shrink-0 items-center gap-3 border-b border-[#e9edef] bg-[#f0f2f5] px-4 dark:border-[#2a3942] dark:bg-[#202c33]">
+    <header className="flex h-[59px] shrink-0 items-center gap-3 border-b border-border bg-sidebar px-4  ">
       {/* Back button (mobile) */}
       {onBack && (
         <Button
@@ -153,10 +153,10 @@ export function ChatHeader({
           <p
             className={`truncate text-[13px] ${
               isTyping
-                ? 'text-[#00a884]'
+                ? 'text-primary'
                 : isOnline
-                  ? 'text-[#00a884]'
-                  : 'text-[#667781] dark:text-[#8696a0]'
+                  ? 'text-primary'
+                  : 'text-muted-foreground '
             }`}
           >
             {subtitle}

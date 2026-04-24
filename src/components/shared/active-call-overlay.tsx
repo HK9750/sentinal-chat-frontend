@@ -123,13 +123,13 @@ function QualityIndicator({ quality }: { quality: string }) {
   const getIcon = () => {
     switch (quality) {
       case "excellent":
-        return <SignalHigh className="h-4 w-4 text-green-500" />;
+        return <SignalHigh className="h-4 w-4 text-primary" />;
       case "good":
-        return <SignalMedium className="h-4 w-4 text-green-400" />;
+        return <SignalMedium className="h-4 w-4 text-primary/80" />;
       case "fair":
-        return <SignalLow className="h-4 w-4 text-yellow-500" />;
+        return <SignalLow className="h-4 w-4 text-secondary-foreground" />;
       case "poor":
-        return <SignalZero className="h-4 w-4 text-red-500" />;
+        return <SignalZero className="h-4 w-4 text-destructive" />;
       default:
         return <Signal className="h-4 w-4 text-muted-foreground" />;
     }
@@ -753,7 +753,7 @@ export function ActiveCallOverlay() {
                   {/* Status indicator */}
                   <div className={cn(
                     "absolute bottom-2 right-2 h-5 w-5 rounded-full ring-4 ring-background",
-                    activeCall.status === "connected" ? "bg-green-500" : "bg-yellow-500 animate-pulse"
+                    activeCall.status === "connected" ? "bg-primary" : "bg-secondary animate-pulse"
                   )} />
                 </div>
               </div>
@@ -881,7 +881,7 @@ export function ActiveCallOverlay() {
 
           {/* Reconnecting indicator */}
           {isReconnecting && (
-            <div className="mt-3 flex items-center justify-center gap-2 text-yellow-500">
+            <div className="mt-3 flex items-center justify-center gap-2 text-secondary-foreground">
               <LoaderCircle className="h-4 w-4 animate-spin" />
               <span className="text-xs font-medium">Reconnecting...</span>
             </div>

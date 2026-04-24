@@ -395,7 +395,7 @@ export function MessageInput({
   const hasText = text.trim().length > 0;
 
   return (
-    <div className="shrink-0 border-t border-[#e9edef] bg-[#f0f2f5] px-3 py-2 dark:border-[#2a3942] dark:bg-[#202c33]">
+    <div className="shrink-0 border-t border-border bg-sidebar px-3 py-2  ">
       <UploadProgressList conversationId={conversationId} />
 
       {/* Reply/Edit context bar */}
@@ -403,14 +403,14 @@ export function MessageInput({
         <div
           className={cn(
             "mb-2 flex items-center gap-3 rounded-lg border-l-4 bg-card px-3 py-2",
-            isEditing ? "border-amber-500" : "border-primary"
+            isEditing ? "border-accent" : "border-primary"
           )}
         >
           <div className="min-w-0 flex-1">
             <p
               className={cn(
                 "text-xs font-medium",
-                isEditing ? "text-amber-500" : "text-primary"
+                isEditing ? "text-accent-foreground" : "text-primary"
               )}
             >
               {isEditing ? "Editing message" : "Replying"}
@@ -570,7 +570,7 @@ export function MessageInput({
                   ? "Type a reply"
                   : "Type a message"
             }
-            className="h-10 w-full rounded-full bg-white px-4 text-[15px] focus:outline-none focus:ring-1 focus:ring-primary/30 dark:bg-[#2a3942]"
+            className="h-10 w-full rounded-full bg-background px-4 text-[15px] focus:outline-none focus:ring-1 focus:ring-primary/30 text-foreground"
           />
         </div>
 
@@ -581,7 +581,7 @@ export function MessageInput({
             size="icon"
             className={cn(
               "h-10 w-10 shrink-0 rounded-full",
-              isEditing && "bg-amber-500 hover:bg-amber-600"
+              isEditing && "bg-accent hover:bg-accent/80"
             )}
             disabled={!hasText || isBusy}
             aria-label={isEditing ? "Save edited message" : "Send message"}

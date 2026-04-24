@@ -108,7 +108,7 @@ export function MessageBubble({
         className={cn(
           'mt-[1px] h-[15px] w-[15px]',
           deliveryState === 'READ' || deliveryState === 'PLAYED'
-            ? 'text-blue-500'
+            ? 'text-primary'
             : 'text-muted-foreground/70'
         )}
       />
@@ -292,7 +292,7 @@ export function MessageBubble({
                 'mb-1 flex min-w-[120px] max-w-full flex-col overflow-hidden rounded border-l-4 bg-background/20 p-1.5 px-2 text-xs',
                 replyToMessage.sender_id === currentUserId
                   ? 'border-primary'
-                  : 'border-blue-500'
+                  : 'border-primary'
               )}
             >
               <span className="font-semibold text-foreground/80">

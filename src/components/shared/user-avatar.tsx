@@ -51,7 +51,7 @@ export function UserAvatar({
     <div className={cn('relative inline-flex shrink-0', className)}>
       <Avatar className={cn(sizeClassMap[size], 'bg-muted')}>
         <AvatarImage src={imageSrc ?? undefined} alt={label} className="object-cover" />
-        <AvatarFallback className="bg-[#dfe5e7] font-medium text-[#54656f] dark:bg-[#6b7c85] dark:text-[#d1d7db]">
+        <AvatarFallback className="bg-muted font-medium text-muted-foreground  ">
           {initials}
         </AvatarFallback>
       </Avatar>
@@ -60,7 +60,7 @@ export function UserAvatar({
           className={cn(
             'absolute bottom-0 right-0 rounded-full border-sidebar',
             statusSizeMap[size],
-            isOnline ? 'bg-[#00a884]' : 'bg-[#667781]'
+            isOnline ? 'bg-primary' : 'bg-muted-foreground'
           )}
         />
       )}

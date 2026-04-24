@@ -34,8 +34,8 @@
   --color-chat-bg: var(--chat-bg);
   --color-message-out: var(--message-out);
   --color-message-in: var(--message-in);
-  --color-whatsapp-green: var(--whatsapp-green);
-  --color-whatsapp-teal: var(--whatsapp-teal);
+  --color-arctic-cyan: var(--arctic-cyan);
+  --color-arctic-blue: var(--arctic-blue);
   --radius-sm: calc(var(--radius) - 6px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -45,83 +45,99 @@
 }
 
 :root {
-  --radius: 0.5rem;
-  
-  /* WhatsApp-inspired light theme */
-  --background: #f0f2f5;
-  --foreground: #111b21;
-  --card: #ffffff;
-  --card-foreground: #111b21;
-  --popover: #ffffff;
-  --popover-foreground: #111b21;
-  --primary: #00a884;
+  --radius: 0.625rem;
+
+  /* === Light Theme: Arctic === */
+
+  --background: #e8f4f8;
+  --foreground: #0c1f2e;
+
+  --card: #f0f9fc;
+  --card-foreground: #0c1f2e;
+  --popover: #f0f9fc;
+  --popover-foreground: #0c1f2e;
+
+  --primary: #0891b2;
   --primary-foreground: #ffffff;
-  --secondary: #f0f2f5;
-  --secondary-foreground: #111b21;
-  --muted: #f0f2f5;
-  --muted-foreground: #667781;
-  --accent: #d9fdd3;
-  --accent-foreground: #111b21;
-  --destructive: #ea0038;
+
+  --secondary: #e0f2fe;
+  --secondary-foreground: #0c4a6e;
+
+  --muted: #dbeafe;
+  --muted-foreground: #4d7fa8;
+
+  --accent: #cffafe;
+  --accent-foreground: #083344;
+
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --border: #e9edef;
-  --input: #f0f2f5;
-  --ring: #00a884;
-  
-  /* WhatsApp-specific colors */
-  --sidebar: #ffffff;
-  --sidebar-foreground: #111b21;
-  --chat-bg: #efeae2;
-  --message-out: #d9fdd3;
-  --message-in: #ffffff;
-  --whatsapp-green: #00a884;
-  --whatsapp-teal: #008069;
-  
-  /* Chart colors */
-  --chart-1: #00a884;
-  --chart-2: #25d366;
-  --chart-3: #128c7e;
-  --chart-4: #075e54;
-  --chart-5: #34b7f1;
+
+  --border: #bae6fd;
+  --input: #e0f2fe;
+  --ring: #0891b2;
+
+  --sidebar: #f0f9fc;
+  --sidebar-foreground: #0c1f2e;
+
+  --chat-bg: #dbeafe;
+  --message-out: #cffafe;
+  --message-in: #f0f9fc;
+
+  --arctic-cyan: #0891b2;
+  --arctic-blue: #0369a1;
+
+  --chart-1: #0891b2;
+  --chart-2: #06b6d4;
+  --chart-3: #38bdf8;
+  --chart-4: #0369a1;
+  --chart-5: #7dd3fc;
 }
 
 .dark {
-  /* WhatsApp-inspired dark theme */
-  --background: #0b141a;
-  --foreground: #e9edef;
-  --card: #111b21;
-  --card-foreground: #e9edef;
-  --popover: #1f2c34;
-  --popover-foreground: #e9edef;
-  --primary: #00a884;
-  --primary-foreground: #111b21;
-  --secondary: #1f2c34;
-  --secondary-foreground: #e9edef;
-  --muted: #1f2c34;
-  --muted-foreground: #8696a0;
-  --accent: #005c4b;
-  --accent-foreground: #e9edef;
-  --destructive: #ea0038;
+  /* === Dark Theme: Arctic Night / Deep Ocean === */
+
+  --background: #071828;
+  --foreground: #e0f2fe;
+
+  --card: #0c2540;
+  --card-foreground: #e0f2fe;
+  --popover: #0f2f4f;
+  --popover-foreground: #e0f2fe;
+
+  --primary: #06b6d4;
+  --primary-foreground: #071828;
+
+  --secondary: #0f2f4f;
+  --secondary-foreground: #bae6fd;
+
+  --muted: #0f2f4f;
+  --muted-foreground: #60a5d9;
+
+  --accent: #083344;
+  --accent-foreground: #a5f3fc;
+
+  --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: #222d34;
-  --input: #2a3942;
-  --ring: #00a884;
-  
-  /* WhatsApp-specific colors - dark mode */
-  --sidebar: #111b21;
-  --sidebar-foreground: #e9edef;
-  --chat-bg: #0b141a;
-  --message-out: #005c4b;
-  --message-in: #1f2c34;
-  --whatsapp-green: #00a884;
-  --whatsapp-teal: #00a884;
-  
-  /* Chart colors - dark mode */
-  --chart-1: #00a884;
-  --chart-2: #25d366;
-  --chart-3: #128c7e;
-  --chart-4: #075e54;
-  --chart-5: #34b7f1;
+
+  --border: #0f2f4f;
+  --input: #0f2f4f;
+  --ring: #06b6d4;
+
+  --sidebar: #0c2540;
+  --sidebar-foreground: #e0f2fe;
+
+  --chat-bg: #071828;
+  --message-out: #083344;
+  --message-in: #0f2f4f;
+
+  --arctic-cyan: #06b6d4;
+  --arctic-blue: #38bdf8;
+
+  --chart-1: #06b6d4;
+  --chart-2: #38bdf8;
+  --chart-3: #7dd3fc;
+  --chart-4: #0891b2;
+  --chart-5: #bae6fd;
 }
 
 @layer base {
@@ -161,10 +177,10 @@
     outline: none;
   }
 
-  /* Custom scrollbar - WhatsApp style */
+  /* Arctic scrollbar */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 4px;
+    height: 4px;
   }
 
   ::-webkit-scrollbar-track {
@@ -172,33 +188,30 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: var(--muted-foreground);
-    border-radius: 3px;
-    opacity: 0.3;
+    background: var(--border);
+    border-radius: 2px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--foreground);
-    opacity: 0.5;
+    background: var(--arctic-cyan);
   }
 }
 
 @layer utilities {
-  /* Chat background pattern - WhatsApp doodle style */
+  /* Chat background — ice crystal dot pattern */
   .chat-pattern {
     background-color: var(--chat-bg);
-    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%230891b2' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3Ccircle cx='0' cy='0' r='0.8'/%3E%3Ccircle cx='60' cy='0' r='0.8'/%3E%3Ccircle cx='0' cy='60' r='0.8'/%3E%3Ccircle cx='60' cy='60' r='0.8'/%3E%3C/g%3E%3C/svg%3E");
   }
 
   .dark .chat-pattern {
-    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%2306b6d4' fill-opacity='0.04'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3Ccircle cx='0' cy='0' r='0.8'/%3E%3Ccircle cx='60' cy='0' r='0.8'/%3E%3Ccircle cx='0' cy='60' r='0.8'/%3E%3Ccircle cx='60' cy='60' r='0.8'/%3E%3C/g%3E%3C/svg%3E");
   }
 
   .message-scroll {
     scrollbar-gutter: stable both-edges;
   }
 
-  /* Message bubble tails */
   .message-tail-out {
     position: relative;
   }
@@ -206,7 +219,7 @@
   .message-tail-out::before {
     content: '';
     position: absolute;
-    right: -8px;
+    right: -7px;
     top: 0;
     border-width: 0 0 8px 8px;
     border-style: solid;
@@ -220,16 +233,15 @@
   .message-tail-in::before {
     content: '';
     position: absolute;
-    left: -8px;
+    left: -7px;
     top: 0;
     border-width: 0 8px 8px 0;
     border-style: solid;
     border-color: transparent var(--message-in) transparent transparent;
   }
 
-  /* Status indicators */
   .status-online {
-    @apply bg-whatsapp-green;
+    @apply bg-primary;
   }
 
   .status-typing {
@@ -237,11 +249,10 @@
   }
 
   @keyframes typing-pulse {
-    0%, 100% { opacity: 0.4; }
+    0%, 100% { opacity: 0.3; }
     50% { opacity: 1; }
   }
 
-  /* Call animations */
   .animate-spin-slow {
     animation: spin 8s linear infinite;
   }
@@ -251,32 +262,31 @@
     to { transform: rotate(360deg); }
   }
 
-  /* Hover effects */
   .hover-lift {
-    @apply transition-transform duration-200;
+    @apply transition-transform duration-150;
   }
 
   .hover-lift:hover {
     @apply -translate-y-0.5;
   }
 
-  /* Focus ring */
   .focus-ring {
     @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring;
   }
 
-  /* Skip to main content link for accessibility */
   .skip-link {
     @apply sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground;
   }
 
-  /* Conversation list item active state */
   .conversation-active {
-    @apply bg-muted/80;
+    @apply bg-secondary;
   }
 
-  /* Input placeholder styling */
-  .input-whatsapp::placeholder {
+  .input-chat::placeholder {
     @apply text-muted-foreground;
+  }
+
+  .tick-read {
+    color: var(--arctic-cyan);
   }
 }

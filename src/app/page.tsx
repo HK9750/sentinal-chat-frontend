@@ -317,8 +317,8 @@ export default function LandingPage() {
                   <div className="flex items-center gap-2">
                     <div className="flex gap-1.5">
                       <div className="h-3 w-3 rounded-full bg-destructive/80" />
-                      <div className="h-3 w-3 rounded-full bg-amber-500/80" />
-                      <div className="h-3 w-3 rounded-full bg-emerald-500/80" />
+                      <div className="h-3 w-3 rounded-full bg-accent" />
+                      <div className="h-3 w-3 rounded-full bg-primary" />
                     </div>
                   </div>
                   <div className="flex items-center gap-4 text-muted-foreground">

@@ -56,7 +56,7 @@ export function ConversationItem({ conversation, isSelected }: ConversationItemP
         className={cn(
           'mt-[1px] h-[15px] w-[15px]',
           lastMessage.receipt_status === 'READ' || lastMessage.receipt_status === 'PLAYED'
-            ? 'text-blue-500'
+            ? 'text-primary'
             : 'text-muted-foreground/70'
         )}
       />
@@ -71,8 +71,8 @@ export function ConversationItem({ conversation, isSelected }: ConversationItemP
       href={href}
       scroll={false}
       className={cn(
-        'flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-[#f5f6f6] dark:hover:bg-[#202c33]',
-        isSelected && 'bg-[#f0f2f5] dark:bg-[#2a3942]'
+        'flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-accent',
+        isSelected && 'bg-sidebar '
       )}
     >
       {/* Avatar */}
@@ -92,7 +92,7 @@ export function ConversationItem({ conversation, isSelected }: ConversationItemP
           <span
             className={cn(
               'shrink-0 text-[12px]',
-              hasNewMessages ? 'font-medium text-[#00a884]' : 'text-[#667781] dark:text-[#8696a0]'
+              hasNewMessages ? 'font-medium text-primary' : 'text-muted-foreground '
             )}
           >
             {conversation.last_message_at
@@ -102,7 +102,7 @@ export function ConversationItem({ conversation, isSelected }: ConversationItemP
         </div>
 
         <div className="mt-0.5 flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1 text-[14px] text-[#667781] dark:text-[#8696a0]">
+          <div className="flex min-w-0 items-center gap-1 text-[14px] text-muted-foreground ">
             {lastMessageReceiptIcon}
             <span className="truncate">{subtitle}</span>
           </div>

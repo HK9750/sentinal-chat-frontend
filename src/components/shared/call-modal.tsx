@@ -363,7 +363,7 @@ export function CallModal({
               disabled={!canStart}
               className={cn(
                 "h-11 min-w-[160px] rounded-full gap-2",
-                "bg-green-500 hover:bg-green-600 text-white"
+                "bg-primary hover:bg-primary/90 text-white"
               )}
               aria-label={starting ? 'Starting call' : 'Start call'}
             >

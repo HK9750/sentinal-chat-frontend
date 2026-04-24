@@ -214,7 +214,7 @@ export function IncomingCallDialog() {
                 />
                 
                 {/* Online indicator */}
-                <div className="absolute bottom-1 right-1 h-5 w-5 rounded-full bg-green-500 ring-4 ring-card" />
+                <div className="absolute bottom-1 right-1 h-5 w-5 rounded-full bg-primary ring-4 ring-card" />
               </div>
             </div>
 
@@ -265,7 +265,7 @@ export function IncomingCallDialog() {
                 onClick={handleAccept}
                 className={cn(
                   "h-14 w-14 rounded-full shadow-lg",
-                  "bg-green-500 hover:bg-green-600",
+                  "bg-primary hover:bg-primary/90",
                   "hover:scale-105 active:scale-95",
                   "transition-all duration-200",
                   "animate-pulse"

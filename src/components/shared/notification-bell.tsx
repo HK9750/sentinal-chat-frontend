@@ -25,7 +25,7 @@ export function NotificationBell({ buttonClassName }: NotificationBellProps) {
       <span className="relative inline-flex">
         <Bell className="h-5 w-5" />
         {unreadCount > 0 ? (
-          <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#00a884] px-1 text-[10px] font-semibold leading-none text-white">
+          <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-white">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         ) : null}
